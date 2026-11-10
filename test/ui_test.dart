@@ -180,11 +180,16 @@ void main() {
     final link = find.descendant(
         of: find.byKey(const ValueKey('link-field')),
         matching: find.byType(TextField));
-    await tester.scrollUntilVisible(link, 200,
-        scrollable: find
-            .descendant(of: find.byType(Dialog), matching: find.byType(Scrollable))
-            .first);
-    await tester.pumpAndSettle();
+    Future<void> showLink() async {
+      await tester.scrollUntilVisible(link, 200,
+          scrollable: find
+              .descendant(
+                  of: find.byType(Dialog), matching: find.byType(Scrollable))
+              .first);
+      await tester.pumpAndSettle();
+    }
+
+    await showLink();
     await tester.enterText(link, 'not-a-url');
     await tester.pumpAndSettle();
     expect(find.textContaining('有効なURLを入力してください'), findsOneWidget);
@@ -193,6 +198,7 @@ void main() {
     expect(find.text('リンクの形式が正しくありません'), findsOneWidget);
     expect(store.events.any((e) => e.title == '面談'), isFalse);
 
+    await showLink();
     await tester.enterText(link, 'zoom.us/j/1');
     await tester.pumpAndSettle();
     expect(find.text('リンクの形式が正しくありません'), findsNothing);
