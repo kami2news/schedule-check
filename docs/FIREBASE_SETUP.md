@@ -1,5 +1,7 @@
 # Firebase の設定手順（FlutterFire 方式・Web とスマホアプリ共通）
 
+> 2026-11-10 設定済み（プロジェクト `schedule-list-7f9d8`。ログイン方法は Google とメール/パスワード）。以下は作り直すときの記録。
+
 アプリ側のログイン・同期の実装は済んでいます。Firebase の設定ファイル（`lib/firebase_options.dart`）が仮のあいだは、今まで通り端末内だけで動きます。
 以下を行うと、Web（GitHub Pages）と iPhone / Android アプリの両方でログインと同期が有効になります。料金は無料プラン（Spark）の範囲で足ります。
 

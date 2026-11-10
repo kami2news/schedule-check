@@ -1,11 +1,11 @@
 {
-    "name": "schedule_check",
-    "short_name": "schedule_check",
+    "name": "スケジュール確認",
+    "short_name": "スケジュール",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#F5F5F5",
+    "theme_color": "#0F6CBD",
+    "description": "バイト・授業・締切をまとめて確認するスケジュール確認アプリ",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
