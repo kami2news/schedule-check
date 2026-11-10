@@ -14,7 +14,7 @@ class SectionHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(0, 16, 0, 6),
+      padding: EdgeInsets.fromLTRB(0, 16, 0, 6),
       child: Text(text,
           style: FlText.body1Strong.copyWith(color: color ?? Fl.fg1)),
     );
@@ -29,7 +29,7 @@ class EmptyNote extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
+      padding: EdgeInsets.symmetric(vertical: 8),
       child: Text(text, style: FlText.body1.copyWith(color: Fl.fg3)),
     );
   }
@@ -69,7 +69,7 @@ Future<void> openLink(BuildContext context, String url) async {
   }
   if (!ok) {
     messenger?.showSnackBar(
-        const SnackBar(content: Text('リンクを開けませんでした')));
+        SnackBar(content: Text('リンクを開けませんでした')));
   }
 }
 

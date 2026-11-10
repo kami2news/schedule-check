@@ -31,13 +31,13 @@ Future<void> showFlDialogOrPage(
           child: Column(
             children: [
               Padding(
-                padding: const EdgeInsets.fromLTRB(24, 16, 12, 4),
+                padding: EdgeInsets.fromLTRB(24, 16, 12, 4),
                 child: Row(
                   children: [
                     Expanded(child: Text(title, style: FlText.subtitle1)),
                     IconButton(
                       tooltip: '閉じる',
-                      icon: const Icon(FluentIcons.dismiss_24_regular),
+                      icon: Icon(FluentIcons.dismiss_24_regular),
                       onPressed: () => Navigator.of(ctx).pop(),
                     ),
                   ],
@@ -78,7 +78,7 @@ Future<DateTime?> _pickDate(BuildContext context, DateTime initial) {
 }
 
 Future<int?> _pickTime(BuildContext context, int initialMin) {
-  return showFlTimeList(context, initialMin, extra: const [23 * 60 + 59]);
+  return showFlTimeList(context, initialMin, extra: [23 * 60 + 59]);
 }
 
 Future<bool> _confirmDelete(BuildContext context, String what) {
@@ -111,7 +111,7 @@ Widget _linkField(
           ),
         ),
         if (url.isNotEmpty) ...[
-          const SizedBox(width: 8),
+          SizedBox(width: 8),
           FlLinkButton(url: url),
         ],
       ],
@@ -120,14 +120,14 @@ Widget _linkField(
 }
 
 Widget _errorText(String? msg) {
-  if (msg == null) return const SizedBox.shrink();
+  if (msg == null) return SizedBox.shrink();
   return Padding(
-    padding: const EdgeInsets.only(bottom: 12),
+    padding: EdgeInsets.only(bottom: 12),
     child: Row(
       children: [
-        const Icon(FluentIcons.error_circle_16_filled,
+        Icon(FluentIcons.error_circle_16_filled,
             size: 16, color: Fl.danger),
-        const SizedBox(width: 6),
+        SizedBox(width: 6),
         Expanded(
           child: Text(msg, style: FlText.caption1.copyWith(color: Fl.danger)),
         ),
@@ -292,7 +292,7 @@ class _EventEditPageState extends State<EventEditPage> {
         ),
         if (!_allDay)
           Padding(
-            padding: const EdgeInsets.only(top: 4, bottom: 4),
+            padding: EdgeInsets.only(top: 4, bottom: 4),
             child: Row(
               children: [
                 Expanded(
@@ -305,7 +305,7 @@ class _EventEditPageState extends State<EventEditPage> {
                     ),
                   ),
                 ),
-                const SizedBox(width: 12),
+                SizedBox(width: 12),
                 Expanded(
                   child: FlField(
                     label: '終了',
@@ -328,7 +328,7 @@ class _EventEditPageState extends State<EventEditPage> {
         ),
         if (_weekly)
           Padding(
-            padding: const EdgeInsets.only(top: 8),
+            padding: EdgeInsets.only(top: 8),
             child: FlField(
               label: 'くり返しの終了日',
               child: FlPickerField(
@@ -345,12 +345,12 @@ class _EventEditPageState extends State<EventEditPage> {
               ),
             ),
           ),
-        const SizedBox(height: 8),
+        SizedBox(height: 8),
         FlField(
           label: '場所（任意）',
           child: FlTextField(
             controller: _place,
-            leading: const Icon(FluentIcons.location_24_regular,
+            leading: Icon(FluentIcons.location_24_regular,
                 size: 16, color: Fl.fg3),
           ),
         ),
@@ -460,7 +460,7 @@ class _TaskEditPageState extends State<TaskEditPage> {
           value: _important,
           onChanged: (v) => setState(() => _important = v),
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: 8),
         FlField(
           label: '期限',
           child: FlPickerField(
@@ -492,7 +492,7 @@ class _TaskEditPageState extends State<TaskEditPage> {
               if (picked != null) setState(() => _dueMin = picked);
             },
           ),
-        const SizedBox(height: 8),
+        SizedBox(height: 8),
         _linkField(context, _url, () => setState(() {}),
             hint: '提出先・資料などのURL'),
         FlField(

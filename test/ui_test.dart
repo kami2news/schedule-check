@@ -4,6 +4,8 @@ import 'package:schedule_check/main.dart';
 import 'package:schedule_check/models.dart';
 import 'package:schedule_check/store.dart';
 import 'package:schedule_check/ui/controller.dart';
+import 'package:schedule_check/ui/fluent.dart';
+import 'package:schedule_check/ui/fluent_extras.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 Future<AppStore> _storeWithSamples() async {
@@ -107,5 +109,26 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(store.tasks.any((t) => t.title == '買い物'), isTrue);
+  });
+
+  testWidgets('ダークモードに切り替えて保存される', (tester) async {
+    final store = await _storeWithSamples();
+    tester.view.physicalSize = const Size(1400, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    addTearDown(() => Fl.use(Brightness.light));
+
+    await tester.pumpWidget(ScheduleApp(store: store));
+    await tester.pumpAndSettle();
+    expect(Fl.isDark, isFalse);
+
+    await tester.tap(find.byType(FlThemeButton));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('ダーク'));
+    await tester.pumpAndSettle();
+
+    expect(Fl.isDark, isTrue);
+    expect(store.themeMode, 'dark');
+    expect(find.textContaining('テスト授業'), findsOneWidget);
   });
 }

@@ -104,5 +104,5 @@ class CalendarController extends ChangeNotifier {
       store.eventsOn(day).where((e) => !hidden.contains(e.kind)).toList();
 
   List<TaskItem> tasksOn(AppStore store, DateTime day) =>
-      showTasks ? store.tasksDueOn(day) : const [];
+      showTasks ? store.tasksDueOn(day) : [];
 }

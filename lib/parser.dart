@@ -76,7 +76,7 @@ final _mdKanjiRe = RegExp(r'(\d{1,2})\s*月\s*(\d{1,2})\s*日');
 final _mdSlashRe = RegExp(r'(?<![\d:/])(\d{1,2})/(\d{1,2})(?![\d:/])');
 final _relRe = RegExp(r'明後日|明日|今日|本日');
 
-const _timeTok = r'(\d{1,2})(?:[:：](\d{2})|時(?:(\d{1,2})分?)?)';
+const _timeTok = r'(\d{1,2})(?:[:：](\d{2})|時(?!間)(?:(\d{1,2})分?)?)';
 final _rangeRe =
     RegExp(_timeTok + r'\s*(?:[-〜~～–—ー]|から)\s*' + _timeTok);
 final _singleRe = RegExp(_timeTok);
@@ -93,8 +93,109 @@ final _linkLabelRe = RegExp(
 final _greetingRe = RegExp(r'^(よろしく|宜しく|お疲れ|おつかれ|お世話|以上|ありがとう)');
 final _placeRe = RegExp(r'^\s*(?:場所|会場|教室|集合場所|集合)\s*[:：]\s*(.+)$');
 
-final _trimHead = RegExp(r'^[\s　・●■□◆◇▼▽*\-–—:：,、。/【】]+');
-final _trimTail = RegExp(r'[\s　・●■□◆◇▼▽*\-–—:：,、。/【】]+$');
+const _junk = r'[\s　・●■□◆◇▼▽▶►★☆○◎*＊\-–—:：,，、。/／〜~～|｜]';
+final _trimHead = RegExp('^$_junk+');
+final _trimTail = RegExp('$_junk+\$');
+
+/// 「（水）」「(水曜日)」などの曜日表記
+final _weekdayRe = RegExp(r'[（(]\s*[月火水木金土日](?:曜日?)?\s*[)）]');
+
+/// 行頭の見出しラベル（「日時：」「【件名】」など）。group(1) がラベル名
+final _labelRe = RegExp(
+    r'^(?:[【\[〈<（(]\s*)?(件名|タイトル|題名|内容|用件|日時|日程|日付|時間|開催日時?|実施日時?|期日|期限|提出期限|提出締切|締切|締め切り|〆切|イベント名?|科目名?|講義名?|授業名?|シフト|勤務)\s*(?:[】\]〉>）)]\s*[:：]?|[:：])\s*');
+
+/// タイトルとして使えるラベル行（「件名: 〜」「内容：〜」）
+final _titleLabelRe = RegExp(
+    r'^(?:[【\[〈<（(]\s*)?(?:件名|タイトル|題名|内容|用件|イベント名?|科目名?|講義名?|授業名?)\s*(?:[】\]〉>）)]\s*[:：]?|[:：])\s*(.+)$');
+
+/// メモ向きの行（ミーティングID・パスコード・持ち物など）
+final _noteLineRe = RegExp(
+    r'^(?:[※＊*]|.*(?:ID|ＩＤ|[Ii][Dd]\s*[:：]|パスコード|パスワード|[Pp]asscode|[Pp]assword|持ち物|備考|注意|服装))');
+
+/// 件名の前に付く【重要】などのタグ
+final _tagRe = RegExp(
+    r'[【\[](?:重要|至急|再送|再掲|訂正|変更|お知らせ|ご案内|連絡|案内|リマインド|リマインダー|reminder|日程変更)[】\]]',
+    caseSensitive: false);
+
+/// 文頭に残りやすい助詞（「11/20までに提出」→「までに」）
+final _headParticleRe = RegExp(r'^(?:まで(?:に)?|から|より|頃|ごろ|に|は|の|で|を|が)\s*');
+
+/// 文末の丁寧表現（「提出してください」→「提出」）
+final _politeTailRe = RegExp(
+    r'(?:を|が|は)?(?:行います|おこないます|実施します|実施いたします|開催します|開催いたします|あります|ございます|いたします|致します|します|してください|して下さい|をお願いします|お願いします|お願い致します|お願いいたします|となります|になります|です|ます|ください|下さい)$');
+final _tailParticleRe = RegExp(r'(?:を|が|は|に|の)$');
+
+/// 案内文の定型の語尾（「〜のご案内」）
+final _noticeTailRe =
+    RegExp(r'(?:のご案内|のお知らせ|について|に関して|の件|のお願い|のご連絡|ご案内|お知らせ)$');
+
+/// タイトルとしては情報が少ない語
+final _genericRe =
+    RegExp(r'^(?:締切|締め切り|〆切|提出|期限|予定|開始|集合|日程|日時|開催|実施|当日)$');
+
+/// 本文の一文（見出しとしては使わない）
+final _sentenceRe = RegExp(r'(?:ます|です|ください|下さい|でしょう)[。.!！]?$|。$');
+
+/// 文字列をタイトル向けに整える。返り値の label は取り除いた見出しラベル
+({String title, String label}) _cleanTitle(String s) {
+  var t = s.replaceAll(RegExp(r'[\s　]+'), ' ').trim();
+  t = t.replaceAll(_weekdayRe, ' ');
+  t = t.replaceAll(_tagRe, ' ');
+  t = t.replaceAll(_trimHead, '');
+  var label = '';
+  final m = _labelRe.firstMatch(t);
+  if (m != null) {
+    label = m.group(1)!;
+    t = t.substring(m.end);
+  }
+  t = t.replaceAll(_linkLabelRe, '');
+  for (var i = 0; i < 2; i++) {
+    t = t.replaceAll(_trimHead, '').replaceAll(_trimTail, '');
+    t = t.replaceFirst(_headParticleRe, '');
+    t = t.replaceFirst(_politeTailRe, '');
+    t = t.replaceFirst(_noticeTailRe, '');
+    t = t.replaceFirst(_tailParticleRe, '');
+  }
+  t = t.replaceAll(RegExp(r'\s+'), ' ').trim();
+  // 対応の取れていない括弧だけが残った場合は外す
+  if (RegExp(r'^[（(【\[]').hasMatch(t) && !RegExp(r'[)）】\]]').hasMatch(t)) {
+    t = t.substring(1).trim();
+  }
+  if (RegExp(r'[)）】\]]$').hasMatch(t) && !RegExp(r'[（(【\[]').hasMatch(t)) {
+    t = t.substring(0, t.length - 1).trim();
+  }
+  return (title: t, label: label);
+}
+
+/// 見出し行として使えるならタイトル候補を返す
+String? _asHeading(String line) {
+  if (_sentenceRe.hasMatch(line) || _greetingRe.hasMatch(line)) return null;
+  final tm = _titleLabelRe.firstMatch(line);
+  final t = _cleanTitle(tm != null ? tm.group(1)! : line).title;
+  if (t.isEmpty || t.length > 30 || _genericRe.hasMatch(t)) return null;
+  return t;
+}
+
+/// 補足行から時刻を拾う（日付の行に時刻がなかったとき用）
+({int? start, int? end, String rest}) _extractTime(String s) {
+  final r = _rangeRe.firstMatch(s);
+  if (r != null) {
+    final a = _toMin(r, 1, 2, 3);
+    var b = _toMin(r, 4, 5, 6);
+    if (a != null && b != null) {
+      if (b <= a) b = null;
+      return (start: a, end: b, rest: s.replaceRange(r.start, r.end, ' '));
+    }
+  }
+  final m = _singleRe.firstMatch(s);
+  if (m != null) {
+    final v = _toMin(m, 1, 2, 3);
+    if (v != null) {
+      return (start: v, end: null, rest: s.replaceRange(m.start, m.end, ' '));
+    }
+  }
+  return (start: null, end: null, rest: s);
+}
 
 int? _toMin(Match m, int hourGroup, int minGroupA, int minGroupB) {
   final h = int.parse(m.group(hourGroup)!);
@@ -126,7 +227,7 @@ DateTime? _validDate(int y, int m, int d) {
     var dt = _validDate(today.year, mo, d);
     if (dt == null) return DateTime(0);
     // 半年以上前の日付は来年のものとみなす
-    if (dt.isBefore(today.subtract(const Duration(days: 180)))) {
+    if (dt.isBefore(today.subtract(Duration(days: 180)))) {
       dt = _validDate(today.year + 1, mo, d) ?? dt;
     }
     return dt;
@@ -159,26 +260,42 @@ ParseResult parseText(String text, DateTime now) {
 
   // 直前の候補に続く行（空行で区切られるまで）は、その候補の補足として扱う
   Candidate? open;
+  // タイトルが取れなかった候補（続く行からタイトルを補う）
+  Candidate? needsTitle;
+  // 見出し行・件名（タイトルが取れない日付行に使う）
+  String? heading;
+  String? subject;
 
   for (final rawLine in text.split(RegExp(r'\r?\n'))) {
     final line = rawLine.trim();
     if (line.isEmpty) {
       open = null;
+      needsTitle = null;
       continue;
     }
 
     // URL は日付・時刻の誤検出を避けるため先に取り除く
     final urls = [for (final m in urlPattern.allMatches(line)) m.group(0)!];
-    var body = line.replaceAll(urlPattern, ' ');
+    final body = line.replaceAll(urlPattern, ' ').trim();
 
     final d = _extractDate(body, today);
     if (d == null) {
       final target = open;
       if (target == null) {
         skipped++;
+        if (urls.isEmpty) {
+          final h = _asHeading(body);
+          if (h != null) {
+            heading = h;
+            if (RegExp(r'^(?:件名|subject)', caseSensitive: false)
+                .hasMatch(body)) {
+              subject = h;
+            }
+          }
+        }
         continue;
       }
-      // 補足行: リンク・場所・メモに振り分ける
+      // 補足行: リンク・場所・タイトル・メモに振り分ける
       if (urls.isNotEmpty && target.url.isEmpty) {
         target.url = urls.first;
         final restUrls = urls.skip(1).join(' ');
@@ -193,50 +310,56 @@ ParseResult parseText(String text, DateTime now) {
         target.place = p.group(1)!.trim();
         continue;
       }
+      final tl = _titleLabelRe.firstMatch(line);
+      if (needsTitle == target && !_noteLineRe.hasMatch(line)) {
+        var src = tl != null ? tl.group(1)! : body;
+        if (target.startMin == null) {
+          final t = _extractTime(src);
+          if (t.start != null) {
+            target.startMin = t.start;
+            if (target.type != ImportType.task) target.endMin = t.end;
+            src = t.rest;
+          }
+        }
+        final c = _cleanTitle(src).title;
+        if (c.isNotEmpty && !_sentenceRe.hasMatch(src.trim())) {
+          target.title = c;
+          needsTitle = null;
+          continue;
+        }
+      }
       target.note = _addLine(target.note, line);
       continue;
     }
 
-    var rest = d.rest;
-    int? start;
-    int? end;
-    final r = _rangeRe.firstMatch(rest);
-    if (r != null) {
-      start = _toMin(r, 1, 2, 3);
-      end = _toMin(r, 4, 5, 6);
-      if (start != null && end != null) {
-        rest = rest.replaceRange(r.start, r.end, ' ');
-        if (end <= start) end = null;
-      } else {
-        start = null;
-        end = null;
-      }
-    }
-    if (start == null) {
-      final s = _singleRe.firstMatch(rest);
-      if (s != null) {
-        final v = _toMin(s, 1, 2, 3);
-        if (v != null) {
-          start = v;
-          rest = rest.replaceRange(s.start, s.end, ' ');
-        }
+    var rest = d.rest.replaceAll(_weekdayRe, ' ');
+    final t = _extractTime(rest);
+    rest = t.rest;
+    final start = t.start;
+    final end = t.end;
+
+    final cleaned = _cleanTitle(rest);
+    var title = cleaned.title;
+    var weak = title.isEmpty || _genericRe.hasMatch(title);
+    if (weak) {
+      final h = heading ?? subject;
+      if (h != null) {
+        // 「提出」など短い語だけ残った場合は見出しと組み合わせる
+        title = title.isEmpty || h.contains(title) ? h : '$h $title';
+        weak = false;
+      } else if (title.isEmpty && cleaned.label.isNotEmpty &&
+          !RegExp(r'^(?:日時|日程|日付|時間|開催日|実施日)').hasMatch(cleaned.label)) {
+        title = cleaned.label; // 「提出期限」など
       }
     }
 
-    var title = rest.replaceAll(RegExp(r'[\s　]+'), ' ').trim();
-    title = title.replaceAll(_linkLabelRe, '');
-    title = title.replaceAll(_trimHead, '').replaceAll(_trimTail, '');
-    if (title.isEmpty) {
-      final b = body.trim();
-      title = b.length > 30 ? b.substring(0, 30) : b;
-    }
-
+    final kindText = '$line $title';
     ImportType type;
-    if (_taskWords.hasMatch(line)) {
+    if (_taskWords.hasMatch(kindText)) {
       type = ImportType.task;
-    } else if (_shiftWords.hasMatch(line)) {
+    } else if (_shiftWords.hasMatch(kindText)) {
       type = ImportType.shift;
-    } else if (_lectureWords.hasMatch(line)) {
+    } else if (_lectureWords.hasMatch(kindText)) {
       type = ImportType.lecture;
     } else {
       type = ImportType.event;
@@ -254,6 +377,7 @@ ParseResult parseText(String text, DateTime now) {
     );
     out.add(c);
     open = c;
+    needsTitle = weak ? c : null;
   }
   return ParseResult(out, skipped);
 }

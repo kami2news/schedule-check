@@ -14,6 +14,14 @@ class AppStore extends ChangeNotifier {
   final List<TaskItem> tasks;
   int _seq = 0;
 
+  /// 表示テーマ（'system' / 'light' / 'dark'）
+  String get themeMode => _prefs.getString('themeMode') ?? 'system';
+
+  void setThemeMode(String mode) {
+    _prefs.setString('themeMode', mode);
+    notifyListeners();
+  }
+
   static Future<AppStore> load() async {
     final prefs = await SharedPreferences.getInstance();
     return AppStore._(

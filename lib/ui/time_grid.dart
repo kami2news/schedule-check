@@ -93,16 +93,16 @@ class _TimeGridState extends State<TimeGrid> {
         if (c.view != CalView.day) c.setView(CalView.day);
       },
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 6),
+        padding: EdgeInsets.symmetric(vertical: 6),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
               weekdayNames[d.weekday - 1],
               style: (isToday ? FlText.caption1Strong : FlText.caption1)
-                  .copyWith(color: isToday ? Fl.brand : Fl.fg3),
+                  .copyWith(color: isToday ? Fl.brandFg : Fl.fg3),
             ),
-            const SizedBox(height: 2),
+            SizedBox(height: 2),
             Container(
               width: 32,
               height: 32,
@@ -125,7 +125,7 @@ class _TimeGridState extends State<TimeGrid> {
 
   Widget _allDayEventChip(BuildContext context, Event e) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(2, 0, 2, 2),
+      padding: EdgeInsets.fromLTRB(2, 0, 2, 2),
       child: GestureDetector(
         onTap: () => openEventEditor(context, event: e),
         child: SizedBox(
@@ -144,12 +144,12 @@ class _TimeGridState extends State<TimeGrid> {
 
   Widget _allDayTaskChip(BuildContext context, TaskItem t) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(2, 0, 2, 2),
+      padding: EdgeInsets.fromLTRB(2, 0, 2, 2),
       child: GestureDetector(
         onTap: () => openTaskEditor(context, task: t),
         child: Container(
           width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+          padding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
           decoration: BoxDecoration(
             color: Fl.bg1,
             border: Border.all(color: Fl.stroke1),
@@ -164,10 +164,10 @@ class _TimeGridState extends State<TimeGrid> {
                       ? FluentIcons.checkmark_circle_16_filled
                       : FluentIcons.circle_16_regular,
                   size: 14,
-                  color: t.done ? Fl.brand : Fl.fg3,
+                  color: t.done ? Fl.brandFg : Fl.fg3,
                 ),
               ),
-              const SizedBox(width: 4),
+              SizedBox(width: 4),
               Expanded(
                 child: Text(
                   t.title,
@@ -199,7 +199,7 @@ class _TimeGridState extends State<TimeGrid> {
               WidgetSpan(
                 alignment: PlaceholderAlignment.middle,
                 child: Padding(
-                  padding: const EdgeInsets.only(right: 3),
+                  padding: EdgeInsets.only(right: 3),
                   child: Icon(linkIcon(e.url, small: true),
                       size: 12, color: e.kind.color),
                 ),
@@ -238,7 +238,7 @@ class _TimeGridState extends State<TimeGrid> {
               final m = math.max(0, math.min(raw, 23 * 60 + 30));
               openEventEditor(context, date: day, startMin: m);
             },
-            child: const SizedBox.expand(),
+            child: SizedBox.expand(),
           ),
         ),
         for (final p in _layoutDay(timed))
@@ -266,7 +266,7 @@ class _TimeGridState extends State<TimeGrid> {
                   Container(
                     width: 8,
                     height: 8,
-                    decoration: const BoxDecoration(
+                    decoration: BoxDecoration(
                         color: Fl.dangerLine, shape: BoxShape.circle),
                   ),
                   Expanded(child: Container(height: 2, color: Fl.dangerLine)),
@@ -297,15 +297,15 @@ class _TimeGridState extends State<TimeGrid> {
       children: [
         Row(
           children: [
-            const SizedBox(width: _gutter),
+            SizedBox(width: _gutter),
             for (final d in days)
               Expanded(child: _dayHeader(context, d, d == today)),
           ],
         ),
         if (maxAll > 0)
           Container(
-            padding: const EdgeInsets.only(bottom: 2),
-            decoration: const BoxDecoration(
+            padding: EdgeInsets.only(bottom: 2),
+            decoration: BoxDecoration(
               border: Border(top: BorderSide(color: Fl.stroke2)),
             ),
             child: Row(
@@ -314,7 +314,7 @@ class _TimeGridState extends State<TimeGrid> {
                 SizedBox(
                   width: _gutter,
                   child: Padding(
-                    padding: const EdgeInsets.only(top: 4, right: 6),
+                    padding: EdgeInsets.only(top: 4, right: 6),
                     child: Text('終日',
                         textAlign: TextAlign.right,
                         style: FlText.caption2.copyWith(color: Fl.fg3)),
@@ -333,7 +333,7 @@ class _TimeGridState extends State<TimeGrid> {
               ],
             ),
           ),
-        const Divider(height: 1),
+        Divider(height: 1),
         Expanded(
           child: SingleChildScrollView(
             controller: _scroll,
@@ -378,7 +378,7 @@ class _TimeGridState extends State<TimeGrid> {
                                 top: h * _hourH + _hourH / 2,
                                 left: 0,
                                 right: 0,
-                                child: Container(height: 1, color: Fl.bg4),
+                                child: Container(height: 1, color: Fl.stroke3),
                               ),
                             for (var i = 0; i < days.length; i++)
                               Positioned(
@@ -387,7 +387,7 @@ class _TimeGridState extends State<TimeGrid> {
                                 top: 0,
                                 bottom: 0,
                                 child: DecoratedBox(
-                                  decoration: const BoxDecoration(
+                                  decoration: BoxDecoration(
                                     border: Border(
                                         left: BorderSide(color: Fl.stroke2)),
                                   ),

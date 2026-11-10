@@ -42,10 +42,10 @@ class _CalendarPageState extends State<CalendarPage> {
                 SizedBox(
                   width: 20,
                   child: v == c.view
-                      ? const Icon(FluentIcons.checkmark_24_regular, size: 16)
+                      ? Icon(FluentIcons.checkmark_24_regular, size: 16)
                       : null,
                 ),
-                const SizedBox(width: 8),
+                SizedBox(width: 8),
                 Text(v.label),
               ],
             ),
@@ -53,7 +53,7 @@ class _CalendarPageState extends State<CalendarPage> {
       ],
       child: Container(
         height: 32,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
+        padding: EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(
           color: Fl.bg1,
           border: Border.all(color: Fl.stroke1),
@@ -63,8 +63,8 @@ class _CalendarPageState extends State<CalendarPage> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(c.view.label, style: FlText.body1Strong),
-            const SizedBox(width: 6),
-            const Icon(FluentIcons.chevron_down_24_regular, size: 14),
+            SizedBox(width: 6),
+            Icon(FluentIcons.chevron_down_24_regular, size: 14),
           ],
         ),
       ),
@@ -90,22 +90,22 @@ class _CalendarPageState extends State<CalendarPage> {
   Widget _header(BuildContext context, CalendarController c) {
     final compact = widget.compact;
     final todayButton = compact
-        ? OutlinedButton(onPressed: c.goToday, child: const Text('今日'))
+        ? OutlinedButton(onPressed: c.goToday, child: Text('今日'))
         : OutlinedButton.icon(
             onPressed: c.goToday,
-            icon: const Icon(FluentIcons.calendar_ltr_24_regular, size: 16),
-            label: const Text('今日'),
+            icon: Icon(FluentIcons.calendar_ltr_24_regular, size: 16),
+            label: Text('今日'),
           );
 
     final arrows = [
       IconButton(
         tooltip: '前へ',
-        icon: const Icon(FluentIcons.chevron_left_24_regular),
+        icon: Icon(FluentIcons.chevron_left_24_regular),
         onPressed: () => c.step(-1),
       ),
       IconButton(
         tooltip: '次へ',
-        icon: const Icon(FluentIcons.chevron_right_24_regular),
+        icon: Icon(FluentIcons.chevron_right_24_regular),
         onPressed: () => c.step(1),
       ),
     ];
@@ -117,7 +117,7 @@ class _CalendarPageState extends State<CalendarPage> {
             borderRadius: BorderRadius.circular(Fl.r4),
             onTap: () => setState(() => _showMini = !_showMini),
             child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+              padding: EdgeInsets.symmetric(vertical: 6, horizontal: 4),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -125,7 +125,7 @@ class _CalendarPageState extends State<CalendarPage> {
                     child: Text(titleText,
                         style: titleStyle, overflow: TextOverflow.ellipsis),
                   ),
-                  const SizedBox(width: 4),
+                  SizedBox(width: 4),
                   Icon(
                     _showMini
                         ? FluentIcons.chevron_up_24_regular
@@ -140,23 +140,23 @@ class _CalendarPageState extends State<CalendarPage> {
 
     return Padding(
       padding: compact
-          ? const EdgeInsets.fromLTRB(12, 8, 12, 8)
-          : const EdgeInsets.fromLTRB(16, 10, 16, 10),
+          ? EdgeInsets.fromLTRB(12, 8, 12, 8)
+          : EdgeInsets.fromLTRB(16, 10, 16, 10),
       child: Row(
         children: [
           if (!compact) ...[
             todayButton,
-            const SizedBox(width: 4),
+            SizedBox(width: 4),
             ...arrows,
-            const SizedBox(width: 8),
+            SizedBox(width: 8),
           ],
           Expanded(child: Align(alignment: Alignment.centerLeft, child: title)),
           if (compact) ...[
             todayButton,
-            const SizedBox(width: 2),
+            SizedBox(width: 2),
             ...arrows,
           ],
-          const SizedBox(width: 8),
+          SizedBox(width: 8),
           _viewMenu(c),
         ],
       ),
@@ -173,7 +173,7 @@ class _CalendarPageState extends State<CalendarPage> {
         switch (c.view) {
           case CalView.day:
             body = TimeGrid(
-              key: const ValueKey('grid-day'),
+              key: ValueKey('grid-day'),
               controller: c,
               days: [c.selected],
             );
@@ -181,13 +181,13 @@ class _CalendarPageState extends State<CalendarPage> {
           case CalView.week:
             final start = startOfWeek(c.selected);
             body = TimeGrid(
-              key: const ValueKey('grid-week'),
+              key: ValueKey('grid-week'),
               controller: c,
               days: [for (var i = 0; i < 7; i++) addDays(start, i)],
             );
             break;
           case CalView.month:
-            body = MonthView(key: const ValueKey('month'), controller: c);
+            body = MonthView(key: ValueKey('month'), controller: c);
             break;
         }
         return Column(
@@ -195,13 +195,13 @@ class _CalendarPageState extends State<CalendarPage> {
             _header(context, c),
             if (widget.compact)
               AnimatedSize(
-                duration: const Duration(milliseconds: 150),
+                duration: Duration(milliseconds: 150),
                 alignment: Alignment.topCenter,
                 child: _showMini
                     ? MiniMonth(controller: c)
-                    : const SizedBox(width: double.infinity),
+                    : SizedBox(width: double.infinity),
               ),
-            const Divider(height: 1),
+            Divider(height: 1),
             Expanded(child: body),
           ],
         );

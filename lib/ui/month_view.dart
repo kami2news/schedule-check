@@ -33,7 +33,7 @@ class MonthView extends StatelessWidget {
             for (var i = 0; i < 7; i++)
               Expanded(
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  padding: EdgeInsets.symmetric(vertical: 8),
                   child: Text(
                     weekdayNames[addDays(gridStart, i).weekday - 1],
                     textAlign: TextAlign.center,
@@ -43,7 +43,7 @@ class MonthView extends StatelessWidget {
               ),
           ],
         ),
-        const Divider(height: 1),
+        Divider(height: 1),
         Expanded(
           child: Column(
             children: [
@@ -89,7 +89,7 @@ class MonthView extends StatelessWidget {
       child: Container(
         decoration: BoxDecoration(
           color: isSel ? Fl.brandTint.withValues(alpha: 0.6) : null,
-          border: const Border(
+          border: Border(
             right: BorderSide(color: Fl.stroke2),
             bottom: BorderSide(color: Fl.stroke2),
           ),
@@ -118,12 +118,12 @@ class MonthView extends StatelessWidget {
             final label = day.day == 1 ? '${day.month}月1日' : '${day.day}';
 
             return Padding(
-              padding: const EdgeInsets.all(2),
+              padding: EdgeInsets.all(2),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Container(
-                    constraints: const BoxConstraints(minWidth: 22),
+                    constraints: BoxConstraints(minWidth: 22),
                     height: 22,
                     padding: EdgeInsets.symmetric(
                         horizontal: label.length > 2 ? 6 : 0),
@@ -141,11 +141,11 @@ class MonthView extends StatelessWidget {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 2),
+                  SizedBox(height: 2),
                   ...chips,
                   if (hidden > 0)
                     Padding(
-                      padding: const EdgeInsets.only(left: 2),
+                      padding: EdgeInsets.only(left: 2),
                       child: Text('+$hidden',
                           style: FlText.caption2.copyWith(color: Fl.fg3)),
                     ),
@@ -162,14 +162,14 @@ class MonthView extends StatelessWidget {
     return Opacity(
       opacity: faded ? 0.55 : 1,
       child: Padding(
-        padding: const EdgeInsets.only(bottom: 2),
+        padding: EdgeInsets.only(bottom: 2),
         child: SizedBox(
           height: 16,
           width: double.infinity,
           child: FlAccentBox(
             accent: e.kind.color,
             bar: 3,
-            padding: const EdgeInsets.fromLTRB(3, 0, 2, 0),
+            padding: EdgeInsets.fromLTRB(3, 0, 2, 0),
             child: Align(
               alignment: Alignment.centerLeft,
               child: Text(
@@ -189,7 +189,7 @@ class MonthView extends StatelessWidget {
     return Opacity(
       opacity: faded ? 0.55 : 1,
       child: Padding(
-        padding: const EdgeInsets.only(bottom: 2),
+        padding: EdgeInsets.only(bottom: 2),
         child: SizedBox(
           height: 16,
           width: double.infinity,
@@ -200,9 +200,9 @@ class MonthView extends StatelessWidget {
                     ? FluentIcons.checkmark_circle_16_filled
                     : FluentIcons.circle_16_regular,
                 size: 12,
-                color: t.done ? Fl.brand : Fl.fg3,
+                color: t.done ? Fl.brandFg : Fl.fg3,
               ),
-              const SizedBox(width: 3),
+              SizedBox(width: 3),
               Expanded(
                 child: Text(
                   t.title,

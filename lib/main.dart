@@ -18,27 +18,78 @@ Future<void> main() async {
   runApp(ScheduleApp(store: store));
 }
 
-class ScheduleApp extends StatelessWidget {
+class ScheduleApp extends StatefulWidget {
   const ScheduleApp({super.key, required this.store});
 
   final AppStore store;
 
   @override
+  State<ScheduleApp> createState() => _ScheduleAppState();
+}
+
+/// ライト／ダークの切り替えを受け持つ。
+/// 色トークン（Fl）はグローバルなので、切り替え時は画面全体を再構築する。
+class _ScheduleAppState extends State<ScheduleApp> with WidgetsBindingObserver {
+  FlThemeMode get _mode => FlThemeMode.values.firstWhere(
+        (m) => m.name == widget.store.themeMode,
+        orElse: () => FlThemeMode.system,
+      );
+
+  Brightness get _brightness => switch (_mode) {
+        FlThemeMode.light => Brightness.light,
+        FlThemeMode.dark => Brightness.dark,
+        FlThemeMode.system =>
+          WidgetsBinding.instance.platformDispatcher.platformBrightness,
+      };
+
+  @override
+  void initState() {
+    super.initState();
+    Fl.use(_brightness);
+    WidgetsBinding.instance.addObserver(this);
+    widget.store.addListener(_apply);
+  }
+
+  @override
+  void dispose() {
+    widget.store.removeListener(_apply);
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangePlatformBrightness() => _apply();
+
+  void _apply() {
+    final b = _brightness;
+    if (b == Fl.palette.brightness || !mounted) return;
+    Fl.use(b);
+    setState(() {});
+    void rebuild(Element e) {
+      e.markNeedsBuild();
+      e.visitChildren(rebuild);
+    }
+
+    (context as Element).visitChildren(rebuild);
+  }
+
+  @override
   Widget build(BuildContext context) {
     return StoreScope(
-      store: store,
+      store: widget.store,
       child: MaterialApp(
         title: 'スケジュール確認',
         debugShowCheckedModeBanner: false,
         theme: buildFluentTheme(),
-        locale: const Locale('ja'),
-        supportedLocales: const [Locale('ja'), Locale('en')],
-        localizationsDelegates: const [
+        themeAnimationDuration: Duration.zero,
+        locale: Locale('ja'),
+        supportedLocales: [Locale('ja'), Locale('en')],
+        localizationsDelegates: [
           GlobalMaterialLocalizations.delegate,
           GlobalWidgetsLocalizations.delegate,
           GlobalCupertinoLocalizations.delegate,
         ],
-        home: const HomeShell(),
+        home: HomeShell(),
       ),
     );
   }
@@ -87,7 +138,7 @@ class _HomeShellState extends State<HomeShell> {
     showFlDialogOrPage(
       context,
       title: 'メールなどから取り込む',
-      builder: (_) => const ImportPage(),
+      builder: (_) => ImportPage(),
     );
   }
 
@@ -100,10 +151,10 @@ class _HomeShellState extends State<HomeShell> {
         backgroundColor: Fl.bg3,
         body: Column(
           children: [
-            const FlTopBar(title: 'スケジュール確認'),
+            FlTopBar(title: 'スケジュール確認', trailing: FlThemeButton(onDark: true)),
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(0, 8, 8, 8),
+                padding: EdgeInsets.fromLTRB(0, 8, 8, 8),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
@@ -115,8 +166,8 @@ class _HomeShellState extends State<HomeShell> {
                     Expanded(
                       child: FlPane(child: CalendarPage(controller: cal)),
                     ),
-                    const SizedBox(width: 8),
-                    const SizedBox(
+                    SizedBox(width: 8),
+                    SizedBox(
                       width: 340,
                       child: FlPane(color: Fl.bg2, child: TodoPanel()),
                     ),
@@ -136,15 +187,15 @@ class _HomeShellState extends State<HomeShell> {
           index: _tab,
           children: [
             CalendarPage(controller: cal, compact: true),
-            const ColoredBox(color: Fl.bg2, child: TodoPanel()),
+            ColoredBox(color: Fl.bg2, child: TodoPanel(trailing: FlThemeButton())),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                  padding: EdgeInsets.fromLTRB(16, 12, 16, 0),
                   child: Text('取り込み', style: FlText.subtitle1),
                 ),
-                const Expanded(child: ImportPage()),
+                Expanded(child: ImportPage()),
               ],
             ),
           ],
@@ -156,9 +207,9 @@ class _HomeShellState extends State<HomeShell> {
               elevation: 4,
               backgroundColor: Fl.brand,
               foregroundColor: Colors.white,
-              shape: const CircleBorder(),
+              shape: CircleBorder(),
               onPressed: () => openEventEditor(context, date: cal.selected),
-              child: const Icon(FluentIcons.add_24_regular),
+              child: Icon(FluentIcons.add_24_regular),
             )
           : null,
       bottomNavigationBar: FlBottomNav(

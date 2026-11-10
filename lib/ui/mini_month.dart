@@ -24,25 +24,25 @@ class MiniMonth extends StatelessWidget {
     final weekStart = startOfWeek(sel);
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8),
+      padding: EdgeInsets.symmetric(horizontal: 8),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Row(
             children: [
-              const SizedBox(width: 8),
+              SizedBox(width: 8),
               Expanded(
                 child: Text('${sel.year}年${sel.month}月',
                     style: FlText.body1Strong),
               ),
               IconButton(
                 tooltip: '前の月',
-                icon: const Icon(FluentIcons.chevron_left_24_regular),
+                icon: Icon(FluentIcons.chevron_left_24_regular),
                 onPressed: () => controller.shiftMonth(-1),
               ),
               IconButton(
                 tooltip: '次の月',
-                icon: const Icon(FluentIcons.chevron_right_24_regular),
+                icon: Icon(FluentIcons.chevron_right_24_regular),
                 onPressed: () => controller.shiftMonth(1),
               ),
             ],
@@ -59,7 +59,7 @@ class MiniMonth extends StatelessWidget {
                 ),
             ],
           ),
-          const SizedBox(height: 4),
+          SizedBox(height: 4),
           for (var r = 0; r < rows; r++)
             Row(
               children: [
@@ -76,7 +76,7 @@ class MiniMonth extends StatelessWidget {
                   ),
               ],
             ),
-          const SizedBox(height: 4),
+          SizedBox(height: 4),
         ],
       ),
     );
@@ -97,7 +97,7 @@ class MiniMonth extends StatelessWidget {
     final Color? fill = isToday ? Fl.brand : (isSel ? Fl.brandTint : null);
     final Color textColor = isToday
         ? Colors.white
-        : (isSel ? Fl.brand : (inMonth ? Fl.fg1 : Fl.fg3));
+        : (isSel ? Fl.brandFg : (inMonth ? Fl.fg1 : Fl.fg3));
 
     return InkWell(
       onTap: () => controller.select(day),
@@ -116,7 +116,7 @@ class MiniMonth extends StatelessWidget {
                 color: fill,
                 shape: BoxShape.circle,
                 border: (isSel && !isToday)
-                    ? Border.all(color: Fl.brand)
+                    ? Border.all(color: Fl.brandFg)
                     : null,
               ),
               child: Text(
@@ -133,8 +133,8 @@ class MiniMonth extends StatelessWidget {
                   ? Container(
                       width: 4,
                       height: 4,
-                      decoration: const BoxDecoration(
-                          color: Fl.brand, shape: BoxShape.circle),
+                      decoration: BoxDecoration(
+                          color: Fl.brandFg, shape: BoxShape.circle),
                     )
                   : null,
             ),

@@ -41,11 +41,11 @@ extension EventKindX on EventKind {
   Color get color {
     switch (this) {
       case EventKind.shift:
-        return const Color(0xFFCA5010);
+        return Color(0xFFCA5010);
       case EventKind.lecture:
-        return const Color(0xFF4F6BED);
+        return Color(0xFF4F6BED);
       case EventKind.other:
-        return const Color(0xFF038387);
+        return Color(0xFF038387);
     }
   }
 

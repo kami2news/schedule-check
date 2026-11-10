@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import 'package:fluentui_system_icons/fluentui_system_icons.dart';
+
+import '../store.dart';
 import 'fluent.dart';
 
 /// 左端に太いアクセントバーがある塗り（Outlook の予定ブロック）。
@@ -54,13 +57,13 @@ Future<T?> showFlDialog<T>(
 }) {
   return showDialog<T>(
     context: context,
-    barrierColor: const Color(0x66000000),
+    barrierColor: Color(0x66000000),
     builder: (_) => Dialog(
       backgroundColor: Colors.transparent,
       surfaceTintColor: Colors.transparent,
       shadowColor: Colors.transparent,
       elevation: 0,
-      insetPadding: const EdgeInsets.all(16),
+      insetPadding: EdgeInsets.all(16),
       child: ConstrainedBox(
         constraints: BoxConstraints(
           maxWidth: maxWidth,
@@ -96,15 +99,15 @@ Future<bool> showFlConfirm(
       builder: (ctx) => Material(
         color: Fl.bg1,
         child: Padding(
-          padding: const EdgeInsets.all(24),
+          padding: EdgeInsets.all(24),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(title, style: FlText.subtitle1),
-              const SizedBox(height: 8),
+              SizedBox(height: 8),
               Text(message, style: FlText.body1.copyWith(color: Fl.fg2)),
-              const SizedBox(height: 24),
+              SizedBox(height: 24),
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
@@ -112,10 +115,10 @@ Future<bool> showFlConfirm(
                     onPressed: () => Navigator.of(ctx).pop(true),
                     child: Text(confirmLabel),
                   ),
-                  const SizedBox(width: 8),
+                  SizedBox(width: 8),
                   OutlinedButton(
                     onPressed: () => Navigator.of(ctx).pop(false),
-                    child: const Text('キャンセル'),
+                    child: Text('キャンセル'),
                   ),
                 ],
               ),
@@ -152,7 +155,7 @@ Future<int?> showFlTimeList(BuildContext context, int initialMin,
         color: Fl.bg1,
         child: ListView.builder(
           controller: scroll,
-          padding: const EdgeInsets.symmetric(vertical: 4),
+          padding: EdgeInsets.symmetric(vertical: 4),
           itemExtent: rowH,
           itemCount: values.length,
           itemBuilder: (_, i) {
@@ -160,8 +163,8 @@ Future<int?> showFlTimeList(BuildContext context, int initialMin,
             return InkWell(
               onTap: () => Navigator.of(ctx).pop(values[i]),
               child: Container(
-                margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                padding: const EdgeInsets.symmetric(horizontal: 12),
+                margin: EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                padding: EdgeInsets.symmetric(horizontal: 12),
                 alignment: Alignment.centerLeft,
                 decoration: BoxDecoration(
                   color: sel ? Fl.brandTint : null,
@@ -170,7 +173,7 @@ Future<int?> showFlTimeList(BuildContext context, int initialMin,
                 child: Text(
                   fmt(values[i]),
                   style: sel
-                      ? FlText.body1Strong.copyWith(color: Fl.brand)
+                      ? FlText.body1Strong.copyWith(color: Fl.brandFg)
                       : FlText.body1,
                 ),
               ),
@@ -180,4 +183,52 @@ Future<int?> showFlTimeList(BuildContext context, int initialMin,
       ),
     ),
   );
+}
+
+/// 表示テーマ（システム／ライト／ダーク）の切り替えメニュー
+class FlThemeButton extends StatelessWidget {
+  const FlThemeButton({super.key, this.onDark = false});
+
+  /// 濃い背景（上部バー）の上に置くとき true
+  final bool onDark;
+
+  @override
+  Widget build(BuildContext context) {
+    final store = StoreScope.of(context);
+    final current = store.themeMode;
+    return PopupMenuButton<FlThemeMode>(
+      tooltip: '表示テーマ',
+      position: PopupMenuPosition.under,
+      onSelected: (m) => StoreScope.read(context).setThemeMode(m.name),
+      itemBuilder: (_) => [
+        for (final m in FlThemeMode.values)
+          PopupMenuItem<FlThemeMode>(
+            value: m,
+            height: 36,
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 20,
+                  child: m.name == current
+                      ? Icon(FluentIcons.checkmark_24_regular, size: 16)
+                      : null,
+                ),
+                SizedBox(width: 8),
+                Text(m.label),
+              ],
+            ),
+          ),
+      ],
+      child: Padding(
+        padding: EdgeInsets.all(8),
+        child: Icon(
+          Fl.isDark
+              ? FluentIcons.weather_moon_24_regular
+              : FluentIcons.weather_sunny_24_regular,
+          size: 20,
+          color: onDark ? Colors.white : Fl.fg2,
+        ),
+      ),
+    );
+  }
 }

@@ -105,4 +105,59 @@ void main() {
     final old = e.toJson()..remove('url');
     expect(Event.fromJson(old).url, '');
   });
+
+  group('タイトルの付け方', () {
+    String titleOf(String text) => parseText(text, now).candidates.single.title;
+
+    test('ラベルと曜日だけの行は、続く「内容」行をタイトルにする', () {
+      final r = parseText('【日時】11月18日（水）14:00～15:00\n内容：研究室面談', now);
+      final c = r.candidates.single;
+      expect(c.title, '研究室面談');
+      expect(c.startMin, 14 * 60);
+      expect(c.endMin, 15 * 60);
+    });
+
+    test('文末の丁寧表現や助詞を落とす', () {
+      final c = parseText('11/20（金）23:59までにレポートを提出してください', now)
+          .candidates
+          .single;
+      expect(c.title, 'レポートを提出');
+      expect(c.type, ImportType.task);
+      expect(c.startMin, 23 * 60 + 59);
+      expect(titleOf('12月1日（月）は休講です'), '休講');
+      expect(titleOf('11/19 13:00からゼミを行います'), 'ゼミ');
+    });
+
+    test('前の見出し行・件名を使う', () {
+      final c =
+          parseText('■ 研究室見学会\n日程：11月25日(水) 13:00〜', now).candidates.single;
+      expect(c.title, '研究室見学会');
+      expect(c.startMin, 13 * 60);
+      expect(titleOf('件名: 【重要】研究室面談のご案内 / 11/18 14:00'), '研究室面談');
+    });
+
+    test('かっこ書きや「3時間」は残す', () {
+      final c = parseText('11/26 10時〜 ゼミ発表（第3回）', now).candidates.single;
+      expect(c.title, 'ゼミ発表（第3回）');
+      expect(c.startMin, 10 * 60);
+      final d = parseText('11/30 実験（3時間）', now).candidates.single;
+      expect(d.title, '実験（3時間）');
+      expect(d.startMin, isNull);
+    });
+
+    test('ラベルしかない締切は、そのラベルを使う', () {
+      final c = parseText('提出期限：11月20日 23:59', now).candidates.single;
+      expect(c.title, '提出期限');
+      expect(c.type, ImportType.task);
+    });
+
+    test('日付の行にタイトルがなく、次の行に時刻とタイトルがある', () {
+      final c = parseText('11/21（土）\n10:00-12:00 オープンキャンパス補助', now)
+          .candidates
+          .single;
+      expect(c.title, 'オープンキャンパス補助');
+      expect(c.startMin, 10 * 60);
+      expect(c.endMin, 12 * 60);
+    });
+  });
 }

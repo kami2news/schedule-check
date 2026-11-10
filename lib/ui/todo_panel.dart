@@ -29,7 +29,10 @@ extension TodoListX on TodoList {
 }
 
 class TodoPanel extends StatefulWidget {
-  const TodoPanel({super.key});
+  const TodoPanel({super.key, this.trailing});
+
+  /// 見出しの右端に置くもの（狭い画面ではテーマ切り替え）
+  final Widget? trailing;
 
   @override
   State<TodoPanel> createState() => _TodoPanelState();
@@ -103,13 +106,15 @@ class _TodoPanelState extends State<TodoPanel> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
+          padding: EdgeInsets.fromLTRB(16, 14, 16, 4),
           child: Row(
             children: [
-              const Icon(FluentIcons.task_list_ltr_24_filled,
-                  size: 22, color: Fl.brand),
-              const SizedBox(width: 8),
+              Icon(FluentIcons.task_list_ltr_24_filled,
+                  size: 22, color: Fl.brandFg),
+              SizedBox(width: 8),
               Text('To Do', style: FlText.subtitle1),
+              Spacer(),
+              if (widget.trailing != null) widget.trailing!,
             ],
           ),
         ),
@@ -120,26 +125,26 @@ class _TodoPanelState extends State<TodoPanel> {
           onSelected: (i) => setState(() => _list = TodoList.values[i]),
         ),
         Padding(
-          padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+          padding: EdgeInsets.fromLTRB(12, 12, 12, 4),
           child: FlTextField(
             controller: _quick,
             focusNode: _focus,
             hint: 'タスクを追加',
             onSubmitted: (_) => _add(),
-            leading: const Icon(FluentIcons.add_24_regular,
-                size: 18, color: Fl.brand),
+            leading: Icon(FluentIcons.add_24_regular,
+                size: 18, color: Fl.brandFg),
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 if (_quickDue != null)
                   Text(fmtDate(_quickDue!),
-                      style: FlText.caption1.copyWith(color: Fl.brand)),
+                      style: FlText.caption1.copyWith(color: Fl.brandFg)),
                 IconButton(
                   tooltip: '期限',
                   icon: Icon(
                     FluentIcons.calendar_ltr_24_regular,
                     size: 18,
-                    color: _quickDue != null ? Fl.brand : Fl.fg2,
+                    color: _quickDue != null ? Fl.brandFg : Fl.fg2,
                   ),
                   onPressed: _pickQuickDue,
                 ),
@@ -149,16 +154,16 @@ class _TodoPanelState extends State<TodoPanel> {
         ),
         Expanded(
           child: ListView(
-            padding: const EdgeInsets.only(top: 4, bottom: 96),
+            padding: EdgeInsets.only(top: 4, bottom: 96),
             children: [
               if (open.isEmpty && done.isEmpty)
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 40, 24, 24),
+                  padding: EdgeInsets.fromLTRB(24, 40, 24, 24),
                   child: Column(
                     children: [
-                      const Icon(FluentIcons.checkmark_circle_48_regular,
+                      Icon(FluentIcons.checkmark_circle_48_regular,
                           size: 48, color: Fl.stroke1),
-                      const SizedBox(height: 12),
+                      SizedBox(height: 12),
                       Text(
                         _list == TodoList.myDay
                             ? '今日が期限のタスクはありません'
@@ -174,7 +179,7 @@ class _TodoPanelState extends State<TodoPanel> {
                 InkWell(
                   onTap: () => setState(() => _showDone = !_showDone),
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+                    padding: EdgeInsets.fromLTRB(12, 12, 12, 8),
                     child: Row(
                       children: [
                         Icon(
@@ -183,7 +188,7 @@ class _TodoPanelState extends State<TodoPanel> {
                               : FluentIcons.chevron_right_24_regular,
                           size: 16,
                         ),
-                        const SizedBox(width: 6),
+                        SizedBox(width: 6),
                         Text('完了済み ${done.length}',
                             style: FlText.body1Strong),
                       ],
@@ -209,7 +214,7 @@ class _TaskRow extends StatelessWidget {
     final t = task;
     final info = dueInfo(context, t);
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 2),
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: Fl.bg1,
@@ -223,15 +228,15 @@ class _TaskRow extends StatelessWidget {
           child: InkWell(
             onTap: () => openTaskEditor(context, task: t),
             child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 4),
+              padding: EdgeInsets.symmetric(vertical: 4),
               child: Row(
                 children: [
-                  const SizedBox(width: 4),
+                  SizedBox(width: 4),
                   FlCheckCircle(
                     checked: t.done,
                     onTap: () => StoreScope.read(context).toggleTask(t.id),
                   ),
-                  const SizedBox(width: 4),
+                  SizedBox(width: 4),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -260,8 +265,8 @@ class _TaskRow extends StatelessWidget {
                                   ),
                                 ),
                               if (t.note.isNotEmpty) ...[
-                                const SizedBox(width: 8),
-                                const Icon(FluentIcons.note_16_regular,
+                                SizedBox(width: 8),
+                                Icon(FluentIcons.note_16_regular,
                                     size: 14, color: Fl.fg3),
                               ],
                             ],
@@ -274,7 +279,7 @@ class _TaskRow extends StatelessWidget {
                       tooltip: isMeetingLink(t.url)
                           ? '${linkLabel(t.url)}に参加'
                           : 'リンクを開く',
-                      icon: Icon(linkIcon(t.url), size: 20, color: Fl.brand),
+                      icon: Icon(linkIcon(t.url), size: 20, color: Fl.brandFg),
                       onPressed: () => openLink(context, t.url),
                     ),
                   IconButton(
@@ -284,7 +289,7 @@ class _TaskRow extends StatelessWidget {
                           ? FluentIcons.star_24_filled
                           : FluentIcons.star_24_regular,
                       size: 20,
-                      color: t.important ? Fl.brand : Fl.fg3,
+                      color: t.important ? Fl.brandFg : Fl.fg3,
                     ),
                     onPressed: () =>
                         StoreScope.read(context).toggleImportant(t.id),

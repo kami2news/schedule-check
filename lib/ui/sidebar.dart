@@ -22,25 +22,25 @@ class CalendarSidebar extends StatelessWidget {
       listenable: controller,
       builder: (context, _) {
         return ListView(
-          padding: const EdgeInsets.symmetric(vertical: 8),
+          padding: EdgeInsets.symmetric(vertical: 8),
           children: [
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              padding: EdgeInsets.symmetric(horizontal: 16),
               child: FilledButton.icon(
                 onPressed: () =>
                     openEventEditor(context, date: controller.selected),
-                icon: const Icon(FluentIcons.calendar_add_24_regular, size: 18),
-                label: const Text('新しい予定'),
+                icon: Icon(FluentIcons.calendar_add_24_regular, size: 18),
+                label: Text('新しい予定'),
               ),
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
             MiniMonth(controller: controller),
-            const Padding(
+            Padding(
               padding: EdgeInsets.symmetric(vertical: 8),
               child: Divider(),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+              padding: EdgeInsets.fromLTRB(16, 4, 16, 4),
               child: Text('マイカレンダー', style: FlText.body1Strong),
             ),
             for (final k in EventKind.values)
@@ -55,7 +55,7 @@ class CalendarSidebar extends StatelessWidget {
               value: controller.showTasks,
               onChanged: controller.setShowTasks,
             ),
-            const Padding(
+            Padding(
               padding: EdgeInsets.symmetric(vertical: 8),
               child: Divider(),
             ),
@@ -63,12 +63,12 @@ class CalendarSidebar extends StatelessWidget {
               onTap: onImport,
               child: Padding(
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 child: Row(
                   children: [
-                    const Icon(FluentIcons.clipboard_paste_24_regular,
+                    Icon(FluentIcons.clipboard_paste_24_regular,
                         size: 20, color: Fl.fg2),
-                    const SizedBox(width: 12),
+                    SizedBox(width: 12),
                     Text('メールなどから取り込む', style: FlText.body1),
                   ],
                 ),

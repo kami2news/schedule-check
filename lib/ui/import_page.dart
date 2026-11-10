@@ -88,7 +88,7 @@ class _ImportPageState extends State<ImportPage> {
   @override
   Widget build(BuildContext context) {
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
+      padding: EdgeInsets.fromLTRB(16, 12, 16, 96),
       children: [
         Text(
           'メールやLINEの連絡文などを貼り付けると、日付が書かれた行を予定やタスクの候補として取り出します。'
@@ -96,23 +96,23 @@ class _ImportPageState extends State<ImportPage> {
           '登録前に内容を確認・修正できます。',
           style: FlText.body1.copyWith(color: Fl.fg2),
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: 12),
         FlTextField(
           controller: _text,
           minLines: 6,
           maxLines: 10,
           hint: '例）\n11/15 10:00-18:00 シフト\n11/18 14:00-15:00 面談\nZoom: https://zoom.us/j/...\nミーティングID: 123 456 789\n\n11月20日 レポート提出 23:59',
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: 12),
         FilledButton.icon(
           onPressed: _parse,
-          icon: const Icon(FluentIcons.sparkle_24_regular, size: 18),
-          label: const Text('解析する'),
+          icon: Icon(FluentIcons.sparkle_24_regular, size: 18),
+          label: Text('解析する'),
         ),
         if (_parsed) ...[
-          const SectionHeader('見つかった候補'),
+          SectionHeader('見つかった候補'),
           if (_cands.isEmpty)
-            const EmptyNote('日付つきの行が見つかりませんでした（例: 11/15、11月15日、2026/11/15、明日）'),
+            EmptyNote('日付つきの行が見つかりませんでした（例: 11/15、11月15日、2026/11/15、明日）'),
           for (final c in _cands)
             _CandidateTile(
               key: ObjectKey(c),
@@ -122,7 +122,7 @@ class _ImportPageState extends State<ImportPage> {
           if (_skipped > 0)
             EmptyNote('日付が見つからず読み飛ばした行: $_skipped'),
           if (_cands.isNotEmpty) ...[
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
             FilledButton(
               onPressed: _selectedCount == 0 ? null : _register,
               child: Text('選択した$_selectedCount件を登録'),
@@ -187,7 +187,7 @@ class _CandidateTileState extends State<_CandidateTile> {
   }
 
   Future<int?> _pickTime(int initial) {
-    return showFlTimeList(context, initial, extra: const [23 * 60 + 59]);
+    return showFlTimeList(context, initial, extra: [23 * 60 + 59]);
   }
 
   Future<void> _pickStart() async {
@@ -210,12 +210,12 @@ class _CandidateTileState extends State<_CandidateTile> {
 
   Widget _detailRow(IconData icon, Widget field) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
+      padding: EdgeInsets.only(bottom: 6),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.only(top: 8, right: 8),
+            padding: EdgeInsets.only(top: 8, right: 8),
             child: Icon(icon, size: 16, color: Fl.fg3),
           ),
           Expanded(child: field),
@@ -228,14 +228,14 @@ class _CandidateTileState extends State<_CandidateTile> {
   Widget build(BuildContext context) {
     final isTask = c.type == ImportType.task;
     return Container(
-      margin: const EdgeInsets.symmetric(vertical: 4),
+      margin: EdgeInsets.symmetric(vertical: 4),
       decoration: BoxDecoration(
         color: Fl.bg1,
         borderRadius: BorderRadius.circular(Fl.r8),
         border: Border.all(color: Fl.stroke1),
       ),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(4, 8, 12, 8),
+        padding: EdgeInsets.fromLTRB(4, 8, 12, 8),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -257,14 +257,14 @@ class _CandidateTileState extends State<_CandidateTile> {
               ],
             ),
             Padding(
-              padding: const EdgeInsets.only(left: 12),
+              padding: EdgeInsets.only(left: 12),
               child: Wrap(
                 spacing: 8,
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   DropdownButton<ImportType>(
                     value: c.type,
-                    underline: const SizedBox.shrink(),
+                    underline: SizedBox.shrink(),
                     style: FlText.body1,
                     borderRadius: BorderRadius.circular(Fl.r4),
                     items: [
@@ -280,12 +280,12 @@ class _CandidateTileState extends State<_CandidateTile> {
                   ),
                   TextButton.icon(
                     onPressed: _pickDate,
-                    icon: const Icon(FluentIcons.calendar_ltr_24_regular, size: 18),
+                    icon: Icon(FluentIcons.calendar_ltr_24_regular, size: 18),
                     label: Text(fmtDate(c.date)),
                   ),
                   TextButton.icon(
                     onPressed: _pickStart,
-                    icon: const Icon(FluentIcons.clock_24_regular, size: 18),
+                    icon: Icon(FluentIcons.clock_24_regular, size: 18),
                     label: Text(c.startMin == null
                         ? (isTask ? '時刻なし' : '終日')
                         : fmtMin(c.startMin!)),
@@ -300,7 +300,7 @@ class _CandidateTileState extends State<_CandidateTile> {
                     IconButton(
                       visualDensity: VisualDensity.compact,
                       tooltip: '時刻を消す',
-                      icon: const Icon(FluentIcons.dismiss_24_regular, size: 16),
+                      icon: Icon(FluentIcons.dismiss_24_regular, size: 16),
                       onPressed: () {
                         c.startMin = null;
                         c.endMin = null;
@@ -312,7 +312,7 @@ class _CandidateTileState extends State<_CandidateTile> {
             ),
             if (_showDetails)
               Padding(
-                padding: const EdgeInsets.fromLTRB(12, 8, 0, 0),
+                padding: EdgeInsets.fromLTRB(12, 8, 0, 0),
                 child: Column(
                   children: [
                     _detailRow(
@@ -347,15 +347,15 @@ class _CandidateTileState extends State<_CandidateTile> {
               )
             else
               Padding(
-                padding: const EdgeInsets.only(left: 4),
+                padding: EdgeInsets.only(left: 4),
                 child: TextButton.icon(
                   onPressed: () => setState(() => _showDetails = true),
-                  icon: const Icon(FluentIcons.add_24_regular, size: 16),
-                  label: const Text('リンク・メモを追加'),
+                  icon: Icon(FluentIcons.add_24_regular, size: 16),
+                  label: Text('リンク・メモを追加'),
                 ),
               ),
             Padding(
-              padding: const EdgeInsets.only(left: 12, top: 4),
+              padding: EdgeInsets.only(left: 12, top: 4),
               child: Text('元の行: ${c.source}',
                   style: FlText.caption1.copyWith(color: Fl.fg3)),
             ),
