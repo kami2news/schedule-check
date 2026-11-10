@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 
 import '../models.dart';
+import '../reminders.dart';
 import '../store.dart';
 import 'edit_pages.dart';
 import 'fluent.dart';
@@ -149,6 +150,12 @@ class _EventPeek extends StatelessWidget {
                       ],
                     ]),
                   ),
+                  if (e.reminder != null)
+                    row(
+                      FluentIcons.alert_24_regular,
+                      Text('通知: ${reminderLabel(e.reminder, allDay: e.allDay)}',
+                          style: FlText.body1),
+                    ),
                   if (e.place.isNotEmpty)
                     row(
                       FluentIcons.location_24_regular,

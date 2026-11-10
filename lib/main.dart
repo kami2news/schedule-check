@@ -4,12 +4,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 
+import 'notify/reminder_service.dart';
+import 'reminders.dart';
 import 'store.dart';
 import 'sync/account.dart';
 import 'ui/account_page.dart';
 import 'ui/calendar_page.dart';
 import 'ui/controller.dart';
 import 'ui/edit_pages.dart';
+import 'ui/event_peek.dart';
 import 'ui/finder_pages.dart';
 import 'ui/fluent.dart';
 import 'ui/fluent_extras.dart';
@@ -45,6 +48,37 @@ class _ScheduleAppState extends State<ScheduleApp> with WidgetsBindingObserver {
   late final AccountService _account =
       widget.account ?? AccountService(widget.store);
 
+  final _navKey = GlobalKey<NavigatorState>();
+  final _messengerKey = GlobalKey<ScaffoldMessengerState>();
+  late final ReminderService _reminders =
+      ReminderService(widget.store, onFire: _showReminder);
+
+  /// 通知の時刻になったら、画面内にも知らせる（「表示」で中身を開く）
+  void _showReminder(ReminderItem r, bool systemShown) {
+    _messengerKey.currentState?.showSnackBar(SnackBar(
+      duration: Duration(seconds: 12),
+      content: Row(children: [
+        Icon(FluentIcons.alert_24_regular, size: 18, color: Colors.white),
+        SizedBox(width: 10),
+        Expanded(
+          child: Text('${r.title}\n${r.body}', maxLines: 3, overflow: TextOverflow.ellipsis),
+        ),
+      ]),
+      action: SnackBarAction(
+        label: '表示',
+        onPressed: () {
+          final ctx = _navKey.currentContext;
+          if (ctx == null) return;
+          if (r.event != null) {
+            openEventPeek(ctx, r.event!, r.date ?? r.event!.firstDate);
+          } else if (r.task != null) {
+            openTaskEditor(ctx, task: r.task);
+          }
+        },
+      ),
+    ));
+  }
+
   FlThemeMode get _mode => FlThemeMode.values.firstWhere(
         (m) => m.name == widget.store.themeMode,
         orElse: () => FlThemeMode.system,
@@ -63,10 +97,12 @@ class _ScheduleAppState extends State<ScheduleApp> with WidgetsBindingObserver {
     Fl.use(_brightness);
     WidgetsBinding.instance.addObserver(this);
     widget.store.addListener(_apply);
+    _reminders.start();
   }
 
   @override
   void dispose() {
+    _reminders.dispose();
     widget.store.removeListener(_apply);
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
@@ -95,6 +131,8 @@ class _ScheduleAppState extends State<ScheduleApp> with WidgetsBindingObserver {
       child: AccountScope(
         account: _account,
         child: MaterialApp(
+        navigatorKey: _navKey,
+        scaffoldMessengerKey: _messengerKey,
         title: 'スケジュール確認',
         debugShowCheckedModeBanner: false,
         theme: buildFluentTheme(),

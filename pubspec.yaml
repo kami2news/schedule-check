@@ -19,6 +19,8 @@ dependencies:
   firebase_auth: ^7.0.1
   cloud_firestore: ^7.1.0
   url_launcher: ^6.3.0
+  # ブラウザの通知（Notification API）
+  web: ^1.1.0
 
 dev_dependencies:
   flutter_test:

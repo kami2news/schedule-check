@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 
 import '../models.dart';
+import '../notify/system_notifier.dart';
+import '../reminders.dart';
 import '../store.dart';
 import 'fluent.dart';
 import 'fluent_extras.dart';
@@ -264,6 +266,7 @@ class _EventEditPageState extends State<EventEditPage> {
   late int _end;
   Recurrence? _repeat;
   DateTime? _until;
+  int? _reminder;
   String? _error;
 
   bool get _isNew => widget.event == null;
@@ -290,6 +293,7 @@ class _EventEditPageState extends State<EventEditPage> {
     _end = e?.endMin ?? math.min(_start + 60, 23 * 60 + 59);
     _repeat = e?.repeat;
     _until = e?.repeatUntil;
+    _reminder = e?.reminder;
   }
 
   @override
@@ -357,6 +361,7 @@ class _EventEditPageState extends State<EventEditPage> {
       exdates: e == null ? null : {...e.exdates},
       seriesId: e?.seriesId,
       originalDate: e?.originalDate,
+      reminder: _reminder,
     );
 
     if (_isOccurrence) {
@@ -481,6 +486,8 @@ class _EventEditPageState extends State<EventEditPage> {
           value: _allDay,
           onChanged: (v) => setState(() {
             _allDay = v;
+            // 終日と時刻ありでは通知の選び方が違うので、近いものに置き換える
+            if (_reminder != null) _reminder = v ? 360 : 15;
             _revalidate();
           }),
         ),
@@ -548,6 +555,11 @@ class _EventEditPageState extends State<EventEditPage> {
             ),
           ),
         SizedBox(height: 8),
+        ReminderField(
+          value: _reminder,
+          allDay: _allDay,
+          onChanged: (v) => setState(() => _reminder = v),
+        ),
         FlField(
           label: '場所（任意）',
           child: FlTextField(
@@ -599,6 +611,7 @@ class _TaskEditPageState extends State<TaskEditPage> {
   String? _eventId;
   DateTime? _eventDate;
   bool _followEnd = false;
+  int? _reminder;
 
   bool get _isNew => widget.task == null;
 
@@ -619,6 +632,7 @@ class _TaskEditPageState extends State<TaskEditPage> {
             ? dateOnly(widget.occurrence!)
             : null);
     _followEnd = t?.followEnd ?? false;
+    _reminder = t?.reminder;
     final ev = widget.forEvent;
     if (t == null && ev != null) {
       // 予定から作るときは、その日を期限の初期値にする
@@ -664,6 +678,7 @@ class _TaskEditPageState extends State<TaskEditPage> {
       eventId: _eventId,
       eventDate: _eventId == null ? null : _eventDate,
       followEnd: _eventId != null && _followEnd,
+      reminder: _due == null ? null : _reminder,
     ));
     Navigator.of(context).pop();
   }
@@ -783,6 +798,12 @@ class _TaskEditPageState extends State<TaskEditPage> {
               final picked = await _pickTime(context, _dueMin ?? 23 * 60 + 59);
               if (picked != null) setState(() => _dueMin = picked);
             },
+          ),
+        if (_due != null)
+          ReminderField(
+            value: _reminder,
+            allDay: _dueMin == null,
+            onChanged: (v) => setState(() => _reminder = v),
           ),
         SizedBox(height: 8),
         _linkField(context, _url, () => setState(_revalidate),
@@ -1092,6 +1113,83 @@ class _PeriodSettingsState extends State<_PeriodSettings> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+
+// ---------------------------------------------------------------------------
+// 通知（リマインダー）の選択
+// ---------------------------------------------------------------------------
+
+/// 予定・タスクの「通知」欄。選んだときにブラウザの通知の許可を求める
+class ReminderField extends StatefulWidget {
+  const ReminderField(
+      {super.key, required this.value, required this.allDay, required this.onChanged});
+
+  final int? value;
+
+  /// 終日（時刻なし）のとき true。選択肢が「前日 18:00」などになる
+  final bool allDay;
+  final ValueChanged<int?> onChanged;
+
+  @override
+  State<ReminderField> createState() => _ReminderFieldState();
+}
+
+class _ReminderFieldState extends State<ReminderField> {
+  String _perm = notificationPermission();
+
+  Future<void> _choose(int? v) async {
+    widget.onChanged(v);
+    if (v != null && _perm == 'default') {
+      final p = await requestNotificationPermission();
+      if (mounted) setState(() => _perm = p);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final presets = widget.allDay ? kAllDayReminders : kTimedReminders;
+    // PopupMenu は null を「閉じただけ」と区別できないので、「なし」は番兵の値で表す
+    const none = 1 << 30;
+    final cur = widget.value ?? none;
+    final items = <int>[
+      none,
+      ...presets,
+      if (cur != none && !presets.contains(cur)) cur,
+    ];
+    final note = widget.value == null
+        ? null
+        : switch (_perm) {
+            'granted' => null,
+            'denied' =>
+              'ブラウザで通知がブロックされています。アプリを開いている間は画面内でお知らせします',
+            'default' => 'ブラウザの通知を許可すると、別のタブを見ていても届きます',
+            _ => 'アプリを開いている間に、画面内でお知らせします',
+          };
+    return FlField(
+      label: '通知',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          FlDropdown<int>(
+            items: items,
+            value: cur,
+            labelOf: (v) => reminderLabel(v == none ? null : v, allDay: widget.allDay),
+            leadingOf: (v) => Icon(
+                v == none ? FluentIcons.alert_off_24_regular : FluentIcons.alert_24_regular,
+                size: 16,
+                color: Fl.fg2),
+            onChanged: (v) => _choose(v == none ? null : v),
+          ),
+          if (note != null)
+            Padding(
+              padding: EdgeInsets.only(top: 4),
+              child: Text(note, style: FlText.caption1.copyWith(color: Fl.fg3)),
+            ),
+        ],
       ),
     );
   }

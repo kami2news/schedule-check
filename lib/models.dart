@@ -213,6 +213,7 @@ class Event {
     Set<DateTime>? exdates,
     this.seriesId,
     this.originalDate,
+    this.reminder,
   })  : exdates = exdates ?? {},
         repeat = repeat ?? (weekly ? const Recurrence() : null);
 
@@ -252,6 +253,10 @@ class Event {
 
   /// Zoom / Teams などのリンク
   String url;
+
+  /// 通知（開始の何分前か）。終日の予定は当日 0:00 から数える
+  /// （例: 360 = 前日 18:00、-540 = 当日 9:00）。null なら通知しない
+  int? reminder;
 
   bool get allDay => startMin == null;
 
@@ -308,6 +313,7 @@ class Event {
         exdates: exdates ?? {...this.exdates},
         seriesId: seriesId ?? this.seriesId,
         originalDate: originalDate ?? this.originalDate,
+        reminder: reminder,
       );
 
   Map<String, dynamic> toJson() => {
@@ -328,6 +334,7 @@ class Event {
           'exdates': ([...exdates]..sort()).map((d) => d.toIso8601String()).toList(),
         if (seriesId != null) 'seriesId': seriesId,
         if (originalDate != null) 'originalDate': originalDate!.toIso8601String(),
+        if (reminder != null) 'reminder': reminder,
       };
 
   factory Event.fromJson(Map<String, dynamic> j) => Event(
@@ -359,6 +366,7 @@ class Event {
         originalDate: j['originalDate'] == null
             ? null
             : DateTime.parse(j['originalDate'] as String),
+        reminder: (j['reminder'] as num?)?.toInt(),
       );
 }
 
@@ -375,6 +383,7 @@ class TaskItem {
     this.eventId,
     this.eventDate,
     this.followEnd = false,
+    this.reminder,
   });
 
   final String id;
@@ -399,6 +408,9 @@ class TaskItem {
   /// 期限を予定の終了時刻に合わせる（予定の時間が変わったら期限も動く）
   bool followEnd;
 
+  /// 通知（期限の何分前か）。時刻なしの期限は当日 0:00 から数える。null なら通知しない
+  int? reminder;
+
   Map<String, dynamic> toJson() => {
         'id': id,
         'title': title,
@@ -406,6 +418,7 @@ class TaskItem {
         if (eventId != null) 'eventId': eventId,
         if (eventDate != null) 'eventDate': eventDate!.toIso8601String(),
         if (followEnd) 'followEnd': true,
+        if (reminder != null) 'reminder': reminder,
         'dueMin': dueMin,
         'done': done,
         'important': important,
@@ -427,6 +440,7 @@ class TaskItem {
             ? null
             : DateTime.parse(j['eventDate'] as String),
         followEnd: (j['followEnd'] as bool?) ?? false,
+        reminder: (j['reminder'] as num?)?.toInt(),
       );
 }
 
