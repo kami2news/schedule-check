@@ -265,6 +265,126 @@ final _awayRe = RegExp(r'有給|有休|欠勤|お休み|休暇|不在|外出');
 final _elsewhereRe = RegExp(r'在宅|リモート勤務|テレワーク');
 
 /// [calendars] を渡すと、行にカレンダー名（「部活」「病院」など）が含まれる場合にそのカレンダーを選ぶ
+// ---- 勤務連絡（作業日・作業時間・現場名…の書式） ----
+
+final _workDayRe = RegExp(r'作業日\s*[:：]\s*(\d{4})[/年-](\d{1,2})[/月-](\d{1,2})');
+final _workTimeRe = RegExp(
+    r'作業時間\s*[:：]\s*(\d{1,2})[:：](\d{2})\s*[-〜~～–ー]\s*(\d{1,2})[:：](\d{2})(?:\s*[（(]\s*休憩\s*([0-9:：]+)\s*[)）])?');
+const _fieldStop = r'(?=\s+(?:作業時間|現場名|現場住所|作業内容|時給|連絡事項)|\n|$)';
+final _siteRe = RegExp('現場名\\s*[:：]\\s*(.+?)$_fieldStop');
+final _addrRe = RegExp('現場住所\\s*[:：]\\s*(.+?)$_fieldStop');
+final _jobRe = RegExp('作業内容\\s*[:：]\\s*(.+?)$_fieldStop');
+
+/// 「作業日: / 作業時間: / 現場名: / 現場住所: / 作業内容:」の書式の勤務連絡を読む。
+/// 夜勤（日付をまたぐ）は2つの予定に分け、終了時刻に「終了報告」のタスクも作る。
+List<Candidate> _parseWorkNotices(List<String> lines, Set<int> consumed,
+    List<CalendarDef> cals, String whole) {
+  final out = <Candidate>[];
+  // 勤務先の名前（タイトルの頭に付ける）
+  final company = RegExp(r'ユニティー|unity', caseSensitive: false).hasMatch(whole)
+      ? 'ユニティー'
+      : '';
+  // 「ユニティー」「労働」「バイト」という名前のカレンダーがあればそれを使う
+  final calId = (cals.where((c) => ['ユニティー', '労働', 'バイト', 'シフト']
+              .any((n) => c.name.contains(n)))
+          .map((c) => c.id)
+          .firstOrNull) ??
+      (cals.any((c) => c.id == 'shift') ? 'shift' : cals.first.id);
+
+  // 返信メールの引用などで同じ通知が何度も出てくるので、同じ勤務は1回だけにする
+  final seen = <String>{};
+  for (var i = 0; i < lines.length; i++) {
+    final dm = _workDayRe.firstMatch(lines[i]);
+    if (dm == null) continue;
+    // 作業日の行から、次の作業日の行の手前まで（最大8行）を1件として読む
+    final idx = <int>[i];
+    for (var j = i + 1; j < lines.length && j <= i + 8; j++) {
+      if (_workDayRe.hasMatch(lines[j])) break;
+      idx.add(j);
+    }
+    final block = idx.map((k) => lines[k].trim()).join('\n');
+    final tm = _workTimeRe.firstMatch(block);
+    if (tm == null) continue;
+
+    final date = DateTime(int.parse(dm.group(1)!), int.parse(dm.group(2)!),
+        int.parse(dm.group(3)!));
+    final start = int.parse(tm.group(1)!) * 60 + int.parse(tm.group(2)!);
+    var end = int.parse(tm.group(3)!) * 60 + int.parse(tm.group(4)!);
+    final site = _siteRe.firstMatch(block)?.group(1)?.trim() ?? '';
+    final addr = _addrRe.firstMatch(block)?.group(1)?.trim() ?? '';
+    final job = _jobRe.firstMatch(block)?.group(1)?.trim() ?? '';
+    final rest = tm.group(5);
+    final title = [company, site.isEmpty ? '勤務' : site]
+        .where((x) => x.isNotEmpty)
+        .join(' ');
+    final note = [
+      if (job.isNotEmpty) '作業内容: $job',
+      if (rest != null) '休憩: $rest',
+    ].join('\n');
+    final source = lines[i].trim();
+
+    // 使った行は、通常の解析では読まない（重複の勤務でも読み飛ばす）
+    for (final k in idx) {
+      final l = lines[k];
+      if (l.contains(RegExp(r'作業日|作業時間|現場名|現場住所|作業内容'))) {
+        consumed.add(k);
+      }
+    }
+
+    if (!seen.add('${date.toIso8601String()} $start $end $site')) continue;
+
+    final overnight = end <= start;
+    final endDate = overnight ? date.add(const Duration(days: 1)) : date;
+    if (overnight) {
+      out.add(Candidate(
+        title: title,
+        date: date,
+        type: ImportType.shift,
+        source: source,
+        startMin: start,
+        endMin: 24 * 60 - 1,
+        place: addr,
+        note: [note, '翌${fmtMin(end)}まで'].where((x) => x.isNotEmpty).join('\n'),
+        calendarId: calId,
+      ));
+      if (end > 0) {
+        out.add(Candidate(
+          title: '$title（夜勤の続き）',
+          date: endDate,
+          type: ImportType.shift,
+          source: source,
+          startMin: 0,
+          endMin: end,
+          place: addr,
+          note: note,
+          calendarId: calId,
+        ));
+      }
+    } else {
+      out.add(Candidate(
+        title: title,
+        date: date,
+        type: ImportType.shift,
+        source: source,
+        startMin: start,
+        endMin: end,
+        place: addr,
+        note: note,
+        calendarId: calId,
+      ));
+    }
+    out.add(Candidate(
+      title: '終了報告（${site.isEmpty ? fmtDate(date) : site}）',
+      date: endDate,
+      type: ImportType.task,
+      source: source,
+      startMin: end,
+      note: '作業が終わったら終了報告を送る',
+    ));
+  }
+  return out;
+}
+
 ParseResult parseText(String text, DateTime now,
     {List<CalendarDef>? calendars}) {
   final cals = calendars ?? defaultCalendars();
@@ -284,7 +404,14 @@ ParseResult parseText(String text, DateTime now,
   // 見出しからタイトルを借りた候補（続く「内容：」行があればそちらを優先）
   Candidate? fromHeading;
 
-  for (final rawLine in text.split(RegExp(r'\r?\n'))) {
+  // 勤務連絡（ユニティーの「労働条件通知」など）は決まった書式なので先に読み取る
+  final lines = text.split(RegExp(r'\r?\n'));
+  final consumed = <int>{};
+  out.addAll(_parseWorkNotices(lines, consumed, cals, text));
+
+  for (var li = 0; li < lines.length; li++) {
+    if (consumed.contains(li)) continue;
+    final rawLine = lines[li];
     final line = rawLine.trim();
     if (line.isEmpty) {
       // 予定を含む段落が終わったら、その見出しは次の段落に持ち越さない

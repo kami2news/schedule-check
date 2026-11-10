@@ -3,6 +3,7 @@ import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 
 import '../models.dart';
 import '../parser.dart';
+import '../reconcile.dart';
 import '../store.dart';
 import 'fluent.dart';
 import 'fluent_extras.dart';
@@ -19,6 +20,7 @@ class ImportPage extends StatefulWidget {
 class _ImportPageState extends State<ImportPage> {
   final _text = TextEditingController();
   List<Candidate> _cands = [];
+  final Map<Candidate, MatchResult> _matches = {};
   int _skipped = 0;
   bool _parsed = false;
 
@@ -32,11 +34,30 @@ class _ImportPageState extends State<ImportPage> {
     FocusScope.of(context).unfocus();
     final r = parseText(_text.text, DateTime.now(),
         calendars: StoreScope.read(context).calendars);
+    final store = StoreScope.read(context);
+    _matches.clear();
+    for (final c in r.candidates) {
+      final m = reconcile(c, store.events, store.tasks);
+      _matches[c] = m;
+      c.selected = m.defaultSelected;
+    }
     setState(() {
       _cands = r.candidates;
       _skipped = r.skipped;
       _parsed = true;
     });
+  }
+
+  /// 候補を編集したら照合し直す（結果の種類が変わったらチェックも初期値に戻す）
+  void _rematch(Candidate c) {
+    final store = StoreScope.read(context);
+    final m = reconcile(c, store.events, store.tasks);
+    final old = _matches[c];
+    if (old == null || old.kind != m.kind || old.event != m.event) {
+      c.selected = m.defaultSelected;
+    }
+    _matches[c] = m;
+    setState(() {});
   }
 
   int get _selectedCount => _cands.where((c) => c.selected).length;
@@ -45,50 +66,97 @@ class _ImportPageState extends State<ImportPage> {
     final store = StoreScope.read(context);
     final events = <Event>[];
     final tasks = <TaskItem>[];
+    var updated = 0, deleted = 0;
     for (final c in _cands.where((c) => c.selected)) {
+      final m = _matches[c] ?? MatchResult(MatchKind.fresh);
       final title = c.title.trim().isEmpty ? '(無題)' : c.title.trim();
       // リンクとして開けない値はメモに残す
       final rawUrl = c.url.trim();
       final url = normalizeUrl(rawUrl) ?? '';
       final extraNote = rawUrl.isNotEmpty && url.isEmpty ? 'リンク: $rawUrl' : '';
       final note = [c.note.trim(), extraNote].where((x) => x.isNotEmpty).join('\n');
-      if (c.type == ImportType.task) {
-        final place = c.place.trim();
-        tasks.add(TaskItem(
-          id: store.newId(),
-          title: title,
-          due: c.date,
-          dueMin: c.startMin,
-          url: url,
-          // タスクには場所の欄がないのでメモにまとめる
-          note: [if (place.isNotEmpty) '場所: $place', if (note.isNotEmpty) note]
-              .join('\n'),
-        ));
-      } else {
-        final s = c.startMin;
-        events.add(Event(
-          id: store.newId(),
-          title: title,
-          calendarId: c.calendarId,
-          showAs: c.showAs,
-          date: c.date,
-          startMin: s,
-          endMin: s == null ? null : (c.endMin ?? defaultEnd(s)),
-          place: c.place.trim(),
-          url: url,
-          note: note,
-        ));
+      final place = c.place.trim();
+
+      String merged(String old) =>
+          note.isEmpty || old.contains(note) ? old : (old.isEmpty ? note : '$old\n$note');
+
+      switch (m.kind) {
+        case MatchKind.cancel:
+          if (!m.canApply) break;
+          if (m.event != null) store.deleteEvent(m.event!.id);
+          if (m.task != null) store.deleteTask(m.task!.id);
+          deleted++;
+        case MatchKind.duplicate:
+        case MatchKind.update:
+          if (!m.canApply) break;
+          final e = m.event, t = m.task;
+          if (e != null) {
+            if (m.kind == MatchKind.update) {
+              if (!e.weekly) e.date = dateOnly(c.date);
+              if (c.startMin != null) {
+                e.startMin = c.startMin;
+                e.endMin = c.endMin ?? defaultEnd(c.startMin!);
+              }
+            }
+            if (e.url.isEmpty) e.url = url;
+            if (e.place.isEmpty) e.place = place;
+            e.note = merged(e.note);
+            store.upsertEvent(e);
+          } else if (t != null) {
+            if (m.kind == MatchKind.update) {
+              t.due = dateOnly(c.date);
+              if (c.startMin != null) t.dueMin = c.startMin;
+            }
+            if (t.url.isEmpty) t.url = url;
+            t.note = merged(t.note);
+            store.upsertTask(t);
+          }
+          updated++;
+        case MatchKind.fresh:
+        case MatchKind.conflict:
+          if (c.type == ImportType.task) {
+            tasks.add(TaskItem(
+              id: store.newId(),
+              title: title,
+              due: c.date,
+              dueMin: c.startMin,
+              url: url,
+              // タスクには場所の欄がないのでメモにまとめる
+              note: [if (place.isNotEmpty) '場所: $place', if (note.isNotEmpty) note]
+                  .join('\n'),
+            ));
+          } else {
+            final s = c.startMin;
+            events.add(Event(
+              id: store.newId(),
+              title: title,
+              calendarId: c.calendarId,
+              showAs: c.showAs,
+              date: c.date,
+              startMin: s,
+              endMin: s == null ? null : (c.endMin ?? defaultEnd(s)),
+              place: place,
+              url: url,
+              note: note,
+            ));
+          }
       }
     }
     store.addMany(newEvents: events, newTasks: tasks);
-    final n = events.length + tasks.length;
+    final added = events.length + tasks.length;
     setState(() {
       _cands = [];
+      _matches.clear();
       _parsed = false;
       _text.clear();
     });
+    final parts = [
+      if (added > 0) '追加$added件',
+      if (updated > 0) '更新$updated件',
+      if (deleted > 0) '削除$deleted件',
+    ];
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('予定${events.length}件・タスク${tasks.length}件を登録しました（計$n件）')));
+        content: Text(parts.isEmpty ? '変更はありませんでした' : '${parts.join('・')}を反映しました')));
   }
 
   @override
@@ -123,7 +191,8 @@ class _ImportPageState extends State<ImportPage> {
             _CandidateTile(
               key: ObjectKey(c),
               c: c,
-              onChanged: () => setState(() {}),
+              match: _matches[c],
+              onChanged: () => _rematch(c),
             ),
           if (_skipped > 0)
             EmptyNote('日付が見つからず読み飛ばした行: $_skipped'),
@@ -131,7 +200,7 @@ class _ImportPageState extends State<ImportPage> {
             SizedBox(height: 12),
             FilledButton(
               onPressed: _selectedCount == 0 ? null : _register,
-              child: Text('選択した$_selectedCount件を登録'),
+              child: Text('選択した$_selectedCount件を反映'),
             ),
           ],
         ],
@@ -141,9 +210,11 @@ class _ImportPageState extends State<ImportPage> {
 }
 
 class _CandidateTile extends StatefulWidget {
-  const _CandidateTile({super.key, required this.c, required this.onChanged});
+  const _CandidateTile(
+      {super.key, required this.c, required this.match, required this.onChanged});
 
   final Candidate c;
+  final MatchResult? match;
   final VoidCallback onChanged;
 
   @override
@@ -173,6 +244,15 @@ class _CandidateTileState extends State<_CandidateTile> {
   }
 
   Candidate get c => widget.c;
+
+  /// 反映できる操作があるか（同じ予定で足す情報が無い・毎週の予定の変更などは選べない）
+  bool get _selectable {
+    final m = widget.match;
+    if (m == null) return true;
+    if (!m.canApply) return false;
+    if (m.kind == MatchKind.duplicate && !m.enrich) return false;
+    return true;
+  }
 
   void _changed() {
     setState(() {});
@@ -245,14 +325,21 @@ class _CandidateTileState extends State<_CandidateTile> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            if (widget.match != null && widget.match!.kind != MatchKind.fresh)
+              Padding(
+                padding: EdgeInsets.fromLTRB(8, 0, 0, 6),
+                child: _MatchBanner(match: widget.match!, c: c),
+              ),
             Row(
               children: [
                 Checkbox(
-                  value: c.selected,
-                  onChanged: (v) {
-                    c.selected = v ?? false;
-                    _changed();
-                  },
+                  value: c.selected && _selectable,
+                  onChanged: _selectable
+                      ? (v) {
+                          c.selected = v ?? false;
+                          _changed();
+                        }
+                      : null,
                 ),
                 Expanded(
                   child: FlTextField(
@@ -387,6 +474,71 @@ class _CandidateTileState extends State<_CandidateTile> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// 照合結果の説明（登録済み・変更・中止・重なり）
+class _MatchBanner extends StatelessWidget {
+  const _MatchBanner({required this.match, required this.c});
+
+  final MatchResult match;
+  final Candidate c;
+
+  @override
+  Widget build(BuildContext context) {
+    final e = match.event, t = match.task;
+    final name = e != null ? '「${e.title}」（${describeEvent(e)}）' : (t != null ? '「${t.title}」' : '');
+    final (IconData icon, Color color, String text) = switch (match.kind) {
+      MatchKind.duplicate => (
+          FluentIcons.checkmark_circle_16_regular,
+          Fl.fg2,
+          match.enrich
+              ? '登録済みの$nameと同じです。チェックすると、リンク・場所・メモを既存の予定に追加します'
+              : '登録済みの$nameと同じです（追加しません）'
+        ),
+      MatchKind.update => (
+          FluentIcons.edit_16_regular,
+          Fl.warning,
+          !match.canApply
+              ? '毎週の予定$nameの変更のようです。毎週の予定は1日だけ変えられないので、予定を開いて直してください'
+              : e != null
+                  ? '既存の$nameを ${describeCandidateTime(c)} に変更します'
+                  : '既存のタスク$nameの期限を ${describeCandidateTime(c)} に変更します'
+        ),
+      MatchKind.cancel => (
+          FluentIcons.dismiss_circle_16_regular,
+          Fl.danger,
+          !match.hasTarget
+              ? '中止の連絡のようですが、対象の予定が見つかりません'
+              : !match.canApply
+                  ? '毎週の予定$nameの中止の連絡です。1日だけ消すことはできないので、必要なら予定を開いて直してください'
+                  : '$nameの中止の連絡です。チェックすると、この予定を削除します'
+        ),
+      MatchKind.conflict => (
+          FluentIcons.warning_16_regular,
+          Fl.warning,
+          '${match.conflicts.map((x) => '「${x.title}」（${x.timeLabel}）').join('、')}と時間が重なっています'
+        ),
+      MatchKind.fresh => (FluentIcons.add_16_regular, Fl.fg2, ''),
+    };
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: Fl.tint(color, Fl.isDark ? 0.18 : 0.08),
+        borderRadius: BorderRadius.circular(Fl.r4),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: EdgeInsets.only(top: 2),
+            child: Icon(icon, size: 16, color: color),
+          ),
+          SizedBox(width: 8),
+          Expanded(child: Text(text, style: FlText.caption1.copyWith(color: Fl.fg1))),
+        ],
       ),
     );
   }
