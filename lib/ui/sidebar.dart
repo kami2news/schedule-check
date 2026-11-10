@@ -54,7 +54,7 @@ class CalendarSidebar extends StatelessWidget {
             ),
             _SideAction(
               icon: FluentIcons.calendar_search_20_regular,
-              label: '空き時間を探す（候補日をコピー）',
+              label: '空き時間の候補をコピー',
               onTap: () => openFreeTime(context),
             ),
             _SideAction(

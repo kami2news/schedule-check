@@ -80,7 +80,7 @@ class _CalendarPageState extends State<CalendarPage> {
     final y = s.year == DateTime.now().year ? '' : '${s.year}年';
     switch (c.view) {
       case CalView.day:
-        return '$y${s.month}月${s.day}日（${weekdayNames[s.weekday - 1]}）';
+        return '$y${s.month}/${s.day}（${weekdayNames[s.weekday - 1]}）';
       case CalView.week:
         final a = startOfWeek(s);
         final b = addDays(a, 6);
