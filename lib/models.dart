@@ -196,7 +196,7 @@ int compareTasks(TaskItem a, TaskItem b) {
 }
 
 /// 文字列中の URL（http/https）
-final urlPattern = RegExp(r'https?://[^\s<>"\'「」（）()、。]+');
+final urlPattern = RegExp(r"https?://[^\s<>\"'「」（）()、。]+");
 
 /// リンクの種類に応じた表示名（Zoom / Teams / Meet / Webex / リンク）
 String linkLabel(String url) {
