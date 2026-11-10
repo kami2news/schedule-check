@@ -265,12 +265,17 @@ ParseResult parseText(String text, DateTime now) {
   // 見出し行・件名（タイトルが取れない日付行に使う）
   String? heading;
   String? subject;
+  // 見出しからタイトルを借りた候補（続く「内容：」行があればそちらを優先）
+  Candidate? fromHeading;
 
   for (final rawLine in text.split(RegExp(r'\r?\n'))) {
     final line = rawLine.trim();
     if (line.isEmpty) {
+      // 予定を含む段落が終わったら、その見出しは次の段落に持ち越さない
+      if (open != null) heading = null;
       open = null;
       needsTitle = null;
+      fromHeading = null;
       continue;
     }
 
@@ -311,6 +316,14 @@ ParseResult parseText(String text, DateTime now) {
         continue;
       }
       final tl = _titleLabelRe.firstMatch(line);
+      if (tl != null && fromHeading == target) {
+        final c = _cleanTitle(tl.group(1)!).title;
+        if (c.isNotEmpty) {
+          target.title = c;
+          fromHeading = null;
+          continue;
+        }
+      }
       if (needsTitle == target && !_noteLineRe.hasMatch(line)) {
         var src = tl != null ? tl.group(1)! : body;
         if (target.startMin == null) {
@@ -341,12 +354,14 @@ ParseResult parseText(String text, DateTime now) {
     final cleaned = _cleanTitle(rest);
     var title = cleaned.title;
     var weak = title.isEmpty || _genericRe.hasMatch(title);
+    var borrowed = false;
     if (weak) {
       final h = heading ?? subject;
       if (h != null) {
         // 「提出」など短い語だけ残った場合は見出しと組み合わせる
         title = title.isEmpty || h.contains(title) ? h : '$h $title';
         weak = false;
+        borrowed = true;
       } else if (title.isEmpty && cleaned.label.isNotEmpty &&
           !RegExp(r'^(?:日時|日程|日付|時間|開催日|実施日)').hasMatch(cleaned.label)) {
         title = cleaned.label; // 「提出期限」など
@@ -378,6 +393,7 @@ ParseResult parseText(String text, DateTime now) {
     out.add(c);
     open = c;
     needsTitle = weak ? c : null;
+    fromHeading = borrowed ? c : null;
   }
   return ParseResult(out, skipped);
 }

@@ -159,5 +159,19 @@ void main() {
       expect(c.startMin, 10 * 60);
       expect(c.endMin, 12 * 60);
     });
-  });
+  
+    test('見出しは別の段落には持ち越さず、「内容：」行を優先する', () {
+      const text = '■ 研究室見学会\n日程：11月25日(水) 13:00〜\n\n'
+          '【日時】11月18日（水）14:00～15:00\n内容：研究室面談\n'
+          'Zoom: https://zoom.us/j/123';
+      final cs = parseText(text, now).candidates;
+      expect(cs.map((c) => c.title).toList(), ['研究室見学会', '研究室面談']);
+      expect(cs[1].url, 'https://zoom.us/j/123');
+      expect(cs[1].note, '');
+      final h = parseText('■ 見学会\n日程：11/25 13:00\n内容：研究室面談', now)
+          .candidates
+          .single;
+      expect(h.title, '研究室面談');
+    });
+});
 }
