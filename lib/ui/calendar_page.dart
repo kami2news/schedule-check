@@ -1,15 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 
 import '../models.dart';
 import 'controller.dart';
+import 'fluent.dart';
 import 'mini_month.dart';
 import 'month_view.dart';
 import 'time_grid.dart';
 
 /// カレンダー本体（ヘッダー + 日/週/月ビュー）
 ///
-/// [compact] が true のときは狭い画面向けに、ヘッダーを2段にしてタイトルを
-/// タップするとミニカレンダーを開閉できるようにする。
+/// [compact] が true のときは狭い画面向けに、タイトルをタップすると
+/// ミニカレンダーを開閉できるようにする。
 class CalendarPage extends StatefulWidget {
   const CalendarPage({super.key, required this.controller, this.compact = false});
 
@@ -23,30 +25,82 @@ class CalendarPage extends StatefulWidget {
 class _CalendarPageState extends State<CalendarPage> {
   bool _showMini = false;
 
-  Widget _viewSwitch(CalendarController c) {
-    return SegmentedButton<CalView>(
-      showSelectedIcon: false,
-      style: const ButtonStyle(visualDensity: VisualDensity.compact),
-      segments: [
+  /// Outlook と同じ「週 ▾」形式の表示切り替えメニュー
+  Widget _viewMenu(CalendarController c) {
+    return PopupMenuButton<CalView>(
+      tooltip: '表示形式',
+      position: PopupMenuPosition.under,
+      initialValue: c.view,
+      onSelected: c.setView,
+      itemBuilder: (context) => [
         for (final v in CalView.values)
-          ButtonSegment(value: v, label: Text(v.label)),
+          PopupMenuItem<CalView>(
+            value: v,
+            height: 36,
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 20,
+                  child: v == c.view
+                      ? const Icon(FluentIcons.checkmark_24_regular, size: 16)
+                      : null,
+                ),
+                const SizedBox(width: 8),
+                Text(v.label),
+              ],
+            ),
+          ),
       ],
-      selected: {c.view},
-      onSelectionChanged: (s) => c.setView(s.first),
+      child: Container(
+        height: 32,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        decoration: BoxDecoration(
+          color: Fl.bg1,
+          border: Border.all(color: Fl.stroke1),
+          borderRadius: BorderRadius.circular(Fl.r4),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(c.view.label, style: FlText.body1Strong),
+            const SizedBox(width: 6),
+            const Icon(FluentIcons.chevron_down_24_regular, size: 14),
+          ],
+        ),
+      ),
     );
   }
 
   Widget _header(BuildContext context, CalendarController c) {
-    final titleStyle = Theme.of(context)
-        .textTheme
-        .titleMedium
-        ?.copyWith(fontWeight: FontWeight.bold);
+    final compact = widget.compact;
+    final todayButton = compact
+        ? OutlinedButton(onPressed: c.goToday, child: const Text('今日'))
+        : OutlinedButton.icon(
+            onPressed: c.goToday,
+            icon: const Icon(FluentIcons.calendar_ltr_24_regular, size: 16),
+            label: const Text('今日'),
+          );
 
-    final Widget title = widget.compact
+    final arrows = [
+      IconButton(
+        tooltip: '前へ',
+        icon: const Icon(FluentIcons.chevron_left_24_regular),
+        onPressed: () => c.step(-1),
+      ),
+      IconButton(
+        tooltip: '次へ',
+        icon: const Icon(FluentIcons.chevron_right_24_regular),
+        onPressed: () => c.step(1),
+      ),
+    ];
+
+    final titleStyle = compact ? FlText.subtitle2 : FlText.subtitle1;
+    final Widget title = compact
         ? InkWell(
+            borderRadius: BorderRadius.circular(Fl.r4),
             onTap: () => setState(() => _showMini = !_showMini),
             child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8),
+              padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -54,45 +108,41 @@ class _CalendarPageState extends State<CalendarPage> {
                     child: Text(c.title,
                         style: titleStyle, overflow: TextOverflow.ellipsis),
                   ),
-                  Icon(_showMini ? Icons.expand_less : Icons.expand_more),
+                  const SizedBox(width: 4),
+                  Icon(
+                    _showMini
+                        ? FluentIcons.chevron_up_24_regular
+                        : FluentIcons.chevron_down_24_regular,
+                    size: 16,
+                  ),
                 ],
               ),
             ),
           )
         : Text(c.title, style: titleStyle);
 
-    final row = Row(
-      children: [
-        Expanded(child: Align(alignment: Alignment.centerLeft, child: title)),
-        TextButton(onPressed: c.goToday, child: const Text('今日')),
-        IconButton(
-          tooltip: '前へ',
-          icon: const Icon(Icons.chevron_left),
-          onPressed: () => c.step(-1),
-        ),
-        IconButton(
-          tooltip: '次へ',
-          icon: const Icon(Icons.chevron_right),
-          onPressed: () => c.step(1),
-        ),
-        if (!widget.compact) ...[
-          const SizedBox(width: 8),
-          _viewSwitch(c),
-        ],
-      ],
-    );
-
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 4, 8, 4),
-      child: widget.compact
-          ? Column(
-              children: [
-                row,
-                SizedBox(width: double.infinity, child: _viewSwitch(c)),
-                const SizedBox(height: 4),
-              ],
-            )
-          : row,
+      padding: compact
+          ? const EdgeInsets.fromLTRB(12, 8, 12, 8)
+          : const EdgeInsets.fromLTRB(16, 10, 16, 10),
+      child: Row(
+        children: [
+          if (!compact) ...[
+            todayButton,
+            const SizedBox(width: 4),
+            ...arrows,
+            const SizedBox(width: 8),
+          ],
+          Expanded(child: Align(alignment: Alignment.centerLeft, child: title)),
+          if (compact) ...[
+            todayButton,
+            const SizedBox(width: 2),
+            ...arrows,
+          ],
+          const SizedBox(width: 8),
+          _viewMenu(c),
+        ],
+      ),
     );
   }
 
@@ -128,7 +178,7 @@ class _CalendarPageState extends State<CalendarPage> {
             _header(context, c),
             if (widget.compact)
               AnimatedSize(
-                duration: const Duration(milliseconds: 200),
+                duration: const Duration(milliseconds: 150),
                 alignment: Alignment.topCenter,
                 child: _showMini
                     ? MiniMonth(controller: c)

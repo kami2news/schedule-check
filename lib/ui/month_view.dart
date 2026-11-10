@@ -1,11 +1,14 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 
 import '../models.dart';
 import '../store.dart';
 import 'controller.dart';
 import 'edit_pages.dart';
+import 'fluent.dart';
+import 'fluent_extras.dart';
 
 /// Outlook 風の月表示
 class MonthView extends StatelessWidget {
@@ -16,14 +19,12 @@ class MonthView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final store = StoreScope.of(context);
-    final scheme = Theme.of(context).colorScheme;
     final sel = controller.selected;
     final first = DateTime(sel.year, sel.month, 1);
     final gridStart = startOfWeek(first);
     final last = DateTime(sel.year, sel.month + 1, 0);
     final rows = last.difference(gridStart).inDays ~/ 7 + 1;
     final today = dateOnly(DateTime.now());
-    final lineColor = scheme.outlineVariant.withValues(alpha: 0.7);
 
     return Column(
       children: [
@@ -32,18 +33,17 @@ class MonthView extends StatelessWidget {
             for (var i = 0; i < 7; i++)
               Expanded(
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  padding: const EdgeInsets.symmetric(vertical: 8),
                   child: Text(
                     weekdayNames[addDays(gridStart, i).weekday - 1],
                     textAlign: TextAlign.center,
-                    style: TextStyle(
-                        fontSize: 12, color: scheme.onSurfaceVariant),
+                    style: FlText.caption1.copyWith(color: Fl.fg3),
                   ),
                 ),
               ),
           ],
         ),
-        Divider(height: 1, color: lineColor),
+        const Divider(height: 1),
         Expanded(
           child: Column(
             children: [
@@ -59,7 +59,6 @@ class MonthView extends StatelessWidget {
                             addDays(gridStart, r * 7 + c),
                             sel,
                             today,
-                            lineColor,
                           ),
                         ),
                     ],
@@ -73,8 +72,7 @@ class MonthView extends StatelessWidget {
   }
 
   Widget _cell(BuildContext context, AppStore store, DateTime day,
-      DateTime sel, DateTime today, Color lineColor) {
-    final scheme = Theme.of(context).colorScheme;
+      DateTime sel, DateTime today) {
     final inMonth = day.month == sel.month;
     final isToday = day == today;
     final isSel = day == sel;
@@ -90,16 +88,16 @@ class MonthView extends StatelessWidget {
       onLongPress: () => openEventEditor(context, date: day),
       child: Container(
         decoration: BoxDecoration(
-          color: isSel ? scheme.primaryContainer.withValues(alpha: 0.35) : null,
-          border: Border(
-            right: BorderSide(color: lineColor),
-            bottom: BorderSide(color: lineColor),
+          color: isSel ? Fl.brandTint.withValues(alpha: 0.6) : null,
+          border: const Border(
+            right: BorderSide(color: Fl.stroke2),
+            bottom: BorderSide(color: Fl.stroke2),
           ),
         ),
         child: LayoutBuilder(
           builder: (context, cs) {
             final maxChips =
-                math.max(0, math.min(6, ((cs.maxHeight - 28) / 16).floor()));
+                math.max(0, math.min(6, ((cs.maxHeight - 28) / 18).floor()));
             final shown = total <= maxChips
                 ? total
                 : (maxChips > 0 ? maxChips - 1 : 0);
@@ -109,17 +107,15 @@ class MonthView extends StatelessWidget {
             var n = 0;
             for (final e in events) {
               if (n++ >= shown) break;
-              chips.add(_chip(
-                color: e.kind.color.withValues(alpha: 0.22),
-                bar: e.kind.color,
-                text: e.title,
-                faded: !inMonth,
-              ));
+              chips.add(_eventChip(e, !inMonth));
             }
             for (final t in tasks) {
               if (n++ >= shown) break;
-              chips.add(_taskChip(context, t, !inMonth));
+              chips.add(_taskChip(t, !inMonth));
             }
+
+            // 月の1日だけ「11月1日」のように月も表示する（Outlook と同じ）
+            final label = day.day == 1 ? '${day.month}月1日' : '${day.day}';
 
             return Padding(
               padding: const EdgeInsets.all(2),
@@ -127,24 +123,21 @@ class MonthView extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Container(
-                    width: 22,
+                    constraints: const BoxConstraints(minWidth: 22),
                     height: 22,
+                    padding: EdgeInsets.symmetric(
+                        horizontal: label.length > 2 ? 6 : 0),
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
-                      color: isToday ? scheme.primary : null,
-                      shape: BoxShape.circle,
+                      color: isToday ? Fl.brand : null,
+                      borderRadius: BorderRadius.circular(11),
                     ),
                     child: Text(
-                      '${day.day}',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: isToday ? FontWeight.bold : null,
+                      label,
+                      style: FlText.caption1Strong.copyWith(
                         color: isToday
-                            ? scheme.onPrimary
-                            : (inMonth
-                                ? scheme.onSurface
-                                : scheme.onSurfaceVariant
-                                    .withValues(alpha: 0.5)),
+                            ? Colors.white
+                            : (inMonth ? Fl.fg1 : Fl.fg3),
                       ),
                     ),
                   ),
@@ -154,8 +147,7 @@ class MonthView extends StatelessWidget {
                     Padding(
                       padding: const EdgeInsets.only(left: 2),
                       child: Text('+$hidden',
-                          style: TextStyle(
-                              fontSize: 10, color: scheme.onSurfaceVariant)),
+                          style: FlText.caption2.copyWith(color: Fl.fg3)),
                     ),
                 ],
               ),
@@ -166,59 +158,63 @@ class MonthView extends StatelessWidget {
     );
   }
 
-  Widget _chip({
-    required Color color,
-    required Color bar,
-    required String text,
-    required bool faded,
-  }) {
+  Widget _eventChip(Event e, bool faded) {
     return Opacity(
-      opacity: faded ? 0.5 : 1,
-      child: Container(
-        height: 14,
-        width: double.infinity,
-        margin: const EdgeInsets.only(bottom: 2),
-        padding: const EdgeInsets.only(left: 3),
-        decoration: BoxDecoration(
-          color: color,
-          borderRadius: BorderRadius.circular(3),
-          border: Border(left: BorderSide(color: bar, width: 3)),
+      opacity: faded ? 0.55 : 1,
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 2),
+        child: SizedBox(
+          height: 16,
+          width: double.infinity,
+          child: FlAccentBox(
+            accent: e.kind.color,
+            bar: 3,
+            padding: const EdgeInsets.fromLTRB(3, 0, 2, 0),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                e.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: FlText.caption2,
+              ),
+            ),
+          ),
         ),
-        alignment: Alignment.centerLeft,
-        child: Text(text,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontSize: 10, height: 1.1)),
       ),
     );
   }
 
-  Widget _taskChip(BuildContext context, TaskItem t, bool faded) {
-    final scheme = Theme.of(context).colorScheme;
+  Widget _taskChip(TaskItem t, bool faded) {
     return Opacity(
-      opacity: faded ? 0.5 : 1,
-      child: Container(
-        height: 14,
-        width: double.infinity,
-        margin: const EdgeInsets.only(bottom: 2),
-        child: Row(
-          children: [
-            Icon(t.done ? Icons.check_circle : Icons.radio_button_unchecked,
-                size: 11, color: t.done ? scheme.primary : scheme.outline),
-            const SizedBox(width: 3),
-            Expanded(
-              child: Text(
-                t.title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 10,
-                  height: 1.1,
-                  decoration: t.done ? TextDecoration.lineThrough : null,
+      opacity: faded ? 0.55 : 1,
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 2),
+        child: SizedBox(
+          height: 16,
+          width: double.infinity,
+          child: Row(
+            children: [
+              Icon(
+                t.done
+                    ? FluentIcons.checkmark_circle_16_filled
+                    : FluentIcons.circle_16_regular,
+                size: 12,
+                color: t.done ? Fl.brand : Fl.fg3,
+              ),
+              const SizedBox(width: 3),
+              Expanded(
+                child: Text(
+                  t.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: FlText.caption2.copyWith(
+                    decoration: t.done ? TextDecoration.lineThrough : null,
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

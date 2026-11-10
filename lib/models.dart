@@ -14,6 +14,9 @@ DateTime startOfWeek(DateTime d) {
   return DateTime(d.year, d.month, d.day - offset);
 }
 
+String fmtLongDate(DateTime d) =>
+    '${d.year}年${d.month}月${d.day}日（${weekdayNames[d.weekday - 1]}）';
+
 String fmtDate(DateTime d) =>
     '${d.month}/${d.day}(${weekdayNames[d.weekday - 1]})';
 
@@ -34,16 +37,20 @@ extension EventKindX on EventKind {
     }
   }
 
+  /// Fluent のパレット（オレンジ / コーンフラワー / ティール）
   Color get color {
     switch (this) {
       case EventKind.shift:
-        return Colors.orange;
+        return const Color(0xFFCA5010);
       case EventKind.lecture:
-        return Colors.indigo;
+        return const Color(0xFF4F6BED);
       case EventKind.other:
-        return Colors.teal;
+        return const Color(0xFF038387);
     }
   }
+
+  /// 予定ブロックの淡い背景色（白に14%重ねた色）
+  Color get tint => Color.alphaBlend(color.withValues(alpha: 0.14), Colors.white);
 }
 
 class Event {

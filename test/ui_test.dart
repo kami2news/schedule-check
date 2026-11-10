@@ -63,8 +63,10 @@ void main() {
     expect(find.text('レポート提出'), findsWidgets);
 
     // 月表示に切り替えても例外が出ない
+    await tester.tap(find.byType(PopupMenuButton<CalView>));
+    await tester.pumpAndSettle();
     await tester.tap(find.descendant(
-      of: find.byType(SegmentedButton<CalView>),
+      of: find.byType(PopupMenuItem<CalView>),
       matching: find.text('月'),
     ));
     await tester.pumpAndSettle();

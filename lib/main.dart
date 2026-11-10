@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 
 import 'store.dart';
 import 'ui/calendar_page.dart';
 import 'ui/controller.dart';
 import 'ui/edit_pages.dart';
+import 'ui/fluent.dart';
 import 'ui/import_page.dart';
 import 'ui/layout.dart';
 import 'ui/sidebar.dart';
@@ -28,11 +30,7 @@ class ScheduleApp extends StatelessWidget {
       child: MaterialApp(
         title: 'スケジュール確認',
         debugShowCheckedModeBanner: false,
-        theme: ThemeData(
-          // Outlook のブルー
-          colorSchemeSeed: const Color(0xFF0F6CBD),
-          useMaterial3: true,
-        ),
+        theme: buildFluentTheme(),
         locale: const Locale('ja'),
         supportedLocales: const [Locale('ja'), Locale('en')],
         localizationsDelegates: const [
@@ -59,6 +57,15 @@ class _HomeShellState extends State<HomeShell> {
   CalendarController? _cal;
   int _tab = 0;
 
+  static const _navItems = [
+    FlNavItem('カレンダー', FluentIcons.calendar_ltr_24_regular,
+        FluentIcons.calendar_ltr_24_filled),
+    FlNavItem('To Do', FluentIcons.task_list_ltr_24_regular,
+        FluentIcons.task_list_ltr_24_filled),
+    FlNavItem('取り込み', FluentIcons.clipboard_paste_24_regular,
+        FluentIcons.clipboard_paste_24_filled),
+  ];
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -77,12 +84,11 @@ class _HomeShellState extends State<HomeShell> {
   }
 
   void _openImport() {
-    Navigator.of(context).push(MaterialPageRoute<void>(
-      builder: (_) => Scaffold(
-        appBar: AppBar(title: const Text('メールなどから取り込む')),
-        body: const ImportPage(),
-      ),
-    ));
+    showFlDialogOrPage(
+      context,
+      title: 'メールなどから取り込む',
+      builder: (_) => const ImportPage(),
+    );
   }
 
   @override
@@ -91,42 +97,52 @@ class _HomeShellState extends State<HomeShell> {
 
     if (isWide(context)) {
       return Scaffold(
-        appBar: AppBar(
-          title: const Text('スケジュール確認'),
-          scrolledUnderElevation: 0,
-        ),
-        body: Row(
+        backgroundColor: Fl.bg3,
+        body: Column(
           children: [
-            SizedBox(
-              width: 264,
-              child: CalendarSidebar(controller: cal, onImport: _openImport),
+            const FlTopBar(title: 'スケジュール確認'),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(0, 8, 8, 8),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    SizedBox(
+                      width: 264,
+                      child: CalendarSidebar(
+                          controller: cal, onImport: _openImport),
+                    ),
+                    Expanded(
+                      child: FlPane(child: CalendarPage(controller: cal)),
+                    ),
+                    const SizedBox(width: 8),
+                    const SizedBox(
+                      width: 340,
+                      child: FlPane(color: Fl.bg2, child: TodoPanel()),
+                    ),
+                  ],
+                ),
+              ),
             ),
-            const VerticalDivider(width: 1),
-            Expanded(child: CalendarPage(controller: cal)),
-            const VerticalDivider(width: 1),
-            const SizedBox(width: 340, child: TodoPanel()),
           ],
         ),
       );
     }
 
     return Scaffold(
+      backgroundColor: Fl.bg1,
       body: SafeArea(
         child: IndexedStack(
           index: _tab,
           children: [
             CalendarPage(controller: cal, compact: true),
-            const TodoPanel(),
+            const ColoredBox(color: Fl.bg2, child: TodoPanel()),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                  child: Text('取り込み',
-                      style: Theme.of(context)
-                          .textTheme
-                          .titleLarge
-                          ?.copyWith(fontWeight: FontWeight.bold)),
+                  child: Text('取り込み', style: FlText.subtitle1),
                 ),
                 const Expanded(child: ImportPage()),
               ],
@@ -137,27 +153,18 @@ class _HomeShellState extends State<HomeShell> {
       floatingActionButton: _tab == 0
           ? FloatingActionButton(
               tooltip: '予定を追加',
+              elevation: 4,
+              backgroundColor: Fl.brand,
+              foregroundColor: Colors.white,
+              shape: const CircleBorder(),
               onPressed: () => openEventEditor(context, date: cal.selected),
-              child: const Icon(Icons.add),
+              child: const Icon(FluentIcons.add_24_regular),
             )
           : null,
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _tab,
-        onDestinationSelected: (i) => setState(() => _tab = i),
-        destinations: const [
-          NavigationDestination(
-              icon: Icon(Icons.calendar_month_outlined),
-              selectedIcon: Icon(Icons.calendar_month),
-              label: 'カレンダー'),
-          NavigationDestination(
-              icon: Icon(Icons.checklist_outlined),
-              selectedIcon: Icon(Icons.checklist),
-              label: 'To Do'),
-          NavigationDestination(
-              icon: Icon(Icons.content_paste_outlined),
-              selectedIcon: Icon(Icons.content_paste),
-              label: '取り込み'),
-        ],
+      bottomNavigationBar: FlBottomNav(
+        items: _navItems,
+        index: _tab,
+        onChanged: (i) => setState(() => _tab = i),
       ),
     );
   }

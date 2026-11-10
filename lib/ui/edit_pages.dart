@@ -1,27 +1,58 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 
 import '../models.dart';
 import '../store.dart';
+import 'fluent.dart';
+import 'fluent_extras.dart';
 import 'layout.dart';
 
 /// 広い画面ではダイアログ、狭い画面では全画面で開く
 Future<void> _openEditor(BuildContext context, Widget page) {
   if (useDialog(context)) {
-    return showDialog<void>(
-      context: context,
-      builder: (_) => Dialog(
-        clipBehavior: Clip.antiAlias,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 520, maxHeight: 680),
-          child: page,
-        ),
-      ),
-    );
+    return showFlDialog<void>(context, child: page, maxHeight: 680);
   }
   return Navigator.of(context)
       .push(MaterialPageRoute<void>(builder: (_) => page));
+}
+
+/// タイトル付きの枠（ヘッダー + 閉じる）で任意の画面をダイアログ／全画面表示する
+Future<void> showFlDialogOrPage(
+  BuildContext context, {
+  required String title,
+  required WidgetBuilder builder,
+}) {
+  Widget frame(BuildContext ctx) => Material(
+        color: Fl.bg1,
+        child: SafeArea(
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 16, 12, 4),
+                child: Row(
+                  children: [
+                    Expanded(child: Text(title, style: FlText.subtitle1)),
+                    IconButton(
+                      tooltip: '閉じる',
+                      icon: const Icon(FluentIcons.dismiss_24_regular),
+                      onPressed: () => Navigator.of(ctx).pop(),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(child: builder(ctx)),
+            ],
+          ),
+        ),
+      );
+  if (useDialog(context)) {
+    return showFlDialog<void>(context,
+        child: Builder(builder: frame), maxHeight: 680);
+  }
+  return Navigator.of(context)
+      .push(MaterialPageRoute<void>(builder: (ctx) => frame(ctx)));
 }
 
 /// 予定の追加（[event] が null）または編集
@@ -54,28 +85,30 @@ Future<int?> _pickTime(BuildContext context, int initialMin) async {
   return t.hour * 60 + t.minute;
 }
 
-Future<bool> _confirmDelete(BuildContext context, String what) async {
-  final ok = await showDialog<bool>(
-    context: context,
-    builder: (ctx) => AlertDialog(
-      title: Text('$whatを削除しますか？'),
-      content: const Text('この操作は元に戻せません。'),
-      actions: [
-        TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('キャンセル')),
-        FilledButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('削除')),
+Future<bool> _confirmDelete(BuildContext context, String what) {
+  return showFlConfirm(
+    context,
+    title: '$whatを削除しますか？',
+    message: 'この操作は元に戻せません。',
+    confirmLabel: '削除',
+  );
+}
+
+Widget _errorText(String? msg) {
+  if (msg == null) return const SizedBox.shrink();
+  return Padding(
+    padding: const EdgeInsets.only(bottom: 12),
+    child: Row(
+      children: [
+        const Icon(FluentIcons.error_circle_16_filled,
+            size: 16, color: Fl.danger),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Text(msg, style: FlText.caption1.copyWith(color: Fl.danger)),
+        ),
       ],
     ),
   );
-  return ok ?? false;
-}
-
-void _snack(BuildContext context, String msg) {
-  ScaffoldMessenger.of(context)
-      .showSnackBar(SnackBar(content: Text(msg)));
 }
 
 // ---------------------------------------------------------------------------
@@ -107,6 +140,7 @@ class _EventEditPageState extends State<EventEditPage> {
   late int _end;
   late bool _weekly;
   DateTime? _until;
+  String? _error;
 
   bool get _isNew => widget.event == null;
 
@@ -152,11 +186,11 @@ class _EventEditPageState extends State<EventEditPage> {
   void _save() {
     final title = _title.text.trim();
     if (title.isEmpty) {
-      _snack(context, 'タイトルを入力してください');
+      setState(() => _error = 'タイトルを入力してください');
       return;
     }
     if (!_allDay && _end <= _start) {
-      _snack(context, '終了時刻は開始時刻より後にしてください');
+      setState(() => _error = '終了時刻は開始時刻より後にしてください');
       return;
     }
     final store = StoreScope.read(context);
@@ -186,115 +220,112 @@ class _EventEditPageState extends State<EventEditPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(_isNew ? '予定を追加' : '予定を編集'),
-        actions: [
-          if (!_isNew)
-            IconButton(
-                onPressed: _delete,
-                tooltip: '削除',
-                icon: const Icon(Icons.delete_outline)),
-          TextButton(onPressed: _save, child: const Text('保存')),
-        ],
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          TextField(
-            controller: _title,
-            autofocus: _isNew,
-            decoration: const InputDecoration(
-                labelText: 'タイトル', border: OutlineInputBorder()),
-          ),
-          const SizedBox(height: 16),
-          SegmentedButton<EventKind>(
-            segments: [
-              for (final k in EventKind.values)
-                ButtonSegment(value: k, label: Text(k.label)),
-            ],
-            selected: {_kind},
-            onSelectionChanged: (s) => setState(() {
-              _kind = s.first;
+    return FlEditorFrame(
+      title: _isNew ? '予定を追加' : '予定を編集',
+      onSave: _save,
+      onDelete: _isNew ? null : _delete,
+      children: [
+        _errorText(_error),
+        FlField(
+          label: 'タイトル',
+          child: FlTextField(controller: _title, autofocus: _isNew),
+        ),
+        FlField(
+          label: '種類',
+          child: FlToggleGroup<EventKind>(
+            items: EventKind.values,
+            value: _kind,
+            labelOf: (k) => k.label,
+            onChanged: (k) => setState(() {
+              _kind = k;
               // 授業は毎週の時間割として登録することが多いので初期値を変える
               if (_isNew) _weekly = _kind == EventKind.lecture;
             }),
           ),
-          const SizedBox(height: 8),
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: const Icon(Icons.event),
-            title: Text(_weekly
-                ? '${fmtDate(_date)} から（毎週${weekdayNames[_date.weekday - 1]}曜）'
-                : fmtDate(_date)),
+        ),
+        FlField(
+          label: '日付',
+          child: FlPickerField(
+            icon: FluentIcons.calendar_ltr_24_regular,
+            text: _weekly
+                ? '${fmtLongDate(_date)} から（毎週${weekdayNames[_date.weekday - 1]}曜）'
+                : fmtLongDate(_date),
             onTap: () async {
               final v = await _pickDate(context, _date);
-              if (v != null) setState(() => _date = v);
+              if (v != null) setState(() => _date = dateOnly(v));
             },
           ),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: const Text('終日'),
-            value: _allDay,
-            onChanged: (v) => setState(() => _allDay = v),
-          ),
-          if (!_allDay)
-            Row(
+        ),
+        FlSwitchTile(
+          title: '終日',
+          value: _allDay,
+          onChanged: (v) => setState(() => _allDay = v),
+        ),
+        if (!_allDay)
+          Padding(
+            padding: const EdgeInsets.only(top: 4, bottom: 4),
+            child: Row(
               children: [
                 Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: _chooseStart,
-                    icon: const Icon(Icons.schedule),
-                    label: Text('開始 ${fmtMin(_start)}'),
+                  child: FlField(
+                    label: '開始',
+                    child: FlPickerField(
+                      icon: FluentIcons.clock_24_regular,
+                      text: fmtMin(_start),
+                      onTap: _chooseStart,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: _chooseEnd,
-                    icon: const Icon(Icons.schedule),
-                    label: Text('終了 ${fmtMin(_end)}'),
+                  child: FlField(
+                    label: '終了',
+                    child: FlPickerField(
+                      icon: FluentIcons.clock_24_regular,
+                      text: fmtMin(_end),
+                      onTap: _chooseEnd,
+                    ),
                   ),
                 ),
               ],
             ),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: const Text('毎週くり返す'),
-            subtitle: const Text('時間割や固定シフト向け'),
-            value: _weekly,
-            onChanged: (v) => setState(() => _weekly = v),
           ),
-          if (_weekly)
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.event_busy),
-              title: Text(_until == null ? '終了日なし' : '${fmtDate(_until!)} まで'),
-              trailing: _until == null
-                  ? null
-                  : IconButton(
-                      icon: const Icon(Icons.clear),
-                      onPressed: () => setState(() => _until = null)),
-              onTap: () async {
-                final v = await _pickDate(context, _until ?? _date);
-                if (v != null) setState(() => _until = v);
-              },
+        FlSwitchTile(
+          title: '毎週くり返す',
+          subtitle: '時間割や固定シフト向け',
+          icon: FluentIcons.arrow_repeat_all_24_regular,
+          value: _weekly,
+          onChanged: (v) => setState(() => _weekly = v),
+        ),
+        if (_weekly)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: FlField(
+              label: 'くり返しの終了日',
+              child: FlPickerField(
+                icon: FluentIcons.calendar_cancel_24_regular,
+                text: _until == null ? '終了日なし' : '${fmtLongDate(_until!)} まで',
+                placeholder: _until == null,
+                onClear: _until == null
+                    ? null
+                    : () => setState(() => _until = null),
+                onTap: () async {
+                  final v = await _pickDate(context, _until ?? _date);
+                  if (v != null) setState(() => _until = dateOnly(v));
+                },
+              ),
             ),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _place,
-            decoration: const InputDecoration(
-                labelText: '場所（任意）', border: OutlineInputBorder()),
           ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _note,
-            maxLines: 3,
-            decoration: const InputDecoration(
-                labelText: 'メモ（任意）', border: OutlineInputBorder()),
-          ),
-        ],
-      ),
+        const SizedBox(height: 8),
+        FlField(
+          label: '場所（任意）',
+          child: FlTextField(controller: _place),
+        ),
+        FlField(
+          label: 'メモ（任意）',
+          child: FlTextField(controller: _note, minLines: 3, maxLines: 3),
+        ),
+      ],
     );
   }
 }
@@ -318,6 +349,7 @@ class _TaskEditPageState extends State<TaskEditPage> {
   DateTime? _due;
   int? _dueMin;
   bool _important = false;
+  String? _error;
 
   bool get _isNew => widget.task == null;
 
@@ -342,7 +374,7 @@ class _TaskEditPageState extends State<TaskEditPage> {
   void _save() {
     final title = _title.text.trim();
     if (title.isEmpty) {
-      _snack(context, 'タイトルを入力してください');
+      setState(() => _error = 'タイトルを入力してください');
       return;
     }
     final store = StoreScope.read(context);
@@ -367,75 +399,62 @@ class _TaskEditPageState extends State<TaskEditPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(_isNew ? 'タスクを追加' : 'タスクを編集'),
-        actions: [
-          if (!_isNew)
-            IconButton(
-                onPressed: _delete,
-                tooltip: '削除',
-                icon: const Icon(Icons.delete_outline)),
-          TextButton(onPressed: _save, child: const Text('保存')),
-        ],
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          TextField(
-            controller: _title,
-            autofocus: _isNew,
-            decoration: const InputDecoration(
-                labelText: 'タイトル', border: OutlineInputBorder()),
-          ),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            secondary: Icon(_important ? Icons.star : Icons.star_border,
-                color: _important ? Colors.amber : null),
-            title: const Text('重要'),
-            value: _important,
-            onChanged: (v) => setState(() => _important = v),
-          ),
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: const Icon(Icons.flag_outlined),
-            title: Text(_due == null ? '期限なし（タップして設定）' : fmtDate(_due!)),
-            trailing: _due == null
+    return FlEditorFrame(
+      title: _isNew ? 'タスクを追加' : 'タスクを編集',
+      onSave: _save,
+      onDelete: _isNew ? null : _delete,
+      children: [
+        _errorText(_error),
+        FlField(
+          label: 'タイトル',
+          child: FlTextField(controller: _title, autofocus: _isNew),
+        ),
+        FlSwitchTile(
+          title: '重要',
+          icon: _important
+              ? FluentIcons.star_24_filled
+              : FluentIcons.star_24_regular,
+          value: _important,
+          onChanged: (v) => setState(() => _important = v),
+        ),
+        const SizedBox(height: 8),
+        FlField(
+          label: '期限',
+          child: FlPickerField(
+            icon: FluentIcons.calendar_ltr_24_regular,
+            text: _due == null ? '期限なし（タップして設定）' : fmtLongDate(_due!),
+            placeholder: _due == null,
+            onClear: _due == null
                 ? null
-                : IconButton(
-                    icon: const Icon(Icons.clear),
-                    onPressed: () => setState(() {
+                : () => setState(() {
                       _due = null;
                       _dueMin = null;
-                    })),
+                    }),
             onTap: () async {
               final v = await _pickDate(context, _due ?? DateTime.now());
               if (v != null) setState(() => _due = dateOnly(v));
             },
           ),
-          if (_due != null)
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              title: Text(_dueMin == null ? '時刻を指定しない' : '締切時刻 ${fmtMin(_dueMin!)}'),
-              value: _dueMin != null,
-              onChanged: (v) async {
-                if (!v) {
-                  setState(() => _dueMin = null);
-                  return;
-                }
-                final picked = await _pickTime(context, _dueMin ?? 23 * 60 + 59);
-                if (picked != null) setState(() => _dueMin = picked);
-              },
-            ),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _note,
-            maxLines: 3,
-            decoration: const InputDecoration(
-                labelText: 'メモ（任意）', border: OutlineInputBorder()),
+        ),
+        if (_due != null)
+          FlSwitchTile(
+            title: _dueMin == null ? '時刻を指定しない' : '締切時刻 ${fmtMin(_dueMin!)}',
+            value: _dueMin != null,
+            onChanged: (v) async {
+              if (!v) {
+                setState(() => _dueMin = null);
+                return;
+              }
+              final picked = await _pickTime(context, _dueMin ?? 23 * 60 + 59);
+              if (picked != null) setState(() => _dueMin = picked);
+            },
           ),
-        ],
-      ),
+        const SizedBox(height: 8),
+        FlField(
+          label: 'メモ（任意）',
+          child: FlTextField(controller: _note, minLines: 3, maxLines: 3),
+        ),
+      ],
     );
   }
 }

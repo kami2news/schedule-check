@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 
 import '../models.dart';
 import '../store.dart';
 import 'controller.dart';
+import 'fluent.dart';
 
 /// 左側（狭い画面ではヘッダー下）に出す小さな月カレンダー
 class MiniMonth extends StatelessWidget {
@@ -13,7 +15,6 @@ class MiniMonth extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final store = StoreScope.of(context);
-    final scheme = Theme.of(context).colorScheme;
     final sel = controller.selected;
     final first = DateTime(sel.year, sel.month, 1);
     final gridStart = startOfWeek(first);
@@ -32,19 +33,16 @@ class MiniMonth extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: Text('${sel.year}年${sel.month}月',
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleSmall
-                        ?.copyWith(fontWeight: FontWeight.bold)),
+                    style: FlText.body1Strong),
               ),
               IconButton(
-                visualDensity: VisualDensity.compact,
-                icon: const Icon(Icons.chevron_left),
+                tooltip: '前の月',
+                icon: const Icon(FluentIcons.chevron_left_24_regular),
                 onPressed: () => controller.shiftMonth(-1),
               ),
               IconButton(
-                visualDensity: VisualDensity.compact,
-                icon: const Icon(Icons.chevron_right),
+                tooltip: '次の月',
+                icon: const Icon(FluentIcons.chevron_right_24_regular),
                 onPressed: () => controller.shiftMonth(1),
               ),
             ],
@@ -56,8 +54,7 @@ class MiniMonth extends StatelessWidget {
                   child: Text(
                     weekdayNames[addDays(gridStart, i).weekday - 1],
                     textAlign: TextAlign.center,
-                    style: TextStyle(
-                        fontSize: 11, color: scheme.onSurfaceVariant),
+                    style: FlText.caption1.copyWith(color: Fl.fg3),
                   ),
                 ),
             ],
@@ -87,7 +84,6 @@ class MiniMonth extends StatelessWidget {
 
   Widget _day(BuildContext context, AppStore store, DateTime day, DateTime sel,
       DateTime today, DateTime weekStart) {
-    final scheme = Theme.of(context).colorScheme;
     final inMonth = day.month == sel.month;
     final isSel = day == sel;
     final isToday = day == today;
@@ -97,11 +93,17 @@ class MiniMonth extends StatelessWidget {
     final hasItems = controller.eventsOn(store, day).isNotEmpty ||
         controller.tasksOn(store, day).isNotEmpty;
 
+    // 今日 = ブランド色の塗り、選択日 = 淡いブランド背景 + ブランド文字
+    final Color? fill = isToday ? Fl.brand : (isSel ? Fl.brandTint : null);
+    final Color textColor = isToday
+        ? Colors.white
+        : (isSel ? Fl.brand : (inMonth ? Fl.fg1 : Fl.fg3));
+
     return InkWell(
       onTap: () => controller.select(day),
       child: Container(
         height: 34,
-        color: inSelWeek ? scheme.primaryContainer.withValues(alpha: 0.5) : null,
+        color: inSelWeek ? Fl.brandTint : null,
         alignment: Alignment.center,
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -111,22 +113,18 @@ class MiniMonth extends StatelessWidget {
               height: 26,
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                color: isSel ? scheme.primary : null,
+                color: fill,
                 shape: BoxShape.circle,
-                border: (isToday && !isSel)
-                    ? Border.all(color: scheme.primary)
+                border: (isSel && !isToday)
+                    ? Border.all(color: Fl.brand)
                     : null,
               ),
               child: Text(
                 '${day.day}',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: isSel
-                      ? scheme.onPrimary
-                      : (inMonth
-                          ? scheme.onSurface
-                          : scheme.onSurfaceVariant.withValues(alpha: 0.5)),
-                ),
+                style: (isToday || isSel
+                        ? FlText.caption1Strong
+                        : FlText.caption1)
+                    .copyWith(color: textColor),
               ),
             ),
             SizedBox(
@@ -135,9 +133,8 @@ class MiniMonth extends StatelessWidget {
                   ? Container(
                       width: 4,
                       height: 4,
-                      decoration: BoxDecoration(
-                          color: scheme.primary.withValues(alpha: 0.7),
-                          shape: BoxShape.circle),
+                      decoration: const BoxDecoration(
+                          color: Fl.brand, shape: BoxShape.circle),
                     )
                   : null,
             ),

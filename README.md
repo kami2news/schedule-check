@@ -66,3 +66,12 @@ lib/
     import_page.dart   取り込み
 test/                  解析・表示のテスト
 ```
+
+## デザイン（Fluent 2）
+
+Microsoft の Fluent 2 デザインシステム（Outlook / Microsoft To Do のスタイル）に合わせています。
+
+- 色・角丸・影・タイプランプは Fluent 2 のトークンを `lib/ui/fluent.dart` に定義
+- フォント: Segoe UI 互換の [Selawik](https://github.com/microsoft/Selawik)（SIL OFL、`assets/fonts/`）+ 日本語は各OSのフォントにフォールバック
+- アイコン: [Fluent System Icons](https://pub.dev/packages/fluentui_system_icons)
+- ボタン（高さ32・角丸4）、タブ、スイッチ、入力欄（下辺が強調）、ダイアログ、予定ブロック（左アクセントバー）などを Fluent 風に自作

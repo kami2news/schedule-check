@@ -1,11 +1,14 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 
 import '../models.dart';
 import '../store.dart';
 import 'controller.dart';
 import 'edit_pages.dart';
+import 'fluent.dart';
+import 'fluent_extras.dart';
 
 const double _hourH = 56;
 const double _gutter = 48;
@@ -81,14 +84,7 @@ class _TimeGridState extends State<TimeGrid> {
     super.dispose();
   }
 
-  Color _weekendColor(BuildContext context, DateTime d) {
-    if (d.weekday == DateTime.sunday) return Colors.red;
-    if (d.weekday == DateTime.saturday) return Colors.blue;
-    return Theme.of(context).colorScheme.onSurfaceVariant;
-  }
-
   Widget _dayHeader(BuildContext context, DateTime d, bool isToday) {
-    final scheme = Theme.of(context).colorScheme;
     final c = widget.controller;
     return InkWell(
       onTap: () {
@@ -100,24 +96,24 @@ class _TimeGridState extends State<TimeGrid> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(weekdayNames[d.weekday - 1],
-                style: TextStyle(fontSize: 12, color: _weekendColor(context, d))),
+            Text(
+              weekdayNames[d.weekday - 1],
+              style: (isToday ? FlText.caption1Strong : FlText.caption1)
+                  .copyWith(color: isToday ? Fl.brand : Fl.fg3),
+            ),
             const SizedBox(height: 2),
             Container(
               width: 32,
               height: 32,
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                color: isToday ? scheme.primary : null,
+                color: isToday ? Fl.brand : null,
                 shape: BoxShape.circle,
               ),
               child: Text(
                 '${d.day}',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: isToday ? scheme.onPrimary : scheme.onSurface,
-                ),
+                style: FlText.subtitle2
+                    .copyWith(color: isToday ? Colors.white : Fl.fg1),
               ),
             ),
           ],
@@ -127,92 +123,86 @@ class _TimeGridState extends State<TimeGrid> {
   }
 
   Widget _allDayEventChip(BuildContext context, Event e) {
-    return GestureDetector(
-      onTap: () => openEventEditor(context, event: e),
-      child: Container(
-        width: double.infinity,
-        margin: const EdgeInsets.fromLTRB(2, 0, 2, 2),
-        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-        decoration: BoxDecoration(
-          color: e.kind.color,
-          borderRadius: BorderRadius.circular(4),
-        ),
-        child: Text(
-          e.title,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(fontSize: 11, color: Colors.white),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(2, 0, 2, 2),
+      child: GestureDetector(
+        onTap: () => openEventEditor(context, event: e),
+        child: SizedBox(
+          width: double.infinity,
+          child: FlAccentBox(
+            accent: e.kind.color,
+            child: Text(e.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: FlText.caption1),
+          ),
         ),
       ),
     );
   }
 
   Widget _allDayTaskChip(BuildContext context, TaskItem t) {
-    final scheme = Theme.of(context).colorScheme;
-    return GestureDetector(
-      onTap: () => openTaskEditor(context, task: t),
-      child: Container(
-        width: double.infinity,
-        margin: const EdgeInsets.fromLTRB(2, 0, 2, 2),
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-        decoration: BoxDecoration(
-          border: Border.all(color: scheme.outline),
-          borderRadius: BorderRadius.circular(4),
-        ),
-        child: Row(
-          children: [
-            GestureDetector(
-              onTap: () => StoreScope.read(context).toggleTask(t.id),
-              child: Icon(
-                t.done ? Icons.check_circle : Icons.radio_button_unchecked,
-                size: 14,
-                color: t.done ? scheme.primary : scheme.outline,
-              ),
-            ),
-            const SizedBox(width: 4),
-            Expanded(
-              child: Text(
-                t.title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 11,
-                  decoration: t.done ? TextDecoration.lineThrough : null,
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(2, 0, 2, 2),
+      child: GestureDetector(
+        onTap: () => openTaskEditor(context, task: t),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+          decoration: BoxDecoration(
+            color: Fl.bg1,
+            border: Border.all(color: Fl.stroke1),
+            borderRadius: BorderRadius.circular(Fl.r4),
+          ),
+          child: Row(
+            children: [
+              GestureDetector(
+                onTap: () => StoreScope.read(context).toggleTask(t.id),
+                child: Icon(
+                  t.done
+                      ? FluentIcons.checkmark_circle_16_filled
+                      : FluentIcons.circle_16_regular,
+                  size: 14,
+                  color: t.done ? Fl.brand : Fl.fg3,
                 ),
               ),
-            ),
-          ],
+              const SizedBox(width: 4),
+              Expanded(
+                child: Text(
+                  t.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: FlText.caption1.copyWith(
+                    decoration: t.done ? TextDecoration.lineThrough : null,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
   Widget _block(BuildContext context, Event e, double h) {
-    final scheme = Theme.of(context).colorScheme;
-    final lines = math.max(1, ((h - 4) / 14).floor());
+    final lines = math.max(1, ((h - 4) / 16).floor());
     return GestureDetector(
       onTap: () => openEventEditor(context, event: e),
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(5, 2, 2, 2),
-        decoration: BoxDecoration(
-          color: Color.alphaBlend(
-              e.kind.color.withValues(alpha: 0.22), scheme.surface),
-          borderRadius: BorderRadius.circular(4),
-          border: Border(left: BorderSide(color: e.kind.color, width: 4)),
-        ),
+      child: FlAccentBox(
+        accent: e.kind.color,
         child: Text.rich(
           TextSpan(children: [
-            TextSpan(
-                text: e.title,
-                style: const TextStyle(fontWeight: FontWeight.bold)),
+            TextSpan(text: e.title, style: FlText.caption1Strong),
             if (lines > 1)
               TextSpan(
-                  text: '\n${e.timeLabel}'
-                      '${e.place.isEmpty ? '' : '  ${e.place}'}'),
+                text: '\n${e.timeLabel}'
+                    '${e.place.isEmpty ? '' : '  ${e.place}'}',
+                style: FlText.caption1.copyWith(color: Fl.fg2),
+              ),
           ]),
           maxLines: lines,
           overflow: TextOverflow.ellipsis,
-          style: TextStyle(fontSize: 11.5, color: scheme.onSurface, height: 1.2),
+          style: FlText.caption1,
         ),
       ),
     );
@@ -220,14 +210,13 @@ class _TimeGridState extends State<TimeGrid> {
 
   Widget _dayColumn(BuildContext context, DateTime day, double colW,
       List<Event> timed, bool isToday) {
-    final scheme = Theme.of(context).colorScheme;
     final now = DateTime.now();
     final nowMin = now.hour * 60 + now.minute;
     return Stack(
       children: [
         if (isToday)
           Positioned.fill(
-            child: ColoredBox(color: scheme.primary.withValues(alpha: 0.05)),
+            child: ColoredBox(color: Fl.brandTint.withValues(alpha: 0.5)),
           ),
         Positioned.fill(
           child: GestureDetector(
@@ -266,9 +255,9 @@ class _TimeGridState extends State<TimeGrid> {
                     width: 8,
                     height: 8,
                     decoration: const BoxDecoration(
-                        color: Colors.red, shape: BoxShape.circle),
+                        color: Fl.dangerLine, shape: BoxShape.circle),
                   ),
-                  Expanded(child: Container(height: 2, color: Colors.red)),
+                  Expanded(child: Container(height: 2, color: Fl.dangerLine)),
                 ],
               ),
             ),
@@ -283,7 +272,6 @@ class _TimeGridState extends State<TimeGrid> {
     final c = widget.controller;
     final days = widget.days;
     final today = dateOnly(DateTime.now());
-    final scheme = Theme.of(context).colorScheme;
 
     final events = [for (final d in days) c.eventsOn(store, d)];
     final tasks = [for (final d in days) c.tasksOn(store, d)];
@@ -292,8 +280,6 @@ class _TimeGridState extends State<TimeGrid> {
       final n = events[i].where((e) => e.allDay).length + tasks[i].length;
       if (n > maxAll) maxAll = n;
     }
-
-    final lineColor = scheme.outlineVariant.withValues(alpha: 0.7);
 
     return Column(
       children: [
@@ -307,8 +293,8 @@ class _TimeGridState extends State<TimeGrid> {
         if (maxAll > 0)
           Container(
             padding: const EdgeInsets.only(bottom: 2),
-            decoration: BoxDecoration(
-              border: Border(top: BorderSide(color: lineColor)),
+            decoration: const BoxDecoration(
+              border: Border(top: BorderSide(color: Fl.stroke2)),
             ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -319,8 +305,7 @@ class _TimeGridState extends State<TimeGrid> {
                     padding: const EdgeInsets.only(top: 4, right: 6),
                     child: Text('終日',
                         textAlign: TextAlign.right,
-                        style: TextStyle(
-                            fontSize: 10, color: scheme.onSurfaceVariant)),
+                        style: FlText.caption2.copyWith(color: Fl.fg3)),
                   ),
                 ),
                 for (var i = 0; i < days.length; i++)
@@ -336,7 +321,7 @@ class _TimeGridState extends State<TimeGrid> {
               ],
             ),
           ),
-        Divider(height: 1, color: lineColor),
+        const Divider(height: 1),
         Expanded(
           child: SingleChildScrollView(
             controller: _scroll,
@@ -356,8 +341,7 @@ class _TimeGridState extends State<TimeGrid> {
                             child: Text(
                               '$h:00',
                               textAlign: TextAlign.right,
-                              style: TextStyle(
-                                  fontSize: 10, color: scheme.onSurfaceVariant),
+                              style: FlText.caption2.copyWith(color: Fl.fg3),
                             ),
                           ),
                       ],
@@ -374,7 +358,7 @@ class _TimeGridState extends State<TimeGrid> {
                                 top: h * _hourH,
                                 left: 0,
                                 right: 0,
-                                child: Container(height: 1, color: lineColor),
+                                child: Container(height: 1, color: Fl.stroke2),
                               ),
                             for (var i = 0; i < days.length; i++)
                               Positioned(
@@ -383,9 +367,9 @@ class _TimeGridState extends State<TimeGrid> {
                                 top: 0,
                                 bottom: 0,
                                 child: DecoratedBox(
-                                  decoration: BoxDecoration(
+                                  decoration: const BoxDecoration(
                                     border: Border(
-                                        left: BorderSide(color: lineColor)),
+                                        left: BorderSide(color: Fl.stroke2)),
                                   ),
                                   child: _dayColumn(
                                     context,

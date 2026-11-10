@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 
 import '../models.dart';
 import '../parser.dart';
 import '../store.dart';
+import 'fluent.dart';
 import 'widgets.dart';
 
 /// メールや連絡文を貼り付けて、日付つきの行を予定／タスク候補として取り込む画面
@@ -74,22 +76,22 @@ class _ImportPageState extends State<ImportPage> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
       children: [
-        const Text('メールやLINEの連絡文などを貼り付けると、日付が書かれた行を予定やタスクの候補として取り出します。'
-            '登録前に内容を確認・修正できます。'),
+        Text(
+          'メールやLINEの連絡文などを貼り付けると、日付が書かれた行を予定やタスクの候補として取り出します。'
+          '登録前に内容を確認・修正できます。',
+          style: FlText.body1.copyWith(color: Fl.fg2),
+        ),
         const SizedBox(height: 12),
-        TextField(
+        FlTextField(
           controller: _text,
           minLines: 6,
           maxLines: 10,
-          decoration: const InputDecoration(
-            border: OutlineInputBorder(),
-            hintText: '例）\n11/15 10:00-18:00 シフト\n11月20日 レポート提出 23:59',
-          ),
+          hint: '例）\n11/15 10:00-18:00 シフト\n11月20日 レポート提出 23:59',
         ),
         const SizedBox(height: 12),
         FilledButton.icon(
           onPressed: _parse,
-          icon: const Icon(Icons.auto_awesome),
+          icon: const Icon(FluentIcons.sparkle_24_regular, size: 18),
           label: const Text('解析する'),
         ),
         if (_parsed) ...[
@@ -186,8 +188,13 @@ class _CandidateTileState extends State<_CandidateTile> {
   @override
   Widget build(BuildContext context) {
     final isTask = c.type == ImportType.task;
-    return Card(
+    return Container(
       margin: const EdgeInsets.symmetric(vertical: 4),
+      decoration: BoxDecoration(
+        color: Fl.bg1,
+        borderRadius: BorderRadius.circular(Fl.r8),
+        border: Border.all(color: Fl.stroke1),
+      ),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(4, 8, 12, 8),
         child: Column(
@@ -203,11 +210,9 @@ class _CandidateTileState extends State<_CandidateTile> {
                   },
                 ),
                 Expanded(
-                  child: TextField(
+                  child: FlTextField(
                     controller: _title,
                     onChanged: (v) => c.title = v,
-                    decoration: const InputDecoration(
-                        isDense: true, border: OutlineInputBorder()),
                   ),
                 ),
               ],
@@ -221,6 +226,8 @@ class _CandidateTileState extends State<_CandidateTile> {
                   DropdownButton<ImportType>(
                     value: c.type,
                     underline: const SizedBox.shrink(),
+                    style: FlText.body1,
+                    borderRadius: BorderRadius.circular(Fl.r4),
                     items: [
                       for (final t in ImportType.values)
                         DropdownMenuItem(value: t, child: Text(t.label)),
@@ -234,12 +241,12 @@ class _CandidateTileState extends State<_CandidateTile> {
                   ),
                   TextButton.icon(
                     onPressed: _pickDate,
-                    icon: const Icon(Icons.event, size: 18),
+                    icon: const Icon(FluentIcons.calendar_ltr_24_regular, size: 18),
                     label: Text(fmtDate(c.date)),
                   ),
                   TextButton.icon(
                     onPressed: _pickStart,
-                    icon: const Icon(Icons.schedule, size: 18),
+                    icon: const Icon(FluentIcons.clock_24_regular, size: 18),
                     label: Text(c.startMin == null
                         ? (isTask ? '時刻なし' : '終日')
                         : fmtMin(c.startMin!)),
@@ -254,7 +261,7 @@ class _CandidateTileState extends State<_CandidateTile> {
                     IconButton(
                       visualDensity: VisualDensity.compact,
                       tooltip: '時刻を消す',
-                      icon: const Icon(Icons.clear, size: 18),
+                      icon: const Icon(FluentIcons.dismiss_24_regular, size: 16),
                       onPressed: () {
                         c.startMin = null;
                         c.endMin = null;
@@ -267,9 +274,7 @@ class _CandidateTileState extends State<_CandidateTile> {
             Padding(
               padding: const EdgeInsets.only(left: 12, top: 4),
               child: Text('元の行: ${c.source}',
-                  style: TextStyle(
-                      fontSize: 12,
-                      color: Theme.of(context).colorScheme.outline)),
+                  style: FlText.caption1.copyWith(color: Fl.fg3)),
             ),
           ],
         ),

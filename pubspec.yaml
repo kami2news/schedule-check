@@ -11,6 +11,8 @@ dependencies:
     sdk: flutter
   flutter_localizations:
     sdk: flutter
+  # Microsoft 公式の Fluent System Icons
+  fluentui_system_icons: ^1.1.270
   shared_preferences: ^2.2.3
 
 dev_dependencies:
@@ -20,3 +22,13 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  fonts:
+    # Segoe UI 互換のオープンフォント Selawik (SIL OFL 1.1, assets/fonts/OFL-Selawik.txt)
+    - family: Selawik
+      fonts:
+        - asset: assets/fonts/Selawik-Light.ttf
+          weight: 300
+        - asset: assets/fonts/Selawik-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/Selawik-Bold.ttf
+          weight: 700

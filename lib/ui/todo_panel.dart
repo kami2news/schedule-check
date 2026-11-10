@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 
 import '../models.dart';
 import '../store.dart';
 import 'edit_pages.dart';
+import 'fluent.dart';
 import 'widgets.dart';
 
 /// Microsoft To Do 風のリスト
@@ -14,13 +16,6 @@ extension TodoListX on TodoList {
         TodoList.important => '重要',
         TodoList.planned => '期限あり',
         TodoList.all => 'すべて',
-      };
-
-  IconData get icon => switch (this) {
-        TodoList.myDay => Icons.wb_sunny_outlined,
-        TodoList.important => Icons.star_border,
-        TodoList.planned => Icons.calendar_today_outlined,
-        TodoList.all => Icons.all_inbox_outlined,
       };
 
   /// マイデイ = 今日が期限、または期限切れのタスク
@@ -94,7 +89,6 @@ class _TodoPanelState extends State<TodoPanel> {
   @override
   Widget build(BuildContext context) {
     final store = StoreScope.of(context);
-    final scheme = Theme.of(context).colorScheme;
     final today = dateOnly(DateTime.now());
 
     final inList = store.tasks.where((t) => _list.matches(t, today)).toList();
@@ -109,66 +103,43 @@ class _TodoPanelState extends State<TodoPanel> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-          child: Text('To Do',
-              style: Theme.of(context)
-                  .textTheme
-                  .titleLarge
-                  ?.copyWith(fontWeight: FontWeight.bold)),
-        ),
-        SizedBox(
-          height: 44,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            itemCount: TodoList.values.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 6),
-            itemBuilder: (context, i) {
-              final l = TodoList.values[i];
-              return Center(
-                child: ChoiceChip(
-                  avatar: Icon(l.icon, size: 16),
-                  label: Text('${l.label} ${countOf(l)}'),
-                  selected: _list == l,
-                  onSelected: (_) => setState(() => _list = l),
-                ),
-              );
-            },
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
+          child: Row(
+            children: [
+              const Icon(FluentIcons.task_list_ltr_24_filled,
+                  size: 22, color: Fl.brand),
+              const SizedBox(width: 8),
+              Text('To Do', style: FlText.subtitle1),
+            ],
           ),
         ),
+        FlTabList(
+          labels: [for (final l in TodoList.values) l.label],
+          counts: [for (final l in TodoList.values) countOf(l)],
+          selected: TodoList.values.indexOf(_list),
+          onSelected: (i) => setState(() => _list = TodoList.values[i]),
+        ),
         Padding(
-          padding: const EdgeInsets.fromLTRB(12, 4, 8, 4),
-          child: Container(
-            decoration: BoxDecoration(
-              color: scheme.surfaceContainerHighest.withValues(alpha: 0.5),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Row(
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+          child: FlTextField(
+            controller: _quick,
+            focusNode: _focus,
+            hint: 'タスクを追加',
+            onSubmitted: (_) => _add(),
+            leading: const Icon(FluentIcons.add_24_regular,
+                size: 18, color: Fl.brand),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 10),
-                  child: Icon(Icons.add),
-                ),
-                Expanded(
-                  child: TextField(
-                    controller: _quick,
-                    focusNode: _focus,
-                    onSubmitted: (_) => _add(),
-                    decoration: const InputDecoration(
-                      hintText: 'タスクを追加',
-                      border: InputBorder.none,
-                    ),
-                  ),
-                ),
                 if (_quickDue != null)
                   Text(fmtDate(_quickDue!),
-                      style: TextStyle(fontSize: 12, color: scheme.primary)),
+                      style: FlText.caption1.copyWith(color: Fl.brand)),
                 IconButton(
                   tooltip: '期限',
                   icon: Icon(
-                    Icons.calendar_today_outlined,
-                    size: 20,
-                    color: _quickDue != null ? scheme.primary : null,
+                    FluentIcons.calendar_ltr_24_regular,
+                    size: 18,
+                    color: _quickDue != null ? Fl.brand : Fl.fg2,
                   ),
                   onPressed: _pickQuickDue,
                 ),
@@ -178,7 +149,7 @@ class _TodoPanelState extends State<TodoPanel> {
         ),
         Expanded(
           child: ListView(
-            padding: const EdgeInsets.only(bottom: 96),
+            padding: const EdgeInsets.only(top: 4, bottom: 96),
             children: [
               if (open.isEmpty && done.isEmpty)
                 Padding(
@@ -188,7 +159,7 @@ class _TodoPanelState extends State<TodoPanel> {
                         ? '今日が期限のタスクはありません'
                         : 'タスクはありません',
                     textAlign: TextAlign.center,
-                    style: TextStyle(color: scheme.outline),
+                    style: FlText.body1.copyWith(color: Fl.fg3),
                   ),
                 ),
               for (final t in open) _TaskRow(task: t),
@@ -199,10 +170,15 @@ class _TodoPanelState extends State<TodoPanel> {
                     padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
                     child: Row(
                       children: [
-                        Icon(_showDone ? Icons.expand_more : Icons.chevron_right),
-                        const SizedBox(width: 4),
+                        Icon(
+                          _showDone
+                              ? FluentIcons.chevron_down_24_regular
+                              : FluentIcons.chevron_right_24_regular,
+                          size: 16,
+                        ),
+                        const SizedBox(width: 6),
                         Text('完了済み ${done.length}',
-                            style: const TextStyle(fontWeight: FontWeight.bold)),
+                            style: FlText.body1Strong),
                       ],
                     ),
                   ),
@@ -224,58 +200,68 @@ class _TaskRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = task;
-    final scheme = Theme.of(context).colorScheme;
     final info = dueInfo(context, t);
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
-      decoration: BoxDecoration(
-        color: scheme.surfaceContainerHighest.withValues(alpha: 0.35),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(8),
-        onTap: () => openTaskEditor(context, task: t),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 2),
-          child: Row(
-            children: [
-              Checkbox(
-                shape: const CircleBorder(),
-                value: t.done,
-                onChanged: (_) => StoreScope.read(context).toggleTask(t.id),
-              ),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      t.title,
-                      style: TextStyle(
-                        decoration: t.done ? TextDecoration.lineThrough : null,
-                        color: t.done ? scheme.outline : null,
-                      ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: Fl.bg1,
+          borderRadius: BorderRadius.circular(Fl.r4),
+          boxShadow: Fl.shadow2,
+        ),
+        child: Material(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(Fl.r4),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: () => openTaskEditor(context, task: t),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Row(
+                children: [
+                  const SizedBox(width: 4),
+                  FlCheckCircle(
+                    checked: t.done,
+                    onTap: () => StoreScope.read(context).toggleTask(t.id),
+                  ),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          t.title,
+                          style: FlText.body1.copyWith(
+                            decoration:
+                                t.done ? TextDecoration.lineThrough : null,
+                            color: t.done ? Fl.fg3 : Fl.fg1,
+                          ),
+                        ),
+                        if (t.due != null)
+                          Text(
+                            info.text,
+                            style: FlText.caption1
+                                .copyWith(color: info.color ?? Fl.fg3),
+                          ),
+                      ],
                     ),
-                    if (t.due != null)
-                      Text(
-                        info.text,
-                        style: TextStyle(
-                            fontSize: 12,
-                            color: info.color ?? scheme.onSurfaceVariant),
-                      ),
-                  ],
-                ),
+                  ),
+                  IconButton(
+                    tooltip: '重要',
+                    icon: Icon(
+                      t.important
+                          ? FluentIcons.star_24_filled
+                          : FluentIcons.star_24_regular,
+                      size: 20,
+                      color: t.important ? Fl.brand : Fl.fg3,
+                    ),
+                    onPressed: () =>
+                        StoreScope.read(context).toggleImportant(t.id),
+                  ),
+                ],
               ),
-              IconButton(
-                tooltip: '重要',
-                icon: Icon(
-                  t.important ? Icons.star : Icons.star_border,
-                  color: t.important ? Colors.amber : scheme.outline,
-                ),
-                onPressed: () =>
-                    StoreScope.read(context).toggleImportant(t.id),
-              ),
-            ],
+            ),
           ),
         ),
       ),
