@@ -157,8 +157,7 @@ void main() {
 
   testWidgets('エラーは入力を直した時点で消え、無効なリンクは保存できない', (tester) async {
     final store = await _storeWithSamples();
-    // 編集画面の項目がすべて画面内に収まる高さにする（リスト外は作られないため）
-    tester.view.physicalSize = const Size(1400, 1800);
+    tester.view.physicalSize = const Size(1400, 900);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
 
@@ -177,8 +176,16 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('タイトルを入力してください'), findsNothing);
 
-    // リンク欄（場所の次）に無効な値
-    await tester.enterText(fields.at(2), 'not-a-url');
+    // リンク欄に無効な値（編集画面をスクロールして表示させる）
+    final link = find.descendant(
+        of: find.byKey(const ValueKey('link-field')),
+        matching: find.byType(TextField));
+    await tester.scrollUntilVisible(link, 200,
+        scrollable: find
+            .descendant(of: find.byType(Dialog), matching: find.byType(Scrollable))
+            .first);
+    await tester.pumpAndSettle();
+    await tester.enterText(link, 'not-a-url');
     await tester.pumpAndSettle();
     expect(find.textContaining('有効なURLを入力してください'), findsOneWidget);
     await tester.tap(find.text('保存'));
@@ -186,7 +193,7 @@ void main() {
     expect(find.text('リンクの形式が正しくありません'), findsOneWidget);
     expect(store.events.any((e) => e.title == '面談'), isFalse);
 
-    await tester.enterText(fields.at(2), 'zoom.us/j/1');
+    await tester.enterText(link, 'zoom.us/j/1');
     await tester.pumpAndSettle();
     expect(find.text('リンクの形式が正しくありません'), findsNothing);
     await tester.tap(find.text('保存'));

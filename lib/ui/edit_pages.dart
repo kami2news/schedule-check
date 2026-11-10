@@ -166,6 +166,7 @@ Widget _linkField(
       children: [
         Expanded(
           child: FlTextField(
+            key: ValueKey('link-field'),
             controller: c,
             hint: hint,
             onChanged: (_) => onChanged(),
