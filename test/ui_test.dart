@@ -15,7 +15,7 @@ Future<AppStore> _storeWithSamples() async {
   store.upsertEvent(Event(
     id: 'e1',
     title: 'テスト授業',
-    kind: EventKind.lecture,
+    calendarId: 'lecture',
     date: today,
     startMin: 10 * 60,
     endMin: 11 * 60,
@@ -23,7 +23,7 @@ Future<AppStore> _storeWithSamples() async {
   store.upsertEvent(Event(
     id: 'e2',
     title: '重なる予定',
-    kind: EventKind.other,
+    calendarId: 'other',
     date: today,
     startMin: 10 * 60 + 30,
     endMin: 12 * 60,
@@ -130,5 +130,28 @@ void main() {
     expect(Fl.isDark, isTrue);
     expect(store.themeMode, 'dark');
     expect(find.textContaining('テスト授業'), findsOneWidget);
+  });
+
+  testWidgets('カレンダーを追加して非表示にできる', (tester) async {
+    final store = await _storeWithSamples();
+    tester.view.physicalSize = const Size(1400, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(ScheduleApp(store: store));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('カレンダーを追加'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).last, '部活');
+    await tester.tap(find.text('保存'));
+    await tester.pumpAndSettle();
+    expect(store.calendars.any((c) => c.name == '部活'), isTrue);
+    expect(find.text('部活'), findsOneWidget);
+
+    // 「授業」を非表示にするとテスト授業が消える
+    await tester.tap(find.text('授業'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('テスト授業'), findsNothing);
   });
 }

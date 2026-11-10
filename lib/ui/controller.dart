@@ -29,7 +29,7 @@ class CalendarController extends ChangeNotifier {
   CalView view;
 
   /// 非表示にする予定の種類（Outlook の「マイカレンダー」のチェックに相当）
-  final Set<EventKind> hidden = {};
+  final Set<String> hidden = {};
 
   /// タスクの期限をカレンダー上にも表示するか
   bool showTasks = true;
@@ -46,8 +46,8 @@ class CalendarController extends ChangeNotifier {
 
   void goToday() => select(DateTime.now());
 
-  void toggleKind(EventKind k) {
-    if (!hidden.remove(k)) hidden.add(k);
+  void toggleCalendar(String id) {
+    if (!hidden.remove(id)) hidden.add(id);
     notifyListeners();
   }
 
@@ -101,7 +101,7 @@ class CalendarController extends ChangeNotifier {
   // ---- 絞り込み済みのデータ取得 ----
 
   List<Event> eventsOn(AppStore store, DateTime day) =>
-      store.eventsOn(day).where((e) => !hidden.contains(e.kind)).toList();
+      store.eventsOn(day).where((e) => !hidden.contains(e.calendarId)).toList();
 
   List<TaskItem> tasksOn(AppStore store, DateTime day) =>
       showTasks ? store.tasksDueOn(day) : [];

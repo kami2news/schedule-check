@@ -30,7 +30,8 @@ class _ImportPageState extends State<ImportPage> {
 
   void _parse() {
     FocusScope.of(context).unfocus();
-    final r = parseText(_text.text, DateTime.now());
+    final r = parseText(_text.text, DateTime.now(),
+        calendars: StoreScope.read(context).calendars);
     setState(() {
       _cands = r.candidates;
       _skipped = r.skipped;
@@ -64,7 +65,8 @@ class _ImportPageState extends State<ImportPage> {
         events.add(Event(
           id: store.newId(),
           title: title,
-          kind: c.type.eventKind ?? EventKind.other,
+          calendarId: c.calendarId,
+          showAs: c.showAs,
           date: c.date,
           startMin: s,
           endMin: s == null ? null : (c.endMin ?? defaultEnd(s)),
@@ -262,22 +264,42 @@ class _CandidateTileState extends State<_CandidateTile> {
                 spacing: 8,
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  DropdownButton<ImportType>(
-                    value: c.type,
-                    underline: SizedBox.shrink(),
-                    style: FlText.body1,
-                    borderRadius: BorderRadius.circular(Fl.r4),
-                    items: [
-                      for (final t in ImportType.values)
-                        DropdownMenuItem(value: t, child: Text(t.label)),
-                    ],
-                    onChanged: (v) {
-                      if (v == null) return;
-                      c.type = v;
-                      if (v == ImportType.task) c.endMin = null;
-                      _changed();
-                    },
+                  SizedBox(
+                    width: 170,
+                    child: Builder(builder: (context) {
+                      final store = StoreScope.of(context);
+                      const taskKey = '__task__';
+                      return FlDropdown<String>(
+                        items: [
+                          for (final cal in store.calendars) cal.id,
+                          taskKey,
+                        ],
+                        value: isTask ? taskKey : store.calendarOf(c.calendarId).id,
+                        labelOf: (k) => k == taskKey
+                            ? 'タスク（締切）'
+                            : store.calendarOf(k).name,
+                        leadingOf: (k) => k == taskKey
+                            ? Icon(FluentIcons.task_list_ltr_24_regular,
+                                size: 14, color: Fl.fg2)
+                            : FlColorDot(color: store.calendarOf(k).color),
+                        onChanged: (k) {
+                          if (k == taskKey) {
+                            c.type = ImportType.task;
+                            c.endMin = null;
+                          } else {
+                            if (c.type == ImportType.task) {
+                              c.type = ImportType.event;
+                            }
+                            c.calendarId = k;
+                          }
+                          _changed();
+                        },
+                      );
+                    }),
                   ),
+                  if (!isTask && c.showAs != ShowAs.busy)
+                    Text(c.showAs.label,
+                        style: FlText.caption1.copyWith(color: Fl.fg3)),
                   TextButton.icon(
                     onPressed: _pickDate,
                     icon: Icon(FluentIcons.calendar_ltr_24_regular, size: 18),

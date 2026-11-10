@@ -1,12 +1,16 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 
+import '../models.dart';
 import '../store.dart';
 import 'fluent.dart';
 
 /// 左端に太いアクセントバーがある塗り（Outlook の予定ブロック）。
-/// 非一様な Border + borderRadius を避けるため、クリップ + Stack で描く。
+/// [showAs] によってバーの描き方を変える:
+/// 予定あり=塗り / 仮の予定=斜線 / 空き時間=白抜き / 他の場所で仕事中=点線 / 外出中=紫
 class FlAccentBox extends StatelessWidget {
   const FlAccentBox({
     super.key,
@@ -14,19 +18,34 @@ class FlAccentBox extends StatelessWidget {
     required this.child,
     this.bar = 4,
     this.padding = const EdgeInsets.fromLTRB(5, 2, 4, 2),
+    this.showAs = ShowAs.busy,
   });
 
   final Color accent;
   final Widget child;
   final double bar;
   final EdgeInsets padding;
+  final ShowAs showAs;
+
+  /// 外出中のバーの色（Outlook と同じく紫）
+  static const awayColor = Color(0xFF8764B8);
 
   @override
   Widget build(BuildContext context) {
+    final free = showAs == ShowAs.free;
+    final fill = free ? Fl.bg1 : Fl.tint(accent);
     return ClipRRect(
       borderRadius: BorderRadius.circular(Fl.r4),
-      child: ColoredBox(
-        color: Fl.tint(accent),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: fill,
+          border: free
+              ? Border.all(color: accent.withValues(alpha: 0.6))
+              : (showAs == ShowAs.tentative
+                  ? Border.all(color: accent.withValues(alpha: 0.35))
+                  : null),
+          borderRadius: BorderRadius.circular(Fl.r4),
+        ),
         child: Stack(
           children: [
             Positioned(
@@ -34,7 +53,13 @@ class FlAccentBox extends StatelessWidget {
               top: 0,
               bottom: 0,
               width: bar,
-              child: ColoredBox(color: accent),
+              child: CustomPaint(
+                painter: _BarPainter(
+                  color: showAs == ShowAs.away ? awayColor : accent,
+                  showAs: showAs,
+                  background: fill,
+                ),
+              ),
             ),
             Padding(
               padding: EdgeInsets.fromLTRB(
@@ -42,6 +67,175 @@ class FlAccentBox extends StatelessWidget {
               child: child,
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _BarPainter extends CustomPainter {
+  _BarPainter(
+      {required this.color, required this.showAs, required this.background});
+
+  final Color color;
+  final ShowAs showAs;
+  final Color background;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Offset.zero & size;
+    final p = Paint()..color = color;
+    switch (showAs) {
+      case ShowAs.busy:
+      case ShowAs.away:
+        canvas.drawRect(rect, p);
+      case ShowAs.free:
+        // 白抜き（枠だけ）
+        canvas.drawRect(rect, Paint()..color = background);
+        canvas.drawRect(
+            rect.deflate(0.5),
+            Paint()
+              ..color = color
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 1);
+      case ShowAs.tentative:
+        // 斜線
+        canvas.drawRect(rect, Paint()..color = background);
+        canvas.save();
+        canvas.clipRect(rect);
+        final line = Paint()
+          ..color = color
+          ..strokeWidth = 2;
+        for (var y = -size.width; y < size.height + size.width; y += 5) {
+          canvas.drawLine(Offset(0, y + size.width), Offset(size.width, y), line);
+        }
+        canvas.restore();
+      case ShowAs.workingElsewhere:
+        // 点線
+        canvas.drawRect(rect, Paint()..color = background);
+        for (var y = 0.0; y < size.height; y += 6) {
+          canvas.drawRect(
+              Rect.fromLTWH(0, y, size.width, math.min(3, size.height - y)), p);
+        }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_BarPainter old) =>
+      old.color != color || old.showAs != showAs || old.background != background;
+}
+
+/// 小さな丸（カレンダーの色）。[filled] が false なら輪だけ
+class FlColorDot extends StatelessWidget {
+  const FlColorDot({super.key, required this.color, this.size = 12, this.filled = true});
+
+  final Color color;
+  final double size;
+  final bool filled;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: filled ? color : Colors.transparent,
+        border: Border.all(color: color, width: 1.5),
+      ),
+    );
+  }
+}
+
+/// 表示方法の小さな見本（メニュー用）
+class FlShowAsSwatch extends StatelessWidget {
+  const FlShowAsSwatch({super.key, required this.showAs, required this.color});
+
+  final ShowAs showAs;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 16,
+      height: 16,
+      child: FlAccentBox(
+        accent: color,
+        showAs: showAs,
+        bar: 5,
+        padding: EdgeInsets.zero,
+        child: SizedBox.expand(),
+      ),
+    );
+  }
+}
+
+/// 入力欄と同じ見た目のドロップダウン（Fluent の Dropdown）
+class FlDropdown<T> extends StatelessWidget {
+  const FlDropdown({
+    super.key,
+    required this.items,
+    required this.value,
+    required this.onChanged,
+    required this.labelOf,
+    this.leadingOf,
+  });
+
+  final List<T> items;
+  final T value;
+  final ValueChanged<T> onChanged;
+  final String Function(T) labelOf;
+  final Widget Function(T)? leadingOf;
+
+  Widget _row(T v, {bool strong = false}) => Row(
+        children: [
+          if (leadingOf != null) ...[leadingOf!(v), SizedBox(width: 10)],
+          Expanded(
+            child: Text(labelOf(v),
+                overflow: TextOverflow.ellipsis,
+                style: strong ? FlText.body1Strong : FlText.body1),
+          ),
+        ],
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, cs) => PopupMenuButton<T>(
+        tooltip: '',
+        position: PopupMenuPosition.under,
+        constraints: BoxConstraints(
+            minWidth: cs.maxWidth.isFinite ? cs.maxWidth : 200, maxWidth: 360),
+        onSelected: onChanged,
+        itemBuilder: (_) => [
+          for (final v in items)
+            PopupMenuItem<T>(
+              value: v,
+              height: 36,
+              child: Row(
+                children: [
+                  Expanded(child: _row(v, strong: v == value)),
+                  if (v == value)
+                    Icon(FluentIcons.checkmark_24_regular,
+                        size: 16, color: Fl.brandFg),
+                ],
+              ),
+            ),
+        ],
+        child: Container(
+          height: 32,
+          padding: EdgeInsets.only(left: 10, right: 8),
+          decoration: BoxDecoration(
+            color: Fl.bg1,
+            borderRadius: BorderRadius.circular(Fl.r4),
+            border: Border.all(color: Fl.stroke1),
+          ),
+          child: Row(
+            children: [
+              Expanded(child: _row(value)),
+              Icon(FluentIcons.chevron_down_24_regular, size: 14, color: Fl.fg2),
+            ],
+          ),
         ),
       ),
     );

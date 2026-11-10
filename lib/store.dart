@@ -7,11 +7,14 @@ import 'models.dart';
 
 /// 予定とタスクを端末内（shared_preferences）に保存するストア
 class AppStore extends ChangeNotifier {
-  AppStore._(this._prefs, this.events, this.tasks);
+  AppStore._(this._prefs, this.events, this.tasks, this.calendars);
 
   final SharedPreferences _prefs;
   final List<Event> events;
   final List<TaskItem> tasks;
+
+  /// マイカレンダー（並び順どおり）
+  final List<CalendarDef> calendars;
   int _seq = 0;
 
   /// 表示テーマ（'system' / 'light' / 'dark'）
@@ -28,6 +31,11 @@ class AppStore extends ChangeNotifier {
       prefs,
       _decode<Event>(prefs.getString('events'), Event.fromJson),
       _decode<TaskItem>(prefs.getString('tasks'), TaskItem.fromJson),
+      () {
+        final c = _decode<CalendarDef>(
+            prefs.getString('calendars'), CalendarDef.fromJson);
+        return c.isEmpty ? defaultCalendars() : c;
+      }(),
     );
   }
 
@@ -53,6 +61,8 @@ class AppStore extends ChangeNotifier {
         'events', jsonEncode(events.map((e) => e.toJson()).toList()));
     _prefs.setString(
         'tasks', jsonEncode(tasks.map((t) => t.toJson()).toList()));
+    _prefs.setString(
+        'calendars', jsonEncode(calendars.map((c) => c.toJson()).toList()));
   }
 
   String newId() => '${DateTime.now().microsecondsSinceEpoch}-${_seq++}';
@@ -72,6 +82,43 @@ class AppStore extends ChangeNotifier {
         .toList();
     list.sort(compareTasks);
     return list;
+  }
+
+  /// id に対応するカレンダー（見つからなければ先頭）
+  CalendarDef calendarOf(String id) =>
+      calendars.firstWhere((c) => c.id == id, orElse: () => calendars.first);
+
+  Color colorOf(Event e) => calendarOf(e.calendarId).color;
+
+  // ---- カレンダー ----
+
+  CalendarDef addCalendar(String name, int color) {
+    final c = CalendarDef(id: newId(), name: name, colorValue: color);
+    calendars.add(c);
+    _save();
+    notifyListeners();
+    return c;
+  }
+
+  void updateCalendar(String id, {String? name, int? color}) {
+    final c = calendars.where((x) => x.id == id).firstOrNull;
+    if (c == null) return;
+    if (name != null) c.name = name;
+    if (color != null) c.colorValue = color;
+    _save();
+    notifyListeners();
+  }
+
+  /// カレンダーを削除し、その予定は [moveTo] に移す（最後の1つは消せない）
+  bool deleteCalendar(String id, {required String moveTo}) {
+    if (calendars.length <= 1 || id == moveTo) return false;
+    calendars.removeWhere((c) => c.id == id);
+    for (final e in events) {
+      if (e.calendarId == id) e.calendarId = moveTo;
+    }
+    _save();
+    notifyListeners();
+    return true;
   }
 
   // ---- 更新 ----

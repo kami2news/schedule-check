@@ -43,7 +43,7 @@ void main() {
     final e = Event(
       id: '1',
       title: '地球化学',
-      kind: EventKind.lecture,
+      calendarId: 'lecture',
       date: DateTime(2026, 11, 10), // 火曜
       weekly: true,
     );
@@ -92,7 +92,7 @@ void main() {
     final e = Event(
         id: '1',
         title: 'x',
-        kind: EventKind.other,
+        calendarId: 'other',
         date: DateTime(2026, 11, 1),
         url: 'https://zoom.us/j/1',
         note: 'ID 1');
@@ -174,4 +174,39 @@ void main() {
       expect(h.title, '研究室面談');
     });
 });
+
+  group('マイカレンダーと表示方法', () {
+    test('以前のデータ（kind）はカレンダー id として読める', () {
+      final e = Event.fromJson({
+        'id': '1',
+        'title': '古い予定',
+        'kind': 'shift',
+        'date': '2026-11-10T00:00:00.000',
+      });
+      expect(e.calendarId, 'shift');
+      expect(e.showAs, ShowAs.busy);
+      final back = Event.fromJson(
+          (e..showAs = ShowAs.tentative).toJson());
+      expect(back.calendarId, 'shift');
+      expect(back.showAs, ShowAs.tentative);
+    });
+
+    test('行にカレンダー名があればそのカレンダーにする', () {
+      final cals = defaultCalendars()
+        ..add(CalendarDef(id: 'club', name: '部活', colorValue: 0xFF13A10E))
+        ..add(CalendarDef(id: 'hosp', name: '病院', colorValue: 0xFF038387));
+      final r = parseText('11/20 16:00-18:00 部活 練習\n11/21 10:00 病院 定期検診',
+          now, calendars: cals);
+      expect(r.candidates.map((c) => c.calendarId).toList(), ['club', 'hosp']);
+      final s = parseText('11/22 10:00-18:00 バイト', now, calendars: cals);
+      expect(s.candidates.single.calendarId, 'shift');
+    });
+
+    test('「(仮)」「未定」は仮の予定にして、タイトルから(仮)を外す', () {
+      final c = parseText('11/25 14:00 面談（仮）', now).candidates.single;
+      expect(c.showAs, ShowAs.tentative);
+      expect(c.title, '面談');
+      expect(parseText('11/26 有給', now).candidates.single.showAs, ShowAs.away);
+    });
+  });
 }

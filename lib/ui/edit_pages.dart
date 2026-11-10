@@ -159,7 +159,8 @@ class _EventEditPageState extends State<EventEditPage> {
   late final TextEditingController _place;
   late final TextEditingController _note;
   late final TextEditingController _url;
-  late EventKind _kind;
+  late String _cal;
+  late ShowAs _showAs;
   late DateTime _date;
   late bool _allDay;
   late int _start;
@@ -178,7 +179,8 @@ class _EventEditPageState extends State<EventEditPage> {
     _place = TextEditingController(text: e?.place ?? '');
     _note = TextEditingController(text: e?.note ?? '');
     _url = TextEditingController(text: e?.url ?? '');
-    _kind = e?.kind ?? EventKind.other;
+    _cal = e?.calendarId ?? 'other';
+    _showAs = e?.showAs ?? ShowAs.busy;
     _date = e?.date ?? dateOnly(widget.initialDate ?? DateTime.now());
     _allDay = e?.allDay ?? false;
     _start = e?.startMin ?? widget.initialStartMin ?? 9 * 60;
@@ -225,7 +227,8 @@ class _EventEditPageState extends State<EventEditPage> {
     store.upsertEvent(Event(
       id: widget.event?.id ?? store.newId(),
       title: title,
-      kind: _kind,
+      calendarId: store.calendarOf(_cal).id,
+      showAs: _showAs,
       date: _date,
       startMin: _allDay ? null : _start,
       endMin: _allDay ? null : _end,
@@ -259,19 +262,45 @@ class _EventEditPageState extends State<EventEditPage> {
           label: 'タイトル',
           child: FlTextField(controller: _title, autofocus: _isNew),
         ),
-        FlField(
-          label: '種類',
-          child: FlToggleGroup<EventKind>(
-            items: EventKind.values,
-            value: _kind,
-            labelOf: (k) => k.label,
-            onChanged: (k) => setState(() {
-              _kind = k;
-              // 授業は毎週の時間割として登録することが多いので初期値を変える
-              if (_isNew) _weekly = _kind == EventKind.lecture;
-            }),
-          ),
-        ),
+        Builder(builder: (context) {
+          final store = StoreScope.of(context);
+          final cal = store.calendarOf(_cal);
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: FlField(
+                  label: 'カレンダー',
+                  child: FlDropdown<CalendarDef>(
+                    items: store.calendars,
+                    value: cal,
+                    labelOf: (c) => c.name,
+                    leadingOf: (c) => FlColorDot(color: c.color),
+                    onChanged: (c) => setState(() {
+                      _cal = c.id;
+                      // 授業は毎週の時間割として登録することが多いので初期値を変える
+                      if (_isNew) _weekly = c.id == 'lecture';
+                    }),
+                  ),
+                ),
+              ),
+              SizedBox(width: 12),
+              Expanded(
+                child: FlField(
+                  label: '表示方法',
+                  child: FlDropdown<ShowAs>(
+                    items: ShowAs.values,
+                    value: _showAs,
+                    labelOf: (v) => v.label,
+                    leadingOf: (v) =>
+                        FlShowAsSwatch(showAs: v, color: cal.color),
+                    onChanged: (v) => setState(() => _showAs = v),
+                  ),
+                ),
+              ),
+            ],
+          );
+        }),
         FlField(
           label: '日付',
           child: FlPickerField(

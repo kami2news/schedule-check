@@ -131,7 +131,8 @@ class _TimeGridState extends State<TimeGrid> {
         child: SizedBox(
           width: double.infinity,
           child: FlAccentBox(
-            accent: e.kind.color,
+            accent: StoreScope.read(context).colorOf(e),
+            showAs: e.showAs,
             child: Text(e.title,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -192,7 +193,8 @@ class _TimeGridState extends State<TimeGrid> {
       child: GestureDetector(
       onTap: () => openEventEditor(context, event: e),
       child: FlAccentBox(
-        accent: e.kind.color,
+        accent: StoreScope.read(context).colorOf(e),
+        showAs: e.showAs,
         child: Text.rich(
           TextSpan(children: [
             if (e.url.isNotEmpty)
@@ -201,7 +203,7 @@ class _TimeGridState extends State<TimeGrid> {
                 child: Padding(
                   padding: EdgeInsets.only(right: 3),
                   child: Icon(linkIcon(e.url, small: true),
-                      size: 12, color: e.kind.color),
+                      size: 12, color: StoreScope.read(context).colorOf(e)),
                 ),
               ),
             TextSpan(text: e.title, style: FlText.caption1Strong),

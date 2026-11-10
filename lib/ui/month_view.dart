@@ -107,7 +107,7 @@ class MonthView extends StatelessWidget {
             var n = 0;
             for (final e in events) {
               if (n++ >= shown) break;
-              chips.add(_eventChip(e, !inMonth));
+              chips.add(_eventChip(e, store.colorOf(e), !inMonth));
             }
             for (final t in tasks) {
               if (n++ >= shown) break;
@@ -158,7 +158,7 @@ class MonthView extends StatelessWidget {
     );
   }
 
-  Widget _eventChip(Event e, bool faded) {
+  Widget _eventChip(Event e, Color color, bool faded) {
     return Opacity(
       opacity: faded ? 0.55 : 1,
       child: Padding(
@@ -167,7 +167,8 @@ class MonthView extends StatelessWidget {
           height: 16,
           width: double.infinity,
           child: FlAccentBox(
-            accent: e.kind.color,
+            accent: color,
+            showAs: e.showAs,
             bar: 3,
             padding: EdgeInsets.fromLTRB(3, 0, 2, 0),
             child: Align(

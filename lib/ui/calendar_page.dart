@@ -5,6 +5,7 @@ import '../models.dart';
 import 'controller.dart';
 import 'fluent.dart';
 import 'mini_month.dart';
+import 'sidebar.dart';
 import 'month_view.dart';
 import 'time_grid.dart';
 
@@ -198,7 +199,22 @@ class _CalendarPageState extends State<CalendarPage> {
                 duration: Duration(milliseconds: 150),
                 alignment: Alignment.topCenter,
                 child: _showMini
-                    ? MiniMonth(controller: c)
+                    ? ConstrainedBox(
+                        constraints: BoxConstraints(
+                            maxHeight:
+                                MediaQuery.sizeOf(context).height * 0.6),
+                        child: SingleChildScrollView(
+                          child: Column(
+                            children: [
+                              MiniMonth(controller: c),
+                              Divider(height: 1),
+                              SizedBox(height: 4),
+                              CalendarList(controller: c),
+                              SizedBox(height: 8),
+                            ],
+                          ),
+                        ),
+                      )
                     : SizedBox(width: double.infinity),
               ),
             Divider(height: 1),

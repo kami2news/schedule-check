@@ -18,14 +18,15 @@ extension ImportTypeX on ImportType {
     }
   }
 
-  EventKind? get eventKind {
+  /// 対応する既定のカレンダー id（タスクは null）
+  String? get calendarId {
     switch (this) {
       case ImportType.event:
-        return EventKind.other;
+        return 'other';
       case ImportType.shift:
-        return EventKind.shift;
+        return 'shift';
       case ImportType.lecture:
-        return EventKind.lecture;
+        return 'lecture';
       case ImportType.task:
         return null;
     }
@@ -44,9 +45,15 @@ class Candidate {
     this.url = '',
     this.note = '',
     this.place = '',
+    this.calendarId = 'other',
+    this.showAs = ShowAs.busy,
   });
 
   String title;
+
+  /// 登録先のカレンダー（タスクのときは使わない）
+  String calendarId;
+  ShowAs showAs;
   DateTime date;
   ImportType type;
   int? startMin;
@@ -253,7 +260,16 @@ DateTime? _validDate(int y, int m, int d) {
   return null;
 }
 
-ParseResult parseText(String text, DateTime now) {
+final _tentativeRe = RegExp(r'[（(]仮[)）]|仮予約|仮押さえ|仮決定|未定|調整中|予備日');
+final _awayRe = RegExp(r'有給|有休|欠勤|お休み|休暇|不在|外出');
+final _elsewhereRe = RegExp(r'在宅|リモート勤務|テレワーク');
+
+/// [calendars] を渡すと、行にカレンダー名（「部活」「病院」など）が含まれる場合にそのカレンダーを選ぶ
+ParseResult parseText(String text, DateTime now,
+    {List<CalendarDef>? calendars}) {
+  final cals = calendars ?? defaultCalendars();
+  // 長い名前から順に照合する（「試験」より「追試験」を優先）
+  final byName = [...cals]..sort((a, b) => b.name.length.compareTo(a.name.length));
   final today = dateOnly(now);
   final out = <Candidate>[];
   var skipped = 0;
@@ -380,7 +396,29 @@ ParseResult parseText(String text, DateTime now) {
       type = ImportType.event;
     }
 
+    var calId = type.calendarId ?? 'other';
+    for (final cal in byName) {
+      if (cal.name.trim().isNotEmpty && kindText.contains(cal.name.trim())) {
+        calId = cal.id;
+        break;
+      }
+    }
+    if (!cals.any((x) => x.id == calId)) calId = cals.first.id;
+    final showAs = _tentativeRe.hasMatch(line)
+        ? ShowAs.tentative
+        : _awayRe.hasMatch(line)
+            ? ShowAs.away
+            : _elsewhereRe.hasMatch(line)
+                ? ShowAs.workingElsewhere
+                : ShowAs.busy;
+
+    if (showAs == ShowAs.tentative) {
+      title = title.replaceAll(RegExp(r'[（(]仮[)）]'), '').trim();
+    }
+
     final c = Candidate(
+      calendarId: calId,
+      showAs: showAs,
       title: title,
       date: d.date,
       type: type,
