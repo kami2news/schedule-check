@@ -76,13 +76,8 @@ Future<DateTime?> _pickDate(BuildContext context, DateTime initial) {
   );
 }
 
-Future<int?> _pickTime(BuildContext context, int initialMin) async {
-  final t = await showTimePicker(
-    context: context,
-    initialTime: TimeOfDay(hour: initialMin ~/ 60, minute: initialMin % 60),
-  );
-  if (t == null) return null;
-  return t.hour * 60 + t.minute;
+Future<int?> _pickTime(BuildContext context, int initialMin) {
+  return showFlTimeList(context, initialMin, extra: const [23 * 60 + 59]);
 }
 
 Future<bool> _confirmDelete(BuildContext context, String what) {

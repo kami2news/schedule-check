@@ -30,5 +30,7 @@ flutter:
           weight: 300
         - asset: assets/fonts/Selawik-Regular.ttf
           weight: 400
+        - asset: assets/fonts/Selawik-Semibold.ttf
+          weight: 600
         - asset: assets/fonts/Selawik-Bold.ttf
           weight: 700

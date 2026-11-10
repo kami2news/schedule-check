@@ -158,6 +158,17 @@ ThemeData buildFluentTheme() {
     fontFamily: FlText.family,
     fontFamilyFallback: FlText.fallback,
     textTheme: textTheme,
+    visualDensity: VisualDensity.standard,
+    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    // Fluent の入場モーション（短いフェード + わずかな上方向スライド）
+    pageTransitionsTheme: const PageTransitionsTheme(builders: {
+      TargetPlatform.android: FadeUpwardsPageTransitionsBuilder(),
+      TargetPlatform.iOS: FadeUpwardsPageTransitionsBuilder(),
+      TargetPlatform.macOS: FadeUpwardsPageTransitionsBuilder(),
+      TargetPlatform.windows: FadeUpwardsPageTransitionsBuilder(),
+      TargetPlatform.linux: FadeUpwardsPageTransitionsBuilder(),
+      TargetPlatform.fuchsia: FadeUpwardsPageTransitionsBuilder(),
+    }),
     splashFactory: NoSplash.splashFactory,
     splashColor: Colors.transparent,
     hoverColor: const Color(0x0A000000),
@@ -168,6 +179,8 @@ ThemeData buildFluentTheme() {
     filledButtonTheme: FilledButtonThemeData(
       style: ButtonStyle(
         elevation: const WidgetStatePropertyAll(0),
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        visualDensity: VisualDensity.standard,
         minimumSize: const WidgetStatePropertyAll(Size(64, 32)),
         padding: const WidgetStatePropertyAll(
             EdgeInsets.symmetric(horizontal: 12)),
@@ -188,6 +201,8 @@ ThemeData buildFluentTheme() {
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: ButtonStyle(
         elevation: const WidgetStatePropertyAll(0),
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        visualDensity: VisualDensity.standard,
         minimumSize: const WidgetStatePropertyAll(Size(64, 32)),
         padding: const WidgetStatePropertyAll(
             EdgeInsets.symmetric(horizontal: 12)),
@@ -213,6 +228,8 @@ ThemeData buildFluentTheme() {
     // サブトル（背景なし）
     textButtonTheme: TextButtonThemeData(
       style: ButtonStyle(
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        visualDensity: VisualDensity.standard,
         minimumSize: const WidgetStatePropertyAll(Size(32, 32)),
         padding: const WidgetStatePropertyAll(
             EdgeInsets.symmetric(horizontal: 10)),
@@ -226,6 +243,8 @@ ThemeData buildFluentTheme() {
     ),
     iconButtonTheme: IconButtonThemeData(
       style: ButtonStyle(
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        visualDensity: VisualDensity.standard,
         minimumSize: const WidgetStatePropertyAll(Size(32, 32)),
         maximumSize: const WidgetStatePropertyAll(Size(40, 40)),
         padding: const WidgetStatePropertyAll(EdgeInsets.all(6)),
@@ -285,7 +304,35 @@ ThemeData buildFluentTheme() {
     datePickerTheme: DatePickerThemeData(
       backgroundColor: Fl.bg1,
       surfaceTintColor: Colors.transparent,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Fl.r8)),
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(Fl.r8),
+        side: const BorderSide(color: Fl.stroke2),
+      ),
+      headerBackgroundColor: Fl.bg1,
+      headerForegroundColor: Fl.fg1,
+      headerHeadlineStyle: FlText.subtitle1,
+      headerHelpStyle: FlText.caption1,
+      dividerColor: Fl.stroke2,
+      weekdayStyle: FlText.caption1.copyWith(color: Fl.fg3),
+      dayStyle: FlText.body1,
+      yearStyle: FlText.body1,
+      dayShape: WidgetStatePropertyAll(
+        RoundedRectangleBorder(borderRadius: BorderRadius.circular(Fl.r4)),
+      ),
+      dayOverlayColor: const WidgetStatePropertyAll(Color(0x0A000000)),
+      dayForegroundColor: WidgetStateProperty.resolveWith((s) {
+        if (s.contains(WidgetState.selected)) return Colors.white;
+        if (s.contains(WidgetState.disabled)) return Fl.fgDisabled;
+        return Fl.fg1;
+      }),
+      dayBackgroundColor: WidgetStateProperty.resolveWith((s) =>
+          s.contains(WidgetState.selected) ? Fl.brand : Colors.transparent),
+      todayForegroundColor: WidgetStateProperty.resolveWith((s) =>
+          s.contains(WidgetState.selected) ? Colors.white : Fl.brand),
+      todayBackgroundColor: WidgetStateProperty.resolveWith((s) =>
+          s.contains(WidgetState.selected) ? Fl.brand : Colors.transparent),
+      todayBorder: const BorderSide(color: Fl.brand),
     ),
     timePickerTheme: TimePickerThemeData(
       backgroundColor: Fl.bg1,
@@ -431,6 +478,7 @@ class FlTabList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
+      width: double.infinity,
       decoration: const BoxDecoration(
         border: Border(bottom: BorderSide(color: Fl.stroke2)),
       ),
@@ -445,8 +493,10 @@ class FlTabList extends StatelessWidget {
                 onTap: () => onSelected(i),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 8),
-                  child: Column(
+                  child: IntrinsicWidth(
+                      child: Column(
                     mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       Padding(
                         padding: const EdgeInsets.fromLTRB(0, 10, 0, 8),
@@ -476,7 +526,7 @@ class FlTabList extends StatelessWidget {
                         ),
                       ),
                     ],
-                  ),
+                  )),
                 ),
               ),
           ],

@@ -153,13 +153,20 @@ class _TodoPanelState extends State<TodoPanel> {
             children: [
               if (open.isEmpty && done.isEmpty)
                 Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Text(
-                    _list == TodoList.myDay
-                        ? '今日が期限のタスクはありません'
-                        : 'タスクはありません',
-                    textAlign: TextAlign.center,
-                    style: FlText.body1.copyWith(color: Fl.fg3),
+                  padding: const EdgeInsets.fromLTRB(24, 40, 24, 24),
+                  child: Column(
+                    children: [
+                      const Icon(FluentIcons.checkmark_circle_48_regular,
+                          size: 48, color: Fl.stroke1),
+                      const SizedBox(height: 12),
+                      Text(
+                        _list == TodoList.myDay
+                            ? '今日が期限のタスクはありません'
+                            : 'タスクはありません',
+                        textAlign: TextAlign.center,
+                        style: FlText.body1.copyWith(color: Fl.fg3),
+                      ),
+                    ],
                   ),
                 ),
               for (final t in open) _TaskRow(task: t),

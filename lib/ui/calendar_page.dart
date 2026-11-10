@@ -71,6 +71,22 @@ class _CalendarPageState extends State<CalendarPage> {
     );
   }
 
+  /// 狭い画面では年を省いた短い見出しにする（今年以外は年も付ける）
+  String _compactTitle(CalendarController c) {
+    final s = c.selected;
+    final y = s.year == DateTime.now().year ? '' : '${s.year}年';
+    switch (c.view) {
+      case CalView.day:
+        return '$y${s.month}月${s.day}日（${weekdayNames[s.weekday - 1]}）';
+      case CalView.week:
+        final a = startOfWeek(s);
+        final b = addDays(a, 6);
+        return '$y${a.month}/${a.day} – ${b.month}/${b.day}';
+      case CalView.month:
+        return '${s.year}年${s.month}月';
+    }
+  }
+
   Widget _header(BuildContext context, CalendarController c) {
     final compact = widget.compact;
     final todayButton = compact
@@ -95,6 +111,7 @@ class _CalendarPageState extends State<CalendarPage> {
     ];
 
     final titleStyle = compact ? FlText.subtitle2 : FlText.subtitle1;
+    final titleText = compact ? _compactTitle(c) : c.title;
     final Widget title = compact
         ? InkWell(
             borderRadius: BorderRadius.circular(Fl.r4),
@@ -105,7 +122,7 @@ class _CalendarPageState extends State<CalendarPage> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Flexible(
-                    child: Text(c.title,
+                    child: Text(titleText,
                         style: titleStyle, overflow: TextOverflow.ellipsis),
                   ),
                   const SizedBox(width: 4),
@@ -119,7 +136,7 @@ class _CalendarPageState extends State<CalendarPage> {
               ),
             ),
           )
-        : Text(c.title, style: titleStyle);
+        : Text(titleText, style: titleStyle);
 
     return Padding(
       padding: compact

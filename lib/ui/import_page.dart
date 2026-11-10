@@ -5,6 +5,7 @@ import '../models.dart';
 import '../parser.dart';
 import '../store.dart';
 import 'fluent.dart';
+import 'fluent_extras.dart';
 import 'widgets.dart';
 
 /// メールや連絡文を貼り付けて、日付つきの行を予定／タスク候補として取り込む画面
@@ -159,12 +160,8 @@ class _CandidateTileState extends State<_CandidateTile> {
     }
   }
 
-  Future<int?> _pickTime(int initial) async {
-    final t = await showTimePicker(
-      context: context,
-      initialTime: TimeOfDay(hour: initial ~/ 60, minute: initial % 60),
-    );
-    return t == null ? null : t.hour * 60 + t.minute;
+  Future<int?> _pickTime(int initial) {
+    return showFlTimeList(context, initial, extra: const [23 * 60 + 59]);
   }
 
   Future<void> _pickStart() async {

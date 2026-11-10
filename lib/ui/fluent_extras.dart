@@ -127,3 +127,57 @@ Future<bool> showFlConfirm(
   );
   return result ?? false;
 }
+
+/// Outlook 風の時刻リスト（15分刻み）。[extra] は刻みに無い値（23:59 など）を追加する。
+Future<int?> showFlTimeList(BuildContext context, int initialMin,
+    {List<int> extra = const []}) {
+  final values = <int>{
+    for (var m = 0; m < 24 * 60; m += 15) m,
+    initialMin,
+    ...extra,
+  }.toList()
+    ..sort();
+  const rowH = 36.0;
+  final index = values.indexOf(initialMin);
+  final scroll = ScrollController(
+      initialScrollOffset: (index * rowH - 3 * rowH).clamp(0.0, 1e9).toDouble());
+  String fmt(int m) =>
+      '${(m ~/ 60).toString().padLeft(2, '0')}:${(m % 60).toString().padLeft(2, '0')}';
+  return showFlDialog<int>(
+    context,
+    maxWidth: 200,
+    maxHeight: 368,
+    child: Builder(
+      builder: (ctx) => Material(
+        color: Fl.bg1,
+        child: ListView.builder(
+          controller: scroll,
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          itemExtent: rowH,
+          itemCount: values.length,
+          itemBuilder: (_, i) {
+            final sel = values[i] == initialMin;
+            return InkWell(
+              onTap: () => Navigator.of(ctx).pop(values[i]),
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                alignment: Alignment.centerLeft,
+                decoration: BoxDecoration(
+                  color: sel ? Fl.brandTint : null,
+                  borderRadius: BorderRadius.circular(Fl.r4),
+                ),
+                child: Text(
+                  fmt(values[i]),
+                  style: sel
+                      ? FlText.body1Strong.copyWith(color: Fl.brand)
+                      : FlText.body1,
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    ),
+  );
+}

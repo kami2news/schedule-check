@@ -76,7 +76,7 @@ class TimeGrid extends StatefulWidget {
 
 class _TimeGridState extends State<TimeGrid> {
   final ScrollController _scroll =
-      ScrollController(initialScrollOffset: 7 * _hourH);
+      ScrollController(initialScrollOffset: 7 * _hourH - 12);
 
   @override
   void dispose() {
@@ -186,7 +186,9 @@ class _TimeGridState extends State<TimeGrid> {
 
   Widget _block(BuildContext context, Event e, double h) {
     final lines = math.max(1, ((h - 4) / 16).floor());
-    return GestureDetector(
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
       onTap: () => openEventEditor(context, event: e),
       child: FlAccentBox(
         accent: e.kind.color,
@@ -205,7 +207,7 @@ class _TimeGridState extends State<TimeGrid> {
           style: FlText.caption1,
         ),
       ),
-    );
+    ));
   }
 
   Widget _dayColumn(BuildContext context, DateTime day, double colW,
@@ -359,6 +361,14 @@ class _TimeGridState extends State<TimeGrid> {
                                 left: 0,
                                 right: 0,
                                 child: Container(height: 1, color: Fl.stroke2),
+                              ),
+                            // 30分の補助線（より淡く）
+                            for (var h = 0; h < 24; h++)
+                              Positioned(
+                                top: h * _hourH + _hourH / 2,
+                                left: 0,
+                                right: 0,
+                                child: Container(height: 1, color: Fl.bg4),
                               ),
                             for (var i = 0; i < days.length; i++)
                               Positioned(
