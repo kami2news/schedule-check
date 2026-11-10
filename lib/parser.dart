@@ -41,6 +41,9 @@ class Candidate {
     required this.source,
     this.startMin,
     this.endMin,
+    this.url = '',
+    this.note = '',
+    this.place = '',
   });
 
   String title;
@@ -48,6 +51,13 @@ class Candidate {
   ImportType type;
   int? startMin;
   int? endMin;
+
+  /// Zoom などのリンク
+  String url;
+
+  /// 続く行から拾った補足（ミーティングID・パスコードなど）
+  String note;
+  String place;
   final String source;
   bool selected = true;
 }
@@ -74,6 +84,14 @@ final _singleRe = RegExp(_timeTok);
 final _taskWords = RegExp(r'締切|締め切り|〆|提出|期限|まで');
 final _shiftWords = RegExp(r'シフト|バイト|勤務|出勤');
 final _lectureWords = RegExp(r'授業|講義|ゼミ|実験|休講|補講|試験|テスト');
+
+/// URL の前に付きがちなラベル（「Zoom:」「URL：」など）
+final _linkLabelRe = RegExp(
+    r'(zoom|teams|meet|webex|url|リンク|会議URL|参加URL|参加用URL|ミーティングURL)\s*[:：]?\s*$',
+    caseSensitive: false);
+/// 挨拶などメモに入れなくてよい行
+final _greetingRe = RegExp(r'^(よろしく|宜しく|お疲れ|おつかれ|お世話|以上|ありがとう)');
+final _placeRe = RegExp(r'^\s*(?:場所|会場|教室|集合場所|集合)\s*[:：]\s*(.+)$');
 
 final _trimHead = RegExp(r'^[\s　・●■□◆◇▼▽*\-–—:：,、。/【】]+');
 final _trimTail = RegExp(r'[\s　・●■□◆◇▼▽*\-–—:：,、。/【】]+$');
@@ -139,13 +157,43 @@ ParseResult parseText(String text, DateTime now) {
   final out = <Candidate>[];
   var skipped = 0;
 
+  // 直前の候補に続く行（空行で区切られるまで）は、その候補の補足として扱う
+  Candidate? open;
+
   for (final rawLine in text.split(RegExp(r'\r?\n'))) {
     final line = rawLine.trim();
-    if (line.isEmpty) continue;
+    if (line.isEmpty) {
+      open = null;
+      continue;
+    }
 
-    final d = _extractDate(line, today);
+    // URL は日付・時刻の誤検出を避けるため先に取り除く
+    final urls = [for (final m in urlPattern.allMatches(line)) m.group(0)!];
+    var body = line.replaceAll(urlPattern, ' ');
+
+    final d = _extractDate(body, today);
     if (d == null) {
-      skipped++;
+      final target = open;
+      if (target == null) {
+        skipped++;
+        continue;
+      }
+      // 補足行: リンク・場所・メモに振り分ける
+      if (urls.isNotEmpty && target.url.isEmpty) {
+        target.url = urls.first;
+        final restUrls = urls.skip(1).join(' ');
+        final label = body.replaceAll(_linkLabelRe, '').trim();
+        final extra = [label, restUrls].where((x) => x.isNotEmpty).join(' ');
+        if (extra.isNotEmpty) target.note = _addLine(target.note, extra);
+        continue;
+      }
+      if (_greetingRe.hasMatch(line)) continue;
+      final p = _placeRe.firstMatch(line);
+      if (p != null && target.place.isEmpty) {
+        target.place = p.group(1)!.trim();
+        continue;
+      }
+      target.note = _addLine(target.note, line);
       continue;
     }
 
@@ -175,10 +223,12 @@ ParseResult parseText(String text, DateTime now) {
       }
     }
 
-    var title = rest.replaceAll(_trimHead, '').replaceAll(_trimTail, '');
-    title = title.replaceAll(RegExp(r'[\s　]+'), ' ');
+    var title = rest.replaceAll(RegExp(r'[\s　]+'), ' ').trim();
+    title = title.replaceAll(_linkLabelRe, '');
+    title = title.replaceAll(_trimHead, '').replaceAll(_trimTail, '');
     if (title.isEmpty) {
-      title = line.length > 30 ? line.substring(0, 30) : line;
+      final b = body.trim();
+      title = b.length > 30 ? b.substring(0, 30) : b;
     }
 
     ImportType type;
@@ -192,17 +242,24 @@ ParseResult parseText(String text, DateTime now) {
       type = ImportType.event;
     }
 
-    out.add(Candidate(
+    final c = Candidate(
       title: title,
       date: d.date,
       type: type,
       source: line,
       startMin: start,
       endMin: type == ImportType.task ? null : end,
-    ));
+      url: urls.isEmpty ? '' : urls.first,
+      note: urls.length > 1 ? urls.skip(1).join('\n') : '',
+    );
+    out.add(c);
+    open = c;
   }
   return ParseResult(out, skipped);
 }
+
+String _addLine(String base, String line) =>
+    base.isEmpty ? line : '$base\n$line';
 
 /// 候補の終了時刻の既定値（開始+60分、23:59 まで）
 int defaultEnd(int startMin) => math.min(startMin + 60, 23 * 60 + 59);

@@ -14,6 +14,7 @@ dependencies:
   # Microsoft 公式の Fluent System Icons
   fluentui_system_icons: ^1.1.270
   shared_preferences: ^2.2.3
+  url_launcher: ^6.3.0
 
 dev_dependencies:
   flutter_test:

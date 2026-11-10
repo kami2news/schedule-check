@@ -47,8 +47,18 @@ class _ImportPageState extends State<ImportPage> {
     for (final c in _cands.where((c) => c.selected)) {
       final title = c.title.trim().isEmpty ? '(無題)' : c.title.trim();
       if (c.type == ImportType.task) {
+        final place = c.place.trim();
+        final note = c.note.trim();
         tasks.add(TaskItem(
-            id: store.newId(), title: title, due: c.date, dueMin: c.startMin));
+          id: store.newId(),
+          title: title,
+          due: c.date,
+          dueMin: c.startMin,
+          url: c.url.trim(),
+          // タスクには場所の欄がないのでメモにまとめる
+          note: [if (place.isNotEmpty) '場所: $place', if (note.isNotEmpty) note]
+              .join('\n'),
+        ));
       } else {
         final s = c.startMin;
         events.add(Event(
@@ -58,6 +68,9 @@ class _ImportPageState extends State<ImportPage> {
           date: c.date,
           startMin: s,
           endMin: s == null ? null : (c.endMin ?? defaultEnd(s)),
+          place: c.place.trim(),
+          url: c.url.trim(),
+          note: c.note.trim(),
         ));
       }
     }
@@ -79,6 +92,7 @@ class _ImportPageState extends State<ImportPage> {
       children: [
         Text(
           'メールやLINEの連絡文などを貼り付けると、日付が書かれた行を予定やタスクの候補として取り出します。'
+          'すぐ下の行にある Zoom などのリンク・場所・ミーティングID などは、その予定のリンクやメモに入ります。'
           '登録前に内容を確認・修正できます。',
           style: FlText.body1.copyWith(color: Fl.fg2),
         ),
@@ -87,7 +101,7 @@ class _ImportPageState extends State<ImportPage> {
           controller: _text,
           minLines: 6,
           maxLines: 10,
-          hint: '例）\n11/15 10:00-18:00 シフト\n11月20日 レポート提出 23:59',
+          hint: '例）\n11/15 10:00-18:00 シフト\n11/18 14:00-15:00 面談\nZoom: https://zoom.us/j/...\nミーティングID: 123 456 789\n\n11月20日 レポート提出 23:59',
         ),
         const SizedBox(height: 12),
         FilledButton.icon(
@@ -133,10 +147,22 @@ class _CandidateTile extends StatefulWidget {
 class _CandidateTileState extends State<_CandidateTile> {
   late final TextEditingController _title =
       TextEditingController(text: widget.c.title);
+  late final TextEditingController _url =
+      TextEditingController(text: widget.c.url);
+  late final TextEditingController _place =
+      TextEditingController(text: widget.c.place);
+  late final TextEditingController _note =
+      TextEditingController(text: widget.c.note);
+  late bool _showDetails = widget.c.url.isNotEmpty ||
+      widget.c.note.isNotEmpty ||
+      widget.c.place.isNotEmpty;
 
   @override
   void dispose() {
     _title.dispose();
+    _url.dispose();
+    _place.dispose();
+    _note.dispose();
     super.dispose();
   }
 
@@ -180,6 +206,22 @@ class _CandidateTileState extends State<_CandidateTile> {
     if (v <= s) return;
     c.endMin = v;
     _changed();
+  }
+
+  Widget _detailRow(IconData icon, Widget field) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 8, right: 8),
+            child: Icon(icon, size: 16, color: Fl.fg3),
+          ),
+          Expanded(child: field),
+        ],
+      ),
+    );
   }
 
   @override
@@ -268,6 +310,50 @@ class _CandidateTileState extends State<_CandidateTile> {
                 ],
               ),
             ),
+            if (_showDetails)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 8, 0, 0),
+                child: Column(
+                  children: [
+                    _detailRow(
+                      FluentIcons.link_24_regular,
+                      FlTextField(
+                        controller: _url,
+                        hint: 'リンク（Zoom・Teams など）',
+                        onChanged: (v) => c.url = v,
+                      ),
+                    ),
+                    if (!isTask)
+                      _detailRow(
+                        FluentIcons.location_24_regular,
+                        FlTextField(
+                          controller: _place,
+                          hint: '場所',
+                          onChanged: (v) => c.place = v,
+                        ),
+                      ),
+                    _detailRow(
+                      FluentIcons.note_24_regular,
+                      FlTextField(
+                        controller: _note,
+                        hint: 'メモ（ミーティングID・パスコードなど）',
+                        minLines: 1,
+                        maxLines: 4,
+                        onChanged: (v) => c.note = v,
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            else
+              Padding(
+                padding: const EdgeInsets.only(left: 4),
+                child: TextButton.icon(
+                  onPressed: () => setState(() => _showDetails = true),
+                  icon: const Icon(FluentIcons.add_24_regular, size: 16),
+                  label: const Text('リンク・メモを追加'),
+                ),
+              ),
             Padding(
               padding: const EdgeInsets.only(left: 12, top: 4),
               child: Text('元の行: ${c.source}',

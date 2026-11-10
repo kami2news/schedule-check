@@ -245,15 +245,38 @@ class _TaskRow extends StatelessWidget {
                             color: t.done ? Fl.fg3 : Fl.fg1,
                           ),
                         ),
-                        if (t.due != null)
-                          Text(
-                            info.text,
-                            style: FlText.caption1
-                                .copyWith(color: info.color ?? Fl.fg3),
+                        if (t.due != null ||
+                            t.url.isNotEmpty ||
+                            t.note.isNotEmpty)
+                          Row(
+                            children: [
+                              if (t.due != null)
+                                Flexible(
+                                  child: Text(
+                                    info.text,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: FlText.caption1
+                                        .copyWith(color: info.color ?? Fl.fg3),
+                                  ),
+                                ),
+                              if (t.note.isNotEmpty) ...[
+                                const SizedBox(width: 8),
+                                const Icon(FluentIcons.note_16_regular,
+                                    size: 14, color: Fl.fg3),
+                              ],
+                            ],
                           ),
                       ],
                     ),
                   ),
+                  if (t.url.isNotEmpty)
+                    IconButton(
+                      tooltip: isMeetingLink(t.url)
+                          ? '${linkLabel(t.url)}に参加'
+                          : 'リンクを開く',
+                      icon: Icon(linkIcon(t.url), size: 20, color: Fl.brand),
+                      onPressed: () => openLink(context, t.url),
+                    ),
                   IconButton(
                     tooltip: '重要',
                     icon: Icon(

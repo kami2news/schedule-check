@@ -51,4 +51,58 @@ void main() {
     expect(e.occursOn(DateTime(2026, 11, 18)), isFalse);
     expect(e.occursOn(DateTime(2026, 11, 3)), isFalse);
   });
+
+  test('同じ行のZoomリンクを取り出し、タイトルや日付に混ぜない', () {
+    final r = parseText(
+        '11/18 14:00-15:00 面談 Zoom: https://us02web.zoom.us/j/12345678901?pwd=ab12',
+        now);
+    final c = r.candidates.single;
+    expect(c.title, '面談');
+    expect(c.date, DateTime(2026, 11, 18));
+    expect(c.startMin, 14 * 60);
+    expect(c.url, 'https://us02web.zoom.us/j/12345678901?pwd=ab12');
+  });
+
+  test('続く行のリンク・場所・ID はその予定に付き、空行で区切られる', () {
+    const text = 'お疲れさまです。\n'
+        '11/20 10:00-11:00 ゼミ\n'
+        'Teams: https://teams.microsoft.com/l/meetup-join/abc\n'
+        '場所：理学部III号館 302\n'
+        'ミーティングID: 123 456 789\n'
+        'パスコード: xyz\n'
+        'よろしくお願いします。\n'
+        '\n'
+        '以上です';
+    final r = parseText(text, now);
+    final c = r.candidates.single;
+    expect(c.title, 'ゼミ');
+    expect(c.url, 'https://teams.microsoft.com/l/meetup-join/abc');
+    expect(c.place, '理学部III号館 302');
+    expect(c.note, 'ミーティングID: 123 456 789\nパスコード: xyz');
+    expect(r.skipped, 2); // 挨拶と「以上です」
+  });
+
+  test('リンクの種類を判定する', () {
+    expect(linkLabel('https://zoom.us/j/1'), 'Zoom');
+    expect(linkLabel('https://meet.google.com/abc'), 'Google Meet');
+    expect(isMeetingLink('https://example.com'), isFalse);
+  });
+
+  test('リンクとメモは保存して読み戻せる', () {
+    final e = Event(
+        id: '1',
+        title: 'x',
+        kind: EventKind.other,
+        date: DateTime(2026, 11, 1),
+        url: 'https://zoom.us/j/1',
+        note: 'ID 1');
+    final back = Event.fromJson(e.toJson());
+    expect(back.url, 'https://zoom.us/j/1');
+    expect(back.note, 'ID 1');
+    final t = TaskItem(id: '2', title: 'y', url: 'https://example.com');
+    expect(TaskItem.fromJson(t.toJson()).url, 'https://example.com');
+    // 以前のデータ（url なし）も読める
+    final old = e.toJson()..remove('url');
+    expect(Event.fromJson(old).url, '');
+  });
 }

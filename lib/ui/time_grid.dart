@@ -9,6 +9,7 @@ import 'controller.dart';
 import 'edit_pages.dart';
 import 'fluent.dart';
 import 'fluent_extras.dart';
+import 'widgets.dart';
 
 const double _hourH = 56;
 const double _gutter = 48;
@@ -194,6 +195,15 @@ class _TimeGridState extends State<TimeGrid> {
         accent: e.kind.color,
         child: Text.rich(
           TextSpan(children: [
+            if (e.url.isNotEmpty)
+              WidgetSpan(
+                alignment: PlaceholderAlignment.middle,
+                child: Padding(
+                  padding: const EdgeInsets.only(right: 3),
+                  child: Icon(linkIcon(e.url, small: true),
+                      size: 12, color: e.kind.color),
+                ),
+              ),
             TextSpan(text: e.title, style: FlText.caption1Strong),
             if (lines > 1)
               TextSpan(

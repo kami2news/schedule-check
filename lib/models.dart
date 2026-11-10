@@ -65,6 +65,7 @@ class Event {
     this.repeatUntil,
     this.place = '',
     this.note = '',
+    this.url = '',
   });
 
   final String id;
@@ -83,6 +84,9 @@ class Event {
   DateTime? repeatUntil;
   String place;
   String note;
+
+  /// Zoom / Teams などのリンク
+  String url;
 
   bool get allDay => startMin == null;
 
@@ -113,6 +117,7 @@ class Event {
         'repeatUntil': repeatUntil?.toIso8601String(),
         'place': place,
         'note': note,
+        'url': url,
       };
 
   factory Event.fromJson(Map<String, dynamic> j) => Event(
@@ -128,6 +133,7 @@ class Event {
             : DateTime.parse(j['repeatUntil'] as String),
         place: (j['place'] as String?) ?? '',
         note: (j['note'] as String?) ?? '',
+        url: (j['url'] as String?) ?? '',
       );
 }
 
@@ -140,6 +146,7 @@ class TaskItem {
     this.done = false,
     this.important = false,
     this.note = '',
+    this.url = '',
   });
 
   final String id;
@@ -152,6 +159,9 @@ class TaskItem {
   bool important;
   String note;
 
+  /// 提出先や資料などのリンク
+  String url;
+
   Map<String, dynamic> toJson() => {
         'id': id,
         'title': title,
@@ -160,6 +170,7 @@ class TaskItem {
         'done': done,
         'important': important,
         'note': note,
+        'url': url,
       };
 
   factory TaskItem.fromJson(Map<String, dynamic> j) => TaskItem(
@@ -170,6 +181,7 @@ class TaskItem {
         done: (j['done'] as bool?) ?? false,
         important: (j['important'] as bool?) ?? false,
         note: (j['note'] as String?) ?? '',
+        url: (j['url'] as String?) ?? '',
       );
 }
 
@@ -182,3 +194,19 @@ int compareTasks(TaskItem a, TaskItem b) {
   if (c != 0) return c;
   return (a.dueMin ?? 24 * 60).compareTo(b.dueMin ?? 24 * 60);
 }
+
+/// 文字列中の URL（http/https）
+final urlPattern = RegExp(r'https?://[^\s<>"\'「」（）()、。]+');
+
+/// リンクの種類に応じた表示名（Zoom / Teams / Meet / Webex / リンク）
+String linkLabel(String url) {
+  final u = url.toLowerCase();
+  if (u.contains('zoom.us') || u.contains('zoom.com')) return 'Zoom';
+  if (u.contains('teams.microsoft') || u.contains('teams.live')) return 'Teams';
+  if (u.contains('meet.google')) return 'Google Meet';
+  if (u.contains('webex')) return 'Webex';
+  return 'リンク';
+}
+
+/// オンライン会議のリンクかどうか
+bool isMeetingLink(String url) => linkLabel(url) != 'リンク';

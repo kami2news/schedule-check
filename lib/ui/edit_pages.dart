@@ -8,6 +8,7 @@ import '../store.dart';
 import 'fluent.dart';
 import 'fluent_extras.dart';
 import 'layout.dart';
+import 'widgets.dart';
 
 /// 広い画面ではダイアログ、狭い画面では全画面で開く
 Future<void> _openEditor(BuildContext context, Widget page) {
@@ -89,6 +90,35 @@ Future<bool> _confirmDelete(BuildContext context, String what) {
   );
 }
 
+/// リンク欄。入力があれば「参加」「開く」ボタンを横に出す
+Widget _linkField(
+    BuildContext context, TextEditingController c, VoidCallback onChanged,
+    {String hint = 'Zoom・Teams などのURL'}) {
+  final url = c.text.trim();
+  return FlField(
+    label: 'リンク（任意）',
+    child: Row(
+      children: [
+        Expanded(
+          child: FlTextField(
+            controller: c,
+            hint: hint,
+            onChanged: (_) => onChanged(),
+            leading: Icon(
+                url.isEmpty ? FluentIcons.link_24_regular : linkIcon(url),
+                size: 16,
+                color: Fl.fg3),
+          ),
+        ),
+        if (url.isNotEmpty) ...[
+          const SizedBox(width: 8),
+          FlLinkButton(url: url),
+        ],
+      ],
+    ),
+  );
+}
+
 Widget _errorText(String? msg) {
   if (msg == null) return const SizedBox.shrink();
   return Padding(
@@ -128,6 +158,7 @@ class _EventEditPageState extends State<EventEditPage> {
   late final TextEditingController _title;
   late final TextEditingController _place;
   late final TextEditingController _note;
+  late final TextEditingController _url;
   late EventKind _kind;
   late DateTime _date;
   late bool _allDay;
@@ -146,6 +177,7 @@ class _EventEditPageState extends State<EventEditPage> {
     _title = TextEditingController(text: e?.title ?? '');
     _place = TextEditingController(text: e?.place ?? '');
     _note = TextEditingController(text: e?.note ?? '');
+    _url = TextEditingController(text: e?.url ?? '');
     _kind = e?.kind ?? EventKind.other;
     _date = e?.date ?? dateOnly(widget.initialDate ?? DateTime.now());
     _allDay = e?.allDay ?? false;
@@ -160,6 +192,7 @@ class _EventEditPageState extends State<EventEditPage> {
     _title.dispose();
     _place.dispose();
     _note.dispose();
+    _url.dispose();
     super.dispose();
   }
 
@@ -200,6 +233,7 @@ class _EventEditPageState extends State<EventEditPage> {
       repeatUntil: _weekly ? _until : null,
       place: _place.text.trim(),
       note: _note.text.trim(),
+      url: _url.text.trim(),
     ));
     Navigator.of(context).pop();
   }
@@ -314,11 +348,21 @@ class _EventEditPageState extends State<EventEditPage> {
         const SizedBox(height: 8),
         FlField(
           label: '場所（任意）',
-          child: FlTextField(controller: _place),
+          child: FlTextField(
+            controller: _place,
+            leading: const Icon(FluentIcons.location_24_regular,
+                size: 16, color: Fl.fg3),
+          ),
         ),
+        _linkField(context, _url, () => setState(() {})),
         FlField(
           label: 'メモ（任意）',
-          child: FlTextField(controller: _note, minLines: 3, maxLines: 3),
+          child: FlTextField(
+            controller: _note,
+            hint: 'ミーティングID・パスコード・持ち物など',
+            minLines: 3,
+            maxLines: 6,
+          ),
         ),
       ],
     );
@@ -341,6 +385,7 @@ class TaskEditPage extends StatefulWidget {
 class _TaskEditPageState extends State<TaskEditPage> {
   late final TextEditingController _title;
   late final TextEditingController _note;
+  late final TextEditingController _url;
   DateTime? _due;
   int? _dueMin;
   bool _important = false;
@@ -354,6 +399,7 @@ class _TaskEditPageState extends State<TaskEditPage> {
     final t = widget.task;
     _title = TextEditingController(text: t?.title ?? '');
     _note = TextEditingController(text: t?.note ?? '');
+    _url = TextEditingController(text: t?.url ?? '');
     _due = t?.due;
     _dueMin = t?.dueMin;
     _important = t?.important ?? false;
@@ -363,6 +409,7 @@ class _TaskEditPageState extends State<TaskEditPage> {
   void dispose() {
     _title.dispose();
     _note.dispose();
+    _url.dispose();
     super.dispose();
   }
 
@@ -381,6 +428,7 @@ class _TaskEditPageState extends State<TaskEditPage> {
       done: widget.task?.done ?? false,
       important: _important,
       note: _note.text.trim(),
+      url: _url.text.trim(),
     ));
     Navigator.of(context).pop();
   }
@@ -445,9 +493,11 @@ class _TaskEditPageState extends State<TaskEditPage> {
             },
           ),
         const SizedBox(height: 8),
+        _linkField(context, _url, () => setState(() {}),
+            hint: '提出先・資料などのURL'),
         FlField(
           label: 'メモ（任意）',
-          child: FlTextField(controller: _note, minLines: 3, maxLines: 3),
+          child: FlTextField(controller: _note, minLines: 3, maxLines: 6),
         ),
       ],
     );
