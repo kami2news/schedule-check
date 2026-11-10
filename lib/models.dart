@@ -85,6 +85,116 @@ extension ShowAsX on ShowAs {
       };
 }
 
+/// 繰り返しの単位
+enum RepeatFreq { daily, weekly, monthly }
+
+/// 毎月の繰り返し方（日付で／第n○曜日で）
+enum MonthlyBy { date, weekday }
+
+/// 繰り返しのルール（Outlook の「定期的なアイテム」に相当）
+class Recurrence {
+  const Recurrence({
+    this.freq = RepeatFreq.weekly,
+    this.interval = 1,
+    this.weekdays = const {},
+    this.monthlyBy = MonthlyBy.date,
+  });
+
+  final RepeatFreq freq;
+
+  /// 何日／週／か月ごとか（隔週なら 2）
+  final int interval;
+
+  /// 曜日（1=月〜7=日）。毎週なら空のとき初回と同じ曜日、毎日なら空のとき全曜日
+  final Set<int> weekdays;
+  final MonthlyBy monthlyBy;
+
+  static int _nth(DateTime d) => (d.day - 1) ~/ 7 + 1;
+  static bool _isLastWeekdayOfMonth(DateTime d) =>
+      DateTime(d.year, d.month, d.day + 7).month != d.month;
+
+  /// [first]（初回）から見て、[d] が繰り返しに当たるか
+  bool matches(DateTime first, DateTime d) {
+    final f = dateOnly(first), x = dateOnly(d);
+    if (x.isBefore(f)) return false;
+    final n = interval < 1 ? 1 : interval;
+    switch (freq) {
+      case RepeatFreq.daily:
+        if (weekdays.isNotEmpty && !weekdays.contains(x.weekday)) return false;
+        return x.difference(f).inDays % n == 0;
+      case RepeatFreq.weekly:
+        final days = weekdays.isEmpty ? {f.weekday} : weekdays;
+        if (!days.contains(x.weekday)) return false;
+        final weeks = startOfWeek(x).difference(startOfWeek(f)).inDays ~/ 7;
+        return weeks % n == 0;
+      case RepeatFreq.monthly:
+        final months = (x.year - f.year) * 12 + x.month - f.month;
+        if (months % n != 0) return false;
+        if (monthlyBy == MonthlyBy.date) return x.day == f.day;
+        if (x.weekday != f.weekday) return false;
+        final nth = _nth(f);
+        // 第5週は「最終○曜日」として扱う
+        if (nth >= 5) return _isLastWeekdayOfMonth(x);
+        return _nth(x) == nth;
+    }
+  }
+
+  /// 「毎週 月・水」「隔週 火曜」「毎月 第2水曜」などの表示
+  String label(DateTime first) {
+    String wd(Iterable<int> ds) {
+      final order = kWeekStartsOnSunday ? [7, 1, 2, 3, 4, 5, 6] : [1, 2, 3, 4, 5, 6, 7];
+      return order.where(ds.contains).map((d) => weekdayNames[d - 1]).join('・');
+    }
+
+    switch (freq) {
+      case RepeatFreq.daily:
+        if (weekdays.length == 5 && !weekdays.contains(6) && !weekdays.contains(7)) {
+          return '平日（月〜金）';
+        }
+        if (weekdays.isNotEmpty) return '毎日（${wd(weekdays)}）';
+        return interval == 1 ? '毎日' : '$interval日ごと';
+      case RepeatFreq.weekly:
+        final days = weekdays.isEmpty ? {first.weekday} : weekdays;
+        final head = switch (interval) { 1 => '毎週', 2 => '隔週', _ => '$interval週ごと' };
+        return '$head${wd(days)}曜';
+      case RepeatFreq.monthly:
+        final head = interval == 1 ? '毎月' : '$intervalか月ごと';
+        if (monthlyBy == MonthlyBy.date) return '$head${first.day}日';
+        final nth = _nth(first);
+        final w = weekdayNames[first.weekday - 1];
+        return nth >= 5 ? '$head最終$w曜' : '$head第$nth$w曜';
+    }
+  }
+
+  Map<String, dynamic> toJson() => {
+        'freq': freq.name,
+        'interval': interval,
+        if (weekdays.isNotEmpty) 'weekdays': ([...weekdays]..sort()),
+        if (freq == RepeatFreq.monthly) 'monthlyBy': monthlyBy.name,
+      };
+
+  factory Recurrence.fromJson(Map<String, dynamic> j) => Recurrence(
+        freq: RepeatFreq.values.firstWhere((v) => v.name == j['freq'],
+            orElse: () => RepeatFreq.weekly),
+        interval: (j['interval'] as num?)?.toInt() ?? 1,
+        weekdays: {for (final x in (j['weekdays'] as List?) ?? const []) (x as num).toInt()},
+        monthlyBy: MonthlyBy.values.firstWhere((v) => v.name == j['monthlyBy'],
+            orElse: () => MonthlyBy.date),
+      );
+
+  @override
+  bool operator ==(Object other) =>
+      other is Recurrence &&
+      other.freq == freq &&
+      other.interval == interval &&
+      other.monthlyBy == monthlyBy &&
+      other.weekdays.length == weekdays.length &&
+      other.weekdays.containsAll(weekdays);
+
+  @override
+  int get hashCode => Object.hash(freq, interval, monthlyBy, weekdays.length);
+}
+
 class Event {
   Event({
     required this.id,
@@ -93,7 +203,8 @@ class Event {
     required this.date,
     this.startMin,
     this.endMin,
-    this.weekly = false,
+    bool weekly = false,
+    Recurrence? repeat,
     this.repeatUntil,
     this.place = '',
     this.note = '',
@@ -102,7 +213,8 @@ class Event {
     Set<DateTime>? exdates,
     this.seriesId,
     this.originalDate,
-  }) : exdates = exdates ?? {};
+  })  : exdates = exdates ?? {},
+        repeat = repeat ?? (weekly ? const Recurrence() : null);
 
   final String id;
   String title;
@@ -129,8 +241,11 @@ class Event {
   int? startMin;
   int? endMin;
 
-  /// true の場合、[date] と同じ曜日に毎週繰り返す（時間割・固定シフト用）
-  bool weekly;
+  /// 繰り返しのルール（null なら単発）
+  Recurrence? repeat;
+
+  /// 繰り返す予定か（名前は以前の「毎週」設定の名残）
+  bool get weekly => repeat != null;
   DateTime? repeatUntil;
   String place;
   String note;
@@ -149,9 +264,9 @@ class Event {
   bool occursOn(DateTime day) {
     final d = dateOnly(day);
     final first = dateOnly(date);
-    if (!weekly) return d == first;
-    if (d.isBefore(first)) return false;
-    if (d.weekday != first.weekday) return false;
+    final r = repeat;
+    if (r == null) return d == first;
+    if (!r.matches(first, d)) return false;
     if (repeatUntil != null && d.isAfter(dateOnly(repeatUntil!))) return false;
     if (exdates.contains(d)) return false;
     return true;
@@ -168,6 +283,7 @@ class Event {
     String? id,
     DateTime? date,
     bool? weekly,
+    Recurrence? repeat,
     DateTime? repeatUntil,
     bool clearRepeatUntil = false,
     Set<DateTime>? exdates,
@@ -182,7 +298,9 @@ class Event {
         date: date ?? this.date,
         startMin: startMin,
         endMin: endMin,
-        weekly: weekly ?? this.weekly,
+        repeat: weekly == false
+            ? null
+            : (repeat ?? this.repeat ?? (weekly == true ? const Recurrence() : null)),
         repeatUntil: clearRepeatUntil ? null : (repeatUntil ?? this.repeatUntil),
         place: place,
         note: note,
@@ -201,6 +319,7 @@ class Event {
         'startMin': startMin,
         'endMin': endMin,
         'weekly': weekly,
+        if (repeat != null) 'repeat': repeat!.toJson(),
         'repeatUntil': repeatUntil?.toIso8601String(),
         'place': place,
         'note': note,
@@ -223,6 +342,9 @@ class Event {
         startMin: j['startMin'] as int?,
         endMin: j['endMin'] as int?,
         weekly: (j['weekly'] as bool?) ?? false,
+        repeat: j['repeat'] is Map
+            ? Recurrence.fromJson(Map<String, dynamic>.from(j['repeat'] as Map))
+            : null,
         repeatUntil: j['repeatUntil'] == null
             ? null
             : DateTime.parse(j['repeatUntil'] as String),

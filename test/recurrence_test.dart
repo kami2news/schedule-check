@@ -86,4 +86,72 @@ void main() {
     expect(b2.seriesId, 'L');
     expect(b2.originalDate, nov25);
   });
+
+  group('繰り返しのルール', () {
+    final mon = DateTime(2026, 11, 2); // 月曜
+    bool on(Recurrence r, DateTime first, DateTime d) => Event(
+          id: 'x',
+          title: 'x',
+          date: first,
+          repeat: r,
+        ).occursOn(d);
+
+    test('毎日・平日', () {
+      const daily = Recurrence(freq: RepeatFreq.daily);
+      expect(on(daily, mon, DateTime(2026, 11, 8)), isTrue);
+      const weekdays = Recurrence(freq: RepeatFreq.daily, weekdays: {1, 2, 3, 4, 5});
+      expect(on(weekdays, mon, DateTime(2026, 11, 6)), isTrue); // 金
+      expect(on(weekdays, mon, DateTime(2026, 11, 7)), isFalse); // 土
+      expect(weekdays.label(mon), '平日（月〜金）');
+    });
+
+    test('毎週の複数曜日・隔週', () {
+      const mw = Recurrence(weekdays: {1, 3});
+      expect(on(mw, mon, DateTime(2026, 11, 4)), isTrue); // 水
+      expect(on(mw, mon, DateTime(2026, 11, 5)), isFalse); // 木
+      expect(mw.label(mon), '毎週月・水曜');
+      const bi = Recurrence(interval: 2);
+      expect(on(bi, mon, DateTime(2026, 11, 9)), isFalse);
+      expect(on(bi, mon, DateTime(2026, 11, 16)), isTrue);
+      expect(bi.label(mon), '隔週月曜');
+    });
+
+    test('毎月（日付・第n曜日・最終曜日）', () {
+      final d15 = DateTime(2026, 10, 15);
+      const byDate = Recurrence(freq: RepeatFreq.monthly);
+      expect(on(byDate, d15, DateTime(2026, 11, 15)), isTrue);
+      expect(on(byDate, d15, DateTime(2026, 11, 16)), isFalse);
+      expect(byDate.label(d15), '毎月15日');
+      // 2026/10/14 は第2水曜
+      final w2 = DateTime(2026, 10, 14);
+      const byWd = Recurrence(freq: RepeatFreq.monthly, monthlyBy: MonthlyBy.weekday);
+      expect(on(byWd, w2, DateTime(2026, 11, 11)), isTrue); // 11月の第2水曜
+      expect(on(byWd, w2, DateTime(2026, 11, 18)), isFalse);
+      expect(byWd.label(w2), '毎月第2水曜');
+      // 2026/10/28 は最終水曜（第4）→ 第4で扱う / 10/30(金)は第5金曜→最終金曜
+      final last = DateTime(2026, 10, 30);
+      expect(byWd.label(last), '毎月最終金曜');
+      expect(on(byWd, last, DateTime(2026, 11, 27)), isTrue); // 11月の最終金曜
+    });
+
+    test('以前の「毎週」データは毎週として読め、新しい形式も保存して戻せる', () {
+      final old = Event.fromJson({
+        'id': 'o',
+        'title': 'old',
+        'date': '2026-11-02T00:00:00.000',
+        'weekly': true,
+      });
+      expect(old.repeat, const Recurrence());
+      expect(old.occursOn(DateTime(2026, 11, 9)), isTrue);
+      final e = Event(id: 'n', title: 'n', date: mon, repeat: const Recurrence(interval: 2, weekdays: {1, 4}));
+      final back = Event.fromJson(e.toJson());
+      expect(back.repeat, e.repeat);
+    });
+  });
+
+  test('時限の時刻は保存でき、未設定なら仮の時程', () {
+    expect(store.periods.first, (9 * 60, 10 * 60 + 30));
+    store.setPeriods([(9 * 60 + 10, 10 * 60 + 40)]);
+    expect(store.periods, [(9 * 60 + 10, 10 * 60 + 40)]);
+  });
 }

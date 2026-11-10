@@ -223,7 +223,7 @@ class _EventEditPageState extends State<EventEditPage> {
   late bool _allDay;
   late int _start;
   late int _end;
-  late bool _weekly;
+  Recurrence? _repeat;
   DateTime? _until;
   String? _error;
 
@@ -249,7 +249,7 @@ class _EventEditPageState extends State<EventEditPage> {
     _allDay = e?.allDay ?? false;
     _start = e?.startMin ?? widget.initialStartMin ?? 9 * 60;
     _end = e?.endMin ?? math.min(_start + 60, 23 * 60 + 59);
-    _weekly = e?.weekly ?? false;
+    _repeat = e?.repeat;
     _until = e?.repeatUntil;
   }
 
@@ -310,8 +310,8 @@ class _EventEditPageState extends State<EventEditPage> {
       date: _date,
       startMin: _allDay ? null : _start,
       endMin: _allDay ? null : _end,
-      weekly: _weekly,
-      repeatUntil: _weekly ? _until : null,
+      repeat: _repeat,
+      repeatUntil: _repeat != null ? _until : null,
       place: _place.text.trim(),
       note: _note.text.trim(),
       url: _checkedUrl(_url) ?? '',
@@ -417,7 +417,9 @@ class _EventEditPageState extends State<EventEditPage> {
                     onChanged: (c) => setState(() {
                       _cal = c.id;
                       // 授業は毎週の時間割として登録することが多いので初期値を変える
-                      if (_isNew) _weekly = c.id == 'lecture';
+                      if (_isNew) {
+                        _repeat = c.id == 'lecture' ? const Recurrence() : null;
+                      }
                     }),
                   ),
                 ),
@@ -445,8 +447,8 @@ class _EventEditPageState extends State<EventEditPage> {
             icon: FluentIcons.calendar_ltr_24_regular,
             text: _isOccurrence
                 ? '${fmtLongDate(_date)}（毎週${weekdayNames[_date.weekday - 1]}曜の回）'
-                : _weekly
-                    ? '${fmtLongDate(_date)} から（毎週${weekdayNames[_date.weekday - 1]}曜）'
+                : _repeat != null
+                    ? '${fmtLongDate(_date)} から（${_repeat!.label(_date)}）'
                     : fmtLongDate(_date),
             onTap: () async {
               final v = await _pickDate(context, _date);
@@ -462,6 +464,16 @@ class _EventEditPageState extends State<EventEditPage> {
             _revalidate();
           }),
         ),
+        if (!_allDay)
+          _PeriodPicker(
+            start: _start,
+            end: _end,
+            onChanged: (st, en) => setState(() {
+              _start = st;
+              _end = en;
+              _revalidate();
+            }),
+          ),
         if (!_allDay)
           Padding(
             padding: EdgeInsets.only(top: 4, bottom: 4),
@@ -491,14 +503,12 @@ class _EventEditPageState extends State<EventEditPage> {
               ],
             ),
           ),
-        FlSwitchTile(
-          title: '毎週くり返す',
-          subtitle: '時間割や固定シフト向け',
-          icon: FluentIcons.arrow_repeat_all_24_regular,
-          value: _weekly,
-          onChanged: (v) => setState(() => _weekly = v),
+        _RepeatEditor(
+          date: _date,
+          value: _repeat,
+          onChanged: (r) => setState(() => _repeat = r),
         ),
-        if (_weekly)
+        if (_repeat != null)
           Padding(
             padding: EdgeInsets.only(top: 8),
             child: FlField(
@@ -687,6 +697,307 @@ class _TaskEditPageState extends State<TaskEditPage> {
           child: FlTextField(controller: _note, minLines: 3, maxLines: 6),
         ),
       ],
+    );
+  }
+}
+
+
+/// 繰り返しの選び方（よく使う形）
+enum _RepeatPreset { none, daily, weekdays, weekly, biweekly, monthlyDate, monthlyWeekday }
+
+_RepeatPreset _presetOf(Recurrence? r) {
+  if (r == null) return _RepeatPreset.none;
+  switch (r.freq) {
+    case RepeatFreq.daily:
+      return r.weekdays.length == 5 && !r.weekdays.contains(6) && !r.weekdays.contains(7)
+          ? _RepeatPreset.weekdays
+          : _RepeatPreset.daily;
+    case RepeatFreq.weekly:
+      return r.interval == 2 ? _RepeatPreset.biweekly : _RepeatPreset.weekly;
+    case RepeatFreq.monthly:
+      return r.monthlyBy == MonthlyBy.date
+          ? _RepeatPreset.monthlyDate
+          : _RepeatPreset.monthlyWeekday;
+  }
+}
+
+/// 繰り返しの種類と曜日を選ぶ欄
+class _RepeatEditor extends StatelessWidget {
+  const _RepeatEditor(
+      {required this.date, required this.value, required this.onChanged});
+
+  final DateTime date;
+  final Recurrence? value;
+  final ValueChanged<Recurrence?> onChanged;
+
+  String _label(_RepeatPreset p) {
+    final w = weekdayNames[date.weekday - 1];
+    final nth = (date.day - 1) ~/ 7 + 1;
+    return switch (p) {
+      _RepeatPreset.none => 'しない',
+      _RepeatPreset.daily => '毎日',
+      _RepeatPreset.weekdays => '平日（月〜金）',
+      _RepeatPreset.weekly => '毎週',
+      _RepeatPreset.biweekly => '隔週（2週ごと）',
+      _RepeatPreset.monthlyDate => '毎月 ${date.day}日',
+      _RepeatPreset.monthlyWeekday =>
+        nth >= 5 ? '毎月 最終$w曜' : '毎月 第$nth$w曜',
+    };
+  }
+
+  Recurrence? _make(_RepeatPreset p) => switch (p) {
+        _RepeatPreset.none => null,
+        _RepeatPreset.daily => const Recurrence(freq: RepeatFreq.daily),
+        _RepeatPreset.weekdays =>
+          const Recurrence(freq: RepeatFreq.daily, weekdays: {1, 2, 3, 4, 5}),
+        _RepeatPreset.weekly => Recurrence(weekdays: value?.freq == RepeatFreq.weekly ? value!.weekdays : const {}),
+        _RepeatPreset.biweekly => Recurrence(
+            interval: 2,
+            weekdays: value?.freq == RepeatFreq.weekly ? value!.weekdays : const {}),
+        _RepeatPreset.monthlyDate => const Recurrence(freq: RepeatFreq.monthly),
+        _RepeatPreset.monthlyWeekday =>
+          const Recurrence(freq: RepeatFreq.monthly, monthlyBy: MonthlyBy.weekday),
+      };
+
+  @override
+  Widget build(BuildContext context) {
+    final preset = _presetOf(value);
+    final r = value;
+    final isWeekly = r != null && r.freq == RepeatFreq.weekly;
+    final days = isWeekly ? (r.weekdays.isEmpty ? {date.weekday} : r.weekdays) : <int>{};
+    final order = kWeekStartsOnSunday ? [7, 1, 2, 3, 4, 5, 6] : [1, 2, 3, 4, 5, 6, 7];
+    return FlField(
+      label: '繰り返し',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          FlDropdown<_RepeatPreset>(
+            items: _RepeatPreset.values,
+            value: preset,
+            labelOf: _label,
+            leadingOf: (_) => Icon(FluentIcons.arrow_repeat_all_24_regular,
+                size: 16, color: Fl.fg3),
+            onChanged: (p) => onChanged(_make(p)),
+          ),
+          if (isWeekly)
+            Padding(
+              padding: EdgeInsets.only(top: 8),
+              child: Wrap(
+                spacing: 6,
+                children: [
+                  for (final d in order)
+                    _DayChip(
+                      label: weekdayNames[d - 1],
+                      selected: days.contains(d),
+                      onTap: () {
+                        final next = {...days};
+                        if (!next.remove(d)) next.add(d);
+                        if (next.isEmpty) return; // 1つは残す
+                        onChanged(Recurrence(
+                            interval: r.interval,
+                            weekdays: next.length == 1 && next.first == date.weekday
+                                ? const {}
+                                : next));
+                      },
+                    ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 曜日の丸いトグル（Outlook の繰り返し設定と同じ見た目）
+class _DayChip extends StatelessWidget {
+  const _DayChip({required this.label, required this.selected, required this.onTap});
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      customBorder: CircleBorder(),
+      onTap: onTap,
+      child: Container(
+        width: 34,
+        height: 34,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: selected ? Fl.brand : Colors.transparent,
+          border: Border.all(color: selected ? Fl.brand : Fl.stroke1),
+        ),
+        child: Text(label,
+            style: FlText.body1Strong
+                .copyWith(color: selected ? Colors.white : Fl.fg1)),
+      ),
+    );
+  }
+}
+
+
+/// 時限（1限〜）を選んで開始・終了を入れる。続けて隣の時限を押すと連続にできる
+class _PeriodPicker extends StatelessWidget {
+  const _PeriodPicker(
+      {required this.start, required this.end, required this.onChanged});
+
+  final int start;
+  final int end;
+  final void Function(int start, int end) onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final periods = StoreScope.of(context).periods;
+    // 今の開始・終了に一致する時限の範囲
+    final a = periods.indexWhere((p) => p.$1 == start);
+    final b = periods.indexWhere((p) => p.$2 == end);
+    final hasRange = a >= 0 && b >= a;
+    return Padding(
+      padding: EdgeInsets.only(top: 4, bottom: 4),
+      child: Row(
+        children: [
+          Text('時限', style: FlText.body1Strong),
+          SizedBox(width: 10),
+          Expanded(
+            child: Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                for (var i = 0; i < periods.length; i++)
+                  _DayChip(
+                    label: '${i + 1}',
+                    selected: hasRange && i >= a && i <= b,
+                    onTap: () {
+                      // 隣の時限なら範囲を広げ、そうでなければその時限だけにする
+                      if (hasRange && i == b + 1) {
+                        onChanged(periods[a].$1, periods[i].$2);
+                      } else if (hasRange && i == a - 1) {
+                        onChanged(periods[i].$1, periods[b].$2);
+                      } else {
+                        onChanged(periods[i].$1, periods[i].$2);
+                      }
+                    },
+                  ),
+              ],
+            ),
+          ),
+          IconButton(
+            tooltip: '時限の時刻を設定',
+            icon: Icon(FluentIcons.settings_24_regular, size: 18, color: Fl.fg2),
+            onPressed: () => showPeriodSettings(context),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 時限の時刻を設定するダイアログ
+Future<void> showPeriodSettings(BuildContext context) {
+  return showFlDialog<void>(context, maxWidth: 420, child: _PeriodSettings());
+}
+
+class _PeriodSettings extends StatefulWidget {
+  @override
+  State<_PeriodSettings> createState() => _PeriodSettingsState();
+}
+
+class _PeriodSettingsState extends State<_PeriodSettings> {
+  late List<(int, int)> _list = [...StoreScope.read(context).periods];
+
+  Future<void> _pick(int i, bool isStart) async {
+    final (s, e) = _list[i];
+    final v = await showFlTimeList(context, isStart ? s : e);
+    if (v == null) return;
+    setState(() => _list[i] = isStart ? (v, e) : (s, v));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Fl.bg1,
+      child: Padding(
+        padding: EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('時限の時刻', style: FlText.subtitle1),
+            SizedBox(height: 4),
+            Text('授業の時程に合わせて変更してください。',
+                style: FlText.caption1.copyWith(color: Fl.fg3)),
+            SizedBox(height: 12),
+            for (var i = 0; i < _list.length; i++)
+              Padding(
+                padding: EdgeInsets.only(bottom: 6),
+                child: Row(
+                  children: [
+                    SizedBox(
+                        width: 40,
+                        child: Text('${i + 1}限', style: FlText.body1Strong)),
+                    Expanded(
+                      child: FlPickerField(
+                        icon: FluentIcons.clock_24_regular,
+                        text: fmtMin(_list[i].$1),
+                        onTap: () => _pick(i, true),
+                      ),
+                    ),
+                    Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 6),
+                      child: Text('〜'),
+                    ),
+                    Expanded(
+                      child: FlPickerField(
+                        icon: FluentIcons.clock_24_regular,
+                        text: fmtMin(_list[i].$2),
+                        onTap: () => _pick(i, false),
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'この時限を削除',
+                      icon: Icon(FluentIcons.dismiss_24_regular, size: 16),
+                      onPressed: _list.length <= 1
+                          ? null
+                          : () => setState(() => _list.removeAt(i)),
+                    ),
+                  ],
+                ),
+              ),
+            TextButton.icon(
+              onPressed: () => setState(() {
+                final last = _list.last;
+                final s = last.$2 + 10;
+                _list.add((s, s + (last.$2 - last.$1)));
+              }),
+              icon: Icon(FluentIcons.add_24_regular, size: 16),
+              label: Text('時限を追加'),
+            ),
+            SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                FilledButton(
+                  onPressed: () {
+                    if (_list.any((p) => p.$2 <= p.$1)) return;
+                    StoreScope.read(context).setPeriods(_list);
+                    Navigator.of(context).pop();
+                  },
+                  child: Text('保存'),
+                ),
+                SizedBox(width: 8),
+                OutlinedButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: Text('キャンセル'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

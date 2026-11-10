@@ -222,7 +222,7 @@ MatchResult _reconcileTask(
 
 /// 予定の時間表示（照合結果の説明用）
 String describeEvent(Event e) {
-  final d = e.weekly ? '毎週${weekdayNames[e.date.weekday - 1]}曜' : fmtDate(e.date);
+  final d = e.repeat != null ? e.repeat!.label(e.date) : fmtDate(e.date);
   return '$d ${e.timeLabel}';
 }
 

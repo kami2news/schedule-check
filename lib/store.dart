@@ -18,6 +18,16 @@ abstract class RemoteSink {
 /// 予定・タスク・マイカレンダーを持つストア。
 /// ログインしていないときは端末内（shared_preferences）に保存し、
 /// ログイン中は [RemoteSink] に送る（端末内のゲスト用データには触れない）。
+/// 仮の時程（90分授業・休み10分・昼休み50分）。実際の時刻は設定で変更する
+const kDefaultPeriods = <(int, int)>[
+  (9 * 60, 10 * 60 + 30),
+  (10 * 60 + 40, 12 * 60 + 10),
+  (13 * 60, 14 * 60 + 30),
+  (14 * 60 + 40, 16 * 60 + 10),
+  (16 * 60 + 20, 17 * 60 + 50),
+  (18 * 60, 19 * 60 + 30),
+];
+
 class AppStore extends ChangeNotifier {
   AppStore._(this._prefs, this.events, this.tasks, this.calendars);
 
@@ -132,6 +142,28 @@ class AppStore extends ChangeNotifier {
 
   /// 表示テーマ（'system' / 'light' / 'dark'）
   String get themeMode => _prefs.getString('themeMode') ?? 'system';
+
+  // ---- 時限（授業の時間帯） ----
+
+  /// 時限の時刻（開始・終了の分）。設定が無ければ仮の時程
+  List<(int, int)> get periods {
+    final raw = _prefs.getString('periods');
+    if (raw != null) {
+      try {
+        final list = (jsonDecode(raw) as List)
+            .map((x) => ((x as List)[0] as int, x[1] as int))
+            .toList();
+        if (list.isNotEmpty) return list;
+      } catch (_) {}
+    }
+    return kDefaultPeriods;
+  }
+
+  void setPeriods(List<(int, int)> list) {
+    _prefs.setString(
+        'periods', jsonEncode([for (final (a, b) in list) [a, b]]));
+    notifyListeners();
+  }
 
   /// 画面の表示状態（最後のタブ・表示形式など）。変更通知はしない
   String? uiValue(String key) => _prefs.getString('ui.$key');
