@@ -13,13 +13,6 @@ https://console.firebase.google.com →「プロジェクトを作成」。名�
 構築 → Authentication →「始める」→ Sign-in method
 - **メール / パスワード**: 有効にする
 - **Google**: 有効にする（サポートメールに自分の Gmail）
-- **Microsoft**: 2-1 の Azure 登録をしてから有効にする
-
-#### 2-1. Microsoft ログイン用の Azure 登録
-1. https://portal.azure.com →「アプリの登録」→「新規登録」
-2. サポートされているアカウントの種類: **任意の組織ディレクトリ内のアカウントと個人の Microsoft アカウント**
-3. リダイレクト URI: プラットフォーム「Web」、値は Firebase の Microsoft 設定画面に出る `https://<プロジェクトID>.firebaseapp.com/__/auth/handler`
-4. 「アプリケーション（クライアント）ID」と、「証明書とシークレット」で作った **シークレットの値** を Firebase の Microsoft プロバイダに入れて保存
 
 ### 3. 承認済みドメインを追加（Web 版用）
 Authentication → 設定 → 承認済みドメイン → `kami2news.github.io` を追加
@@ -34,7 +27,8 @@ Authentication → 設定 → 承認済みドメイン → `kami2news.github.io`
 npm install -g firebase-tools        # Node が無ければ: curl -sL https://firebase.tools | bash
 firebase login
 dart pub global activate flutterfire_cli
-export PATH="$PATH:$HOME/.pub-cache/bin"   # ~/.zshrc にも追記しておく
+echo 'export PATH="$PATH:$HOME/.pub-cache/bin"' >> ~/.zshrc
+source ~/.zshrc
 ```
 
 ### 6. リポジトリを取得して、スマホ用のフォルダを作る
@@ -47,8 +41,9 @@ flutter create . --platforms android,ios,web --project-name schedule_check --org
 
 ### 7. Firebase と接続する
 ```sh
-flutterfire configure --project=<プロジェクトID> --platforms=android,ios,web
+flutterfire configure --project=ここにProject_ID --platforms=android,ios,web
 ```
+Project ID は `firebase projects:list` の「Project ID」列の値（`< >` は付けない）。
 `lib/firebase_options.dart`（仮のファイルを上書き）・`android/app/google-services.json`・`ios/Runner/GoogleService-Info.plist`・`firebase.json` が作られ、Firebase 側にも Android / iOS / Web のアプリが登録されます。
 
 ### 8. Android の Google ログイン用の指紋を登録

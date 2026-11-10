@@ -11,7 +11,7 @@ import '../firebase_options.dart';
 import 'firebase_sync.dart';
 
 /// ログイン方法
-enum SignInMethod { google, microsoft, email }
+enum SignInMethod { google, email }
 
 /// アカウント（Firebase Authentication）とクラウド同期の窓口。
 /// Firebase が未設定のときは [available] が false になり、何もしない。
@@ -82,9 +82,6 @@ class AccountService extends ChangeNotifier {
       case SignInMethod.google:
         await _signInWithProvider(GoogleAuthProvider()
           ..setCustomParameters({'prompt': 'select_account'}));
-      case SignInMethod.microsoft:
-        await _signInWithProvider(OAuthProvider('microsoft.com')
-          ..setCustomParameters({'prompt': 'select_account'}));
       case SignInMethod.email:
         await auth.signInWithEmailAndPassword(
             email: email!.trim(), password: password!);
@@ -139,7 +136,6 @@ class AccountService extends ChangeNotifier {
   String get providerLabel {
     final ids = user?.providerData.map((p) => p.providerId).toSet() ?? {};
     if (ids.contains('google.com')) return 'Google アカウント';
-    if (ids.contains('microsoft.com')) return 'Microsoft アカウント';
     if (ids.contains('password')) return 'メールアドレス';
     return '';
   }

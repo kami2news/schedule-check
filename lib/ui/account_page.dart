@@ -213,7 +213,7 @@ class _AccountPageState extends State<AccountPage> {
           SizedBox(height: 8),
           Text(
             '今はこの端末の中だけに保存しています。'
-            'Firebase の設定が終わると、ここから Google・Microsoft・メールアドレスでログインして、'
+            'Firebase の設定が終わると、ここから Google アカウントまたはメールアドレスでログインして、'
             'ほかの端末と同期できるようになります。',
             style: FlText.body1.copyWith(color: Fl.fg2),
           ),
@@ -232,12 +232,6 @@ class _AccountPageState extends State<AccountPage> {
       SizedBox(height: 16),
       _providerButton('Google で続ける', FluentIcons.globe_24_regular,
           () => _run(() => acc.signIn(SignInMethod.google), offerMove: true)),
-      SizedBox(height: 8),
-      _providerButton(
-          'Microsoft で続ける',
-          FluentIcons.window_24_regular,
-          () =>
-              _run(() => acc.signIn(SignInMethod.microsoft), offerMove: true)),
       Padding(
         padding: EdgeInsets.symmetric(vertical: 16),
         child: Row(children: [
