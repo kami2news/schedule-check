@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:fluentui_system_icons/fluentui_system_icons.dart';
@@ -18,10 +20,10 @@ import 'ui/todo_panel.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final store = await AppStore.load();
-  // Firebase が設定済みならログイン状態を復元して同期を始める（未設定なら端末内だけで動く）
   final account = AccountService(store);
-  await account.init();
+  // 先に画面を出す。Firebase の準備は裏で行い、つながらなくても端末内のデータで使える
   runApp(ScheduleApp(store: store, account: account));
+  unawaited(account.init());
 }
 
 class ScheduleApp extends StatefulWidget {

@@ -156,7 +156,7 @@ class _AccountPageState extends State<AccountPage> {
       if (_error != null) _message(_error!, error: true),
       if (_info != null) _message(_info!),
       if (!acc.available)
-        _notConfigured()
+        _notConfigured(acc)
       else if (acc.signedIn)
         ..._signedIn(acc)
       else
@@ -194,7 +194,8 @@ class _AccountPageState extends State<AccountPage> {
     );
   }
 
-  Widget _notConfigured() {
+  Widget _notConfigured(AccountService acc) {
+    final failed = acc.connectFailed;
     return Container(
       padding: EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -208,13 +209,18 @@ class _AccountPageState extends State<AccountPage> {
           Row(children: [
             Icon(FluentIcons.cloud_off_24_regular, size: 20, color: Fl.fg2),
             SizedBox(width: 8),
-            Text('オンライン同期は準備中です', style: FlText.body1Strong),
+            Expanded(
+              child: Text(failed ? 'クラウドに接続できません' : 'クラウドに接続しています…',
+                  style: FlText.body1Strong),
+            ),
           ]),
           SizedBox(height: 8),
           Text(
-            '今はこの端末の中だけに保存しています。'
-            'Firebase の設定が終わると、ここから Google アカウントまたはメールアドレスでログインして、'
-            'ほかの端末と同期できるようになります。',
+            failed
+                ? 'インターネットにつながっていないか、ブラウザの拡張機能（広告ブロックなど）や'
+                    'ネットワークの制限で Firebase が読み込めませんでした。'
+                    '今はこの端末の中だけに保存しています。つながる環境でページを再読み込みしてください。'
+                : 'しばらくするとログインできるようになります。',
             style: FlText.body1.copyWith(color: Fl.fg2),
           ),
         ],

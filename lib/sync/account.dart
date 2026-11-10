@@ -21,6 +21,9 @@ class AccountService extends ChangeNotifier {
   final AppStore store;
 
   bool available = false;
+
+  /// Firebase は設定済みだが接続の準備に失敗した（オフライン・ブロックなど）
+  bool connectFailed = false;
   User? user;
   SyncState syncState = SyncState.connecting;
   FirebaseSync? _sync;
@@ -38,15 +41,20 @@ class AccountService extends ChangeNotifier {
       return;
     }
     try {
-      await Firebase.initializeApp(options: options);
+      // 読み込めない環境（オフライン・拡張機能によるブロック等）で待ち続けないよう時間を区切る
+      await Firebase.initializeApp(options: options)
+          .timeout(const Duration(seconds: 15));
       // オフラインでも使えるよう、端末にキャッシュする
       FirebaseFirestore.instance.settings =
           const Settings(persistenceEnabled: true);
       available = true;
     } catch (e) {
       debugPrint('Firebase の初期化に失敗: $e');
+      connectFailed = true;
+      notifyListeners();
       return;
     }
+    notifyListeners();
     _authSub = FirebaseAuth.instance.authStateChanges().listen(_onUser);
   }
 
