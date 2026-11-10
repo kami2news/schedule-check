@@ -97,7 +97,10 @@ class _ScheduleAppState extends State<ScheduleApp> with WidgetsBindingObserver {
     Fl.use(_brightness);
     WidgetsBinding.instance.addObserver(this);
     widget.store.addListener(_apply);
-    _reminders.start();
+    // 画面内の表示（SnackBar）が出せるようになってから通知の確認を始める
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _reminders.start();
+    });
   }
 
   @override
