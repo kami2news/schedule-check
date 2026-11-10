@@ -3,10 +3,11 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
 import '../store.dart';
-import 'firebase_config.dart';
+import '../firebase_options.dart';
 import 'firebase_sync.dart';
 
 /// ログイン方法
@@ -29,9 +30,15 @@ class AccountService extends ChangeNotifier {
 
   /// 起動時に呼ぶ。設定が無ければ端末内だけで動かす
   Future<void> init() async {
-    if (!isFirebaseConfigured) return;
+    final FirebaseOptions options;
     try {
-      await Firebase.initializeApp(options: kFirebaseWebOptions);
+      // flutterfire configure で作られる設定（未設定なら例外になる）
+      options = DefaultFirebaseOptions.currentPlatform;
+    } catch (_) {
+      return;
+    }
+    try {
+      await Firebase.initializeApp(options: options);
       // オフラインでも使えるよう、端末にキャッシュする
       FirebaseFirestore.instance.settings =
           const Settings(persistenceEnabled: true);
@@ -73,16 +80,24 @@ class AccountService extends ChangeNotifier {
     final auth = FirebaseAuth.instance;
     switch (m) {
       case SignInMethod.google:
-        final p = GoogleAuthProvider()
-          ..setCustomParameters({'prompt': 'select_account'});
-        await auth.signInWithPopup(p);
+        await _signInWithProvider(GoogleAuthProvider()
+          ..setCustomParameters({'prompt': 'select_account'}));
       case SignInMethod.microsoft:
-        final p = OAuthProvider('microsoft.com')
-          ..setCustomParameters({'prompt': 'select_account'});
-        await auth.signInWithPopup(p);
+        await _signInWithProvider(OAuthProvider('microsoft.com')
+          ..setCustomParameters({'prompt': 'select_account'}));
       case SignInMethod.email:
         await auth.signInWithEmailAndPassword(
             email: email!.trim(), password: password!);
+    }
+  }
+
+  /// Web はポップアップ、スマホアプリはブラウザ画面（SFSafariViewController / Custom Tabs）でログイン
+  Future<void> _signInWithProvider(AuthProvider p) async {
+    final auth = FirebaseAuth.instance;
+    if (kIsWeb) {
+      await auth.signInWithPopup(p);
+    } else {
+      await auth.signInWithProvider(p);
     }
   }
 
