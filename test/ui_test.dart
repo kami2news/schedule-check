@@ -157,7 +157,8 @@ void main() {
 
   testWidgets('エラーは入力を直した時点で消え、無効なリンクは保存できない', (tester) async {
     final store = await _storeWithSamples();
-    tester.view.physicalSize = const Size(1400, 900);
+    // 編集画面の項目がすべて画面内に収まる高さにする（リスト外は作られないため）
+    tester.view.physicalSize = const Size(1400, 1800);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
 
