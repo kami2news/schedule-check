@@ -154,4 +154,33 @@ void main() {
     store.setPeriods([(9 * 60 + 10, 10 * 60 + 40)]);
     expect(store.periods, [(9 * 60 + 10, 10 * 60 + 40)]);
   });
+
+  group('予定とタスクのつながり', () {
+    test('予定の時間を変えると、終了時刻に合わせたタスクの期限も動く。予定を消すとタスクも消える', () {
+      final shift = Event(
+          id: 'S', title: 'バイト', date: nov18, startMin: 15 * 60, endMin: 21 * 60);
+      store.upsertEvent(shift);
+      store.upsertTask(TaskItem(
+          id: 'R', title: '終了報告', due: nov18, dueMin: 21 * 60, eventId: 'S', followEnd: true));
+      store.upsertTask(TaskItem(id: 'M', title: '持ち物', due: nov18, eventId: 'S'));
+      expect(store.tasksFor(shift).map((t) => t.id), containsAll(['R', 'M']));
+
+      shift.endMin = 22 * 60;
+      store.upsertEvent(shift);
+      expect(store.tasks.firstWhere((t) => t.id == 'R').dueMin, 22 * 60);
+      expect(store.tasks.firstWhere((t) => t.id == 'M').dueMin, isNull);
+
+      store.deleteEvent('S');
+      expect(store.tasks.where((t) => t.id == 'R' || t.id == 'M'), isEmpty);
+    });
+
+    test('繰り返しの回に付けたタスクは、その回を切り出すと新しい予定へ付け替わり、回を消すと消える', () {
+      store.upsertTask(TaskItem(id: 'P', title: 'レポート', eventId: 'L', eventDate: nov18));
+      store.upsertTask(TaskItem(id: 'Q', title: '予習', eventId: 'L', eventDate: nov25));
+      final single = store.changeOccurrence(series(), nov18, series().copyWith(date: nov18));
+      expect(store.tasks.firstWhere((t) => t.id == 'P').eventId, single.id);
+      store.deleteOccurrence(series(), nov25);
+      expect(store.tasks.where((t) => t.id == 'Q'), isEmpty);
+    });
+  });
 }

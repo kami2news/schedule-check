@@ -69,6 +69,40 @@ Future<void> openEventEditor(BuildContext context,
           occurrence: occurrence));
 }
 
+/// 予定を削除する。繰り返しの回から開いた場合は範囲（この回のみ／以降／すべて）を聞く。
+/// 削除したら true
+Future<bool> deleteEventInteractive(
+    BuildContext context, Event e, DateTime? occurrence) async {
+  final store = StoreScope.read(context);
+  final linked = store.tasksFor(e, occurrence).where((t) => !t.done).length;
+  if (e.weekly && occurrence != null) {
+    final scope = await _askScope(context, delete: true);
+    if (scope == null) return false;
+    final occ = dateOnly(occurrence);
+    switch (scope) {
+      case RecurScope.one:
+        store.deleteOccurrence(e, occ);
+      case RecurScope.following:
+        store.deleteFollowing(e, occ);
+      case RecurScope.all:
+        store.deleteSeries(e);
+    }
+    return true;
+  }
+  final what = e.weekly ? '繰り返しの予定全体' : 'この予定';
+  final ok = await showFlConfirm(
+    context,
+    title: '$whatを削除しますか？',
+    message: linked > 0
+        ? '関連するタスク$linked件（終了報告など）もいっしょに削除されます。この操作は元に戻せません。'
+        : 'この操作は元に戻せません。',
+    confirmLabel: '削除',
+  );
+  if (!ok) return false;
+  e.weekly ? store.deleteSeries(e) : store.deleteEvent(e.id);
+  return true;
+}
+
 /// 繰り返しの予定を変更・削除する範囲
 enum RecurScope { one, following, all }
 
@@ -88,7 +122,12 @@ Future<RecurScope?> _askScope(BuildContext context, {required bool delete}) {
 }
 
 /// タスクの追加（[task] が null）または編集
-Future<void> openTaskEditor(BuildContext context, {TaskItem? task}) {
+Future<void> openTaskEditor(BuildContext context,
+    {TaskItem? task, Event? forEvent, DateTime? occurrence}) {
+  if (task == null && forEvent != null) {
+    return _openEditor(
+        context, TaskEditPage(forEvent: forEvent, occurrence: occurrence));
+  }
   return _openEditor(context, TaskEditPage(task: task));
 }
 
@@ -343,28 +382,9 @@ class _EventEditPageState extends State<EventEditPage> {
   }
 
   Future<void> _delete() async {
-    final e = widget.event!;
-    final store = StoreScope.read(context);
-    if (_isOccurrence) {
-      final scope = await _askScope(context, delete: true);
-      if (scope == null || !mounted) return;
-      final occ = dateOnly(widget.occurrence!);
-      switch (scope) {
-        case RecurScope.one:
-          store.deleteOccurrence(e, occ);
-        case RecurScope.following:
-          store.deleteFollowing(e, occ);
-        case RecurScope.all:
-          store.deleteSeries(e);
-      }
-    } else {
-      if (!await _confirmDelete(context, e.weekly ? '繰り返しの予定全体' : 'この予定')) {
-        return;
-      }
-      if (!mounted) return;
-      e.weekly ? store.deleteSeries(e) : store.deleteEvent(e.id);
-    }
-    if (mounted) Navigator.of(context).pop();
+    final ok = await deleteEventInteractive(
+        context, widget.event!, _isOccurrence ? widget.occurrence : null);
+    if (ok && mounted) Navigator.of(context).pop();
   }
 
   @override
@@ -556,9 +576,13 @@ class _EventEditPageState extends State<EventEditPage> {
 // ---------------------------------------------------------------------------
 
 class TaskEditPage extends StatefulWidget {
-  const TaskEditPage({super.key, this.task});
+  const TaskEditPage({super.key, this.task, this.forEvent, this.occurrence});
 
   final TaskItem? task;
+
+  /// 予定から「タスクを追加」したときの関連する予定（とその回）
+  final Event? forEvent;
+  final DateTime? occurrence;
 
   @override
   State<TaskEditPage> createState() => _TaskEditPageState();
@@ -572,6 +596,9 @@ class _TaskEditPageState extends State<TaskEditPage> {
   int? _dueMin;
   bool _important = false;
   String? _error;
+  String? _eventId;
+  DateTime? _eventDate;
+  bool _followEnd = false;
 
   bool get _isNew => widget.task == null;
 
@@ -585,6 +612,18 @@ class _TaskEditPageState extends State<TaskEditPage> {
     _due = t?.due;
     _dueMin = t?.dueMin;
     _important = t?.important ?? false;
+    _eventId = t?.eventId ?? widget.forEvent?.id;
+    final fe = widget.forEvent;
+    _eventDate = t?.eventDate ??
+        (fe != null && fe.weekly && widget.occurrence != null
+            ? dateOnly(widget.occurrence!)
+            : null);
+    _followEnd = t?.followEnd ?? false;
+    final ev = widget.forEvent;
+    if (t == null && ev != null) {
+      // 予定から作るときは、その日を期限の初期値にする
+      _due = _eventDate ?? dateOnly(ev.date);
+    }
   }
 
   @override
@@ -622,6 +661,9 @@ class _TaskEditPageState extends State<TaskEditPage> {
       important: _important,
       note: _note.text.trim(),
       url: _checkedUrl(_url) ?? '',
+      eventId: _eventId,
+      eventDate: _eventId == null ? null : _eventDate,
+      followEnd: _eventId != null && _followEnd,
     ));
     Navigator.of(context).pop();
   }
@@ -649,6 +691,59 @@ class _TaskEditPageState extends State<TaskEditPage> {
             onChanged: (_) => setState(_revalidate),
           ),
         ),
+        Builder(builder: (context) {
+          final ev = _eventId == null
+              ? null
+              : StoreScope.of(context).events.where((e) => e.id == _eventId).firstOrNull;
+          if (ev == null) return SizedBox.shrink();
+          return Padding(
+            padding: EdgeInsets.only(bottom: 8),
+            child: Container(
+              padding: EdgeInsets.fromLTRB(10, 6, 4, 6),
+              decoration: BoxDecoration(
+                color: Fl.bg2,
+                borderRadius: BorderRadius.circular(Fl.r4),
+                border: Border.all(color: Fl.stroke2),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(children: [
+                    FlColorDot(color: StoreScope.of(context).colorOf(ev)),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        '関連する予定: ${ev.title}（${_eventDate != null ? fmtDate(_eventDate!) : fmtDate(ev.date)} ${ev.timeLabel}）',
+                        style: FlText.caption1,
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: '関連付けを外す',
+                      icon: Icon(FluentIcons.dismiss_24_regular, size: 14),
+                      onPressed: () => setState(() {
+                        _eventId = null;
+                        _eventDate = null;
+                        _followEnd = false;
+                      }),
+                    ),
+                  ]),
+                  if (!ev.weekly && ev.startMin != null)
+                    FlCheckRow(
+                      label: '期限を予定の終了時刻に合わせる',
+                      value: _followEnd,
+                      onChanged: (v) => setState(() {
+                        _followEnd = v;
+                        if (v) {
+                          _due = dateOnly(ev.date);
+                          _dueMin = ev.endMin ?? ev.startMin;
+                        }
+                      }),
+                    ),
+                ],
+              ),
+            ),
+          );
+        }),
         FlSwitchTile(
           title: '重要',
           icon: _important

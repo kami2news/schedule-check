@@ -142,6 +142,10 @@ void main() {
       expect(report.type, ImportType.task);
       expect(report.title, '終了報告（地方銀行フードセレクション2026）');
       expect(report.startMin, 21 * 60);
+      // 勤務と終了報告は同じ番号で結びつく
+      expect(report.linkGroup, isNotNull);
+      expect(shift.linkGroup, report.linkGroup);
+      expect(shift.linkEnd, isTrue);
     });
 
     test('1行にまとまっていても読める', () {

@@ -303,6 +303,7 @@ class AppStore extends ChangeNotifier {
       seriesId: series.id,
       originalDate: d,
     );
+    _relinkOccurrence(series, d, single);
     upsertEvent(single);
     return single;
   }
@@ -337,7 +338,9 @@ class AppStore extends ChangeNotifier {
 
   /// 毎週の予定の [day] の回だけ削除する（休講など）
   void deleteOccurrence(Event series, DateTime day) {
-    series.exdates.add(dateOnly(day));
+    final d = dateOnly(day);
+    series.exdates.add(d);
+    _dropOccurrenceTasks(series, (x) => x == d);
     upsertEvent(series);
   }
 
@@ -350,6 +353,7 @@ class AppStore extends ChangeNotifier {
     }
     series.repeatUntil = d.subtract(const Duration(days: 1));
     series.exdates.removeWhere((x) => !x.isBefore(d));
+    _dropOccurrenceTasks(series, (x) => !x.isBefore(d));
     upsertEvent(series);
     // 切り出していた回のうち、それ以降のものも消す
     for (final e in events
@@ -382,15 +386,74 @@ class AppStore extends ChangeNotifier {
       events.add(e);
     }
     _remote?.putEvent(e);
+    _followEventTime(e);
     _save();
     notifyListeners();
   }
 
+  /// 予定を削除する。まだ終わっていない関連タスク（終了報告など）もいっしょに消す
   void deleteEvent(String id) {
     events.removeWhere((e) => e.id == id);
     _remote?.removeEvent(id);
+    for (final t in tasks.where((t) => t.eventId == id && !t.done).toList()) {
+      tasks.remove(t);
+      _remote?.removeTask(t.id);
+    }
     _save();
     notifyListeners();
+  }
+
+  // ---- 予定とタスクのつながり ----
+
+  /// 予定（繰り返しなら [day] の回）に関連するタスク
+  List<TaskItem> tasksFor(Event e, [DateTime? day]) {
+    final d = day == null ? null : dateOnly(day);
+    return tasks
+        .where((t) =>
+            t.eventId == e.id &&
+            (!e.weekly || t.eventDate == null || d == null || t.eventDate == d))
+        .toList()
+      ..sort(compareTasks);
+  }
+
+  Event? eventOf(TaskItem t) =>
+      t.eventId == null ? null : events.where((e) => e.id == t.eventId).firstOrNull;
+
+  /// 予定の終了時刻に合わせているタスクの期限を、予定に追従させる（単発の予定のみ）
+  void _followEventTime(Event e) {
+    if (e.weekly || e.startMin == null) return;
+    final endDate = dateOnly(e.date);
+    final endMin = e.endMin ?? e.startMin!;
+    for (final t in tasks.where((t) => t.eventId == e.id && t.followEnd)) {
+      // 夜勤の続き（0時開始）などは同じ日の終了時刻
+      if (t.due != null && dateOnly(t.due!) == endDate && t.dueMin == endMin) continue;
+      t.due = endDate;
+      t.dueMin = endMin;
+      _remote?.putTask(t);
+    }
+  }
+
+  /// 繰り返しの回を切り出したとき、その回に結びついたタスクを新しい予定へ付け替える
+  void _relinkOccurrence(Event series, DateTime day, Event single) {
+    for (final t in tasks.where((t) => t.eventId == series.id && t.eventDate == day)) {
+      t.eventId = single.id;
+      t.eventDate = null;
+      _remote?.putTask(t);
+    }
+  }
+
+  /// 繰り返しの回を消したとき、その回のまだ終わっていないタスクも消す
+  void _dropOccurrenceTasks(Event series, bool Function(DateTime d) match) {
+    for (final t in tasks
+        .where((t) =>
+            t.eventId == series.id &&
+            !t.done &&
+            t.eventDate != null &&
+            match(t.eventDate!))
+        .toList()) {
+      tasks.remove(t);
+      _remote?.removeTask(t.id);
+    }
   }
 
   void upsertTask(TaskItem t) {

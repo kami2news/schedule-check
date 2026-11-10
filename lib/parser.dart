@@ -67,6 +67,12 @@ class Candidate {
   String place;
   final String source;
   bool selected = true;
+
+  /// 同じ連絡から作った予定とタスクを結びつける番号（勤務と終了報告など）
+  int? linkGroup;
+
+  /// この予定の終了時刻に、同じ番号のタスクの期限を合わせる
+  bool linkEnd = false;
 }
 
 class ParseResult {
@@ -293,6 +299,7 @@ List<Candidate> _parseWorkNotices(List<String> lines, Set<int> consumed,
 
   // 返信メールの引用などで同じ通知が何度も出てくるので、同じ勤務は1回だけにする
   final seen = <String>{};
+  var group = 0;
   for (var i = 0; i < lines.length; i++) {
     final dm = _workDayRe.firstMatch(lines[i]);
     if (dm == null) continue;
@@ -333,6 +340,7 @@ List<Candidate> _parseWorkNotices(List<String> lines, Set<int> consumed,
 
     if (!seen.add('${date.toIso8601String()} $start $end $site')) continue;
 
+    group++;
     final overnight = end <= start;
     final endDate = overnight ? date.add(const Duration(days: 1)) : date;
     if (overnight) {
@@ -373,6 +381,17 @@ List<Candidate> _parseWorkNotices(List<String> lines, Set<int> consumed,
         calendarId: calId,
       ));
     }
+    // 最後に追加した勤務（夜勤なら翌朝の分）の終了時刻に、終了報告を結びつける
+    for (final c in out.reversed) {
+      if (c.type == ImportType.shift) {
+        c.linkGroup = group;
+        c.linkEnd = true;
+        break;
+      }
+    }
+    for (final c in out.where((c) => c.type == ImportType.shift && c.linkGroup == null)) {
+      c.linkGroup = group;
+    }
     out.add(Candidate(
       title: '終了報告（${site.isEmpty ? fmtDate(date) : site}）',
       date: endDate,
@@ -380,7 +399,7 @@ List<Candidate> _parseWorkNotices(List<String> lines, Set<int> consumed,
       source: source,
       startMin: end,
       note: '作業が終わったら終了報告を送る',
-    ));
+    )..linkGroup = group);
   }
   return out;
 }

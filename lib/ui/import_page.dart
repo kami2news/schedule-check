@@ -70,6 +70,17 @@ class _ImportPageState extends State<ImportPage> {
     final events = <Event>[];
     final tasks = <TaskItem>[];
     var updated = 0, deleted = 0;
+    // 勤務と終了報告など、同じ連絡から作る予定とタスクの対応
+    final groupEvent = <int, String>{};
+    for (final c in _cands) {
+      // 既存の予定と同じ・変更なら、その予定に結びつける
+      final m = _matches[c];
+      if (c.linkGroup != null && c.linkEnd && m?.event != null &&
+          (m!.kind == MatchKind.duplicate || m.kind == MatchKind.update) &&
+          !m.isRecurring) {
+        groupEvent[c.linkGroup!] = m.event!.id;
+      }
+    }
     for (final c in _cands.where((c) => c.selected)) {
       final m = _matches[c] ?? MatchResult(MatchKind.fresh);
       final title = c.title.trim().isEmpty ? '(無題)' : c.title.trim();
@@ -138,11 +149,14 @@ class _ImportPageState extends State<ImportPage> {
         case MatchKind.fresh:
         case MatchKind.conflict:
           if (c.type == ImportType.task) {
+            final linked = c.linkGroup == null ? null : groupEvent[c.linkGroup!];
             tasks.add(TaskItem(
               id: store.newId(),
               title: title,
               due: c.date,
               dueMin: c.startMin,
+              eventId: linked,
+              followEnd: linked != null,
               url: url,
               // タスクには場所の欄がないのでメモにまとめる
               note: [if (place.isNotEmpty) '場所: $place', if (note.isNotEmpty) note]
@@ -150,8 +164,10 @@ class _ImportPageState extends State<ImportPage> {
             ));
           } else {
             final s = c.startMin;
+            final newId = store.newId();
+            if (c.linkGroup != null && c.linkEnd) groupEvent[c.linkGroup!] = newId;
             events.add(Event(
-              id: store.newId(),
+              id: newId,
               title: title,
               calendarId: c.calendarId,
               showAs: c.showAs,

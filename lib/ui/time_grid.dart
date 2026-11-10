@@ -7,6 +7,7 @@ import '../models.dart';
 import '../store.dart';
 import 'controller.dart';
 import 'edit_pages.dart';
+import 'event_peek.dart';
 import 'fluent.dart';
 import 'fluent_extras.dart';
 import 'widgets.dart';
@@ -133,7 +134,7 @@ class _TimeGridState extends State<TimeGrid> {
     return Padding(
       padding: EdgeInsets.fromLTRB(2, 0, 2, 2),
       child: GestureDetector(
-        onTap: () => openEventEditor(context, event: e, occurrence: day),
+        onTap: () => openEventPeek(context, e, day),
         child: SizedBox(
           width: double.infinity,
           child: FlAccentBox(
@@ -199,7 +200,7 @@ class _TimeGridState extends State<TimeGrid> {
     return MouseRegion(
       cursor: SystemMouseCursors.click,
       child: GestureDetector(
-      onTap: () => openEventEditor(context, event: e, occurrence: day),
+      onTap: () => openEventPeek(context, e, day),
       child: FlAccentBox(
         accent: StoreScope.read(context).colorOf(e),
         showAs: e.showAs,

@@ -372,6 +372,9 @@ class TaskItem {
     this.important = false,
     this.note = '',
     this.url = '',
+    this.eventId,
+    this.eventDate,
+    this.followEnd = false,
   });
 
   final String id;
@@ -387,10 +390,22 @@ class TaskItem {
   /// 提出先や資料などのリンク
   String url;
 
+  /// 関連する予定（終了報告・持ち物など）
+  String? eventId;
+
+  /// 関連する予定が繰り返しのとき、どの回か
+  DateTime? eventDate;
+
+  /// 期限を予定の終了時刻に合わせる（予定の時間が変わったら期限も動く）
+  bool followEnd;
+
   Map<String, dynamic> toJson() => {
         'id': id,
         'title': title,
         'due': due?.toIso8601String(),
+        if (eventId != null) 'eventId': eventId,
+        if (eventDate != null) 'eventDate': eventDate!.toIso8601String(),
+        if (followEnd) 'followEnd': true,
         'dueMin': dueMin,
         'done': done,
         'important': important,
@@ -407,6 +422,11 @@ class TaskItem {
         important: (j['important'] as bool?) ?? false,
         note: (j['note'] as String?) ?? '',
         url: (j['url'] as String?) ?? '',
+        eventId: j['eventId'] as String?,
+        eventDate: j['eventDate'] == null
+            ? null
+            : DateTime.parse(j['eventDate'] as String),
+        followEnd: (j['followEnd'] as bool?) ?? false,
       );
 }
 
