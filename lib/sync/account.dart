@@ -1,0 +1,190 @@
+import 'dart:async';
+
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/widgets.dart';
+
+import '../store.dart';
+import 'firebase_config.dart';
+import 'firebase_sync.dart';
+
+/// ログイン方法
+enum SignInMethod { google, microsoft, email }
+
+/// アカウント（Firebase Authentication）とクラウド同期の窓口。
+/// Firebase が未設定のときは [available] が false になり、何もしない。
+class AccountService extends ChangeNotifier {
+  AccountService(this.store);
+
+  final AppStore store;
+
+  bool available = false;
+  User? user;
+  SyncState syncState = SyncState.connecting;
+  FirebaseSync? _sync;
+  StreamSubscription<User?>? _authSub;
+
+  bool get signedIn => user != null;
+
+  /// 起動時に呼ぶ。設定が無ければ端末内だけで動かす
+  Future<void> init() async {
+    if (!isFirebaseConfigured) return;
+    try {
+      await Firebase.initializeApp(options: kFirebaseWebOptions);
+      // オフラインでも使えるよう、端末にキャッシュする
+      FirebaseFirestore.instance.settings =
+          const Settings(persistenceEnabled: true);
+      available = true;
+    } catch (e) {
+      debugPrint('Firebase の初期化に失敗: $e');
+      return;
+    }
+    _authSub = FirebaseAuth.instance.authStateChanges().listen(_onUser);
+  }
+
+  Future<void> _onUser(User? u) async {
+    if (u?.uid == user?.uid) {
+      user = u;
+      notifyListeners();
+      return;
+    }
+    await _sync?.stop();
+    _sync = null;
+    user = u;
+    if (u == null) {
+      store.detachRemote();
+    } else {
+      final sync = FirebaseSync(store, u.uid, onState: (s) {
+        if (s == syncState) return;
+        syncState = s;
+        notifyListeners();
+      });
+      _sync = sync;
+      store.attachRemote(sync);
+      sync.start();
+    }
+    notifyListeners();
+  }
+
+  // ---- ログイン ----
+
+  Future<void> signIn(SignInMethod m, {String? email, String? password}) async {
+    final auth = FirebaseAuth.instance;
+    switch (m) {
+      case SignInMethod.google:
+        final p = GoogleAuthProvider()
+          ..setCustomParameters({'prompt': 'select_account'});
+        await auth.signInWithPopup(p);
+      case SignInMethod.microsoft:
+        final p = OAuthProvider('microsoft.com')
+          ..setCustomParameters({'prompt': 'select_account'});
+        await auth.signInWithPopup(p);
+      case SignInMethod.email:
+        await auth.signInWithEmailAndPassword(
+            email: email!.trim(), password: password!);
+    }
+  }
+
+  Future<void> register(
+      {required String email, required String password, String? name}) async {
+    final cred = await FirebaseAuth.instance.createUserWithEmailAndPassword(
+        email: email.trim(), password: password);
+    if (name != null && name.trim().isNotEmpty) {
+      await cred.user?.updateDisplayName(name.trim());
+      await cred.user?.reload();
+      user = FirebaseAuth.instance.currentUser;
+      notifyListeners();
+    }
+  }
+
+  Future<void> sendPasswordReset(String email) =>
+      FirebaseAuth.instance.sendPasswordResetEmail(email: email.trim());
+
+  Future<void> updateDisplayName(String name) async {
+    final u = FirebaseAuth.instance.currentUser;
+    if (u == null) return;
+    await u.updateDisplayName(name.trim());
+    await u.reload();
+    user = FirebaseAuth.instance.currentUser;
+    notifyListeners();
+  }
+
+  Future<void> signOut() => FirebaseAuth.instance.signOut();
+
+  /// アカウントとクラウド上のデータを削除する
+  Future<void> deleteAccount() async {
+    final u = FirebaseAuth.instance.currentUser;
+    if (u == null) return;
+    await _sync?.deleteAll();
+    await u.delete();
+  }
+
+  /// ログインに使った方法の表示名
+  String get providerLabel {
+    final ids = user?.providerData.map((p) => p.providerId).toSet() ?? {};
+    if (ids.contains('google.com')) return 'Google アカウント';
+    if (ids.contains('microsoft.com')) return 'Microsoft アカウント';
+    if (ids.contains('password')) return 'メールアドレス';
+    return '';
+  }
+
+  @override
+  void dispose() {
+    _authSub?.cancel();
+    _sync?.stop();
+    super.dispose();
+  }
+}
+
+/// Firebase のエラーを日本語の説明にする
+String authErrorMessage(Object e) {
+  if (e is FirebaseAuthException) {
+    switch (e.code) {
+      case 'invalid-email':
+        return 'メールアドレスの形式が正しくありません';
+      case 'user-disabled':
+        return 'このアカウントは無効になっています';
+      case 'user-not-found':
+      case 'wrong-password':
+      case 'invalid-credential':
+        return 'メールアドレスかパスワードが違います';
+      case 'email-already-in-use':
+        return 'このメールアドレスはすでに登録されています。ログインしてください';
+      case 'weak-password':
+        return 'パスワードは6文字以上にしてください';
+      case 'too-many-requests':
+        return '試行回数が多すぎます。しばらくしてからもう一度お試しください';
+      case 'popup-closed-by-user':
+      case 'cancelled-popup-request':
+        return 'ログインがキャンセルされました';
+      case 'popup-blocked':
+        return 'ポップアップがブロックされました。ブラウザでこのサイトのポップアップを許可してください';
+      case 'account-exists-with-different-credential':
+        return 'このメールアドレスは別のログイン方法で登録されています。最初に使った方法でログインしてください';
+      case 'requires-recent-login':
+        return '安全のため、いったんログアウトしてもう一度ログインしてから操作してください';
+      case 'network-request-failed':
+        return 'ネットワークにつながっていません';
+      case 'operation-not-allowed':
+        return 'このログイン方法はまだ有効になっていません（Firebase の設定が必要です）';
+      case 'unauthorized-domain':
+        return 'このサイトのドメインが Firebase で許可されていません（承認済みドメインに追加が必要です）';
+    }
+    return 'ログインできませんでした（${e.code}）';
+  }
+  return 'エラーが発生しました: $e';
+}
+
+/// ウィジェットからアカウントを参照する
+class AccountScope extends InheritedNotifier<AccountService> {
+  const AccountScope(
+      {super.key, required AccountService account, required super.child})
+      : super(notifier: account);
+
+  static AccountService of(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<AccountScope>()!.notifier!;
+
+  static AccountService read(BuildContext context) =>
+      context.getInheritedWidgetOfExactType<AccountScope>()!.notifier!;
+}

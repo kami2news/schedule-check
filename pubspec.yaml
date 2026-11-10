@@ -4,7 +4,7 @@ publish_to: 'none'
 version: 0.1.0+1
 
 environment:
-  sdk: ^3.3.0
+  sdk: ^3.6.0
 
 dependencies:
   flutter:
@@ -14,6 +14,10 @@ dependencies:
   # Microsoft 公式の Fluent System Icons
   fluentui_system_icons: ^1.1.270
   shared_preferences: ^2.2.3
+  # オンライン同期とアカウント（Firebase）
+  firebase_core: ^5.1.0
+  firebase_auth: ^7.0.1
+  cloud_firestore: ^7.1.0
   url_launcher: ^6.3.0
 
 dev_dependencies:

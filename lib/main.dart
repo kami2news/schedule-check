@@ -3,6 +3,8 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 
 import 'store.dart';
+import 'sync/account.dart';
+import 'ui/account_page.dart';
 import 'ui/calendar_page.dart';
 import 'ui/controller.dart';
 import 'ui/edit_pages.dart';
@@ -16,13 +18,19 @@ import 'ui/todo_panel.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final store = await AppStore.load();
-  runApp(ScheduleApp(store: store));
+  // Firebase が設定済みならログイン状態を復元して同期を始める（未設定なら端末内だけで動く）
+  final account = AccountService(store);
+  await account.init();
+  runApp(ScheduleApp(store: store, account: account));
 }
 
 class ScheduleApp extends StatefulWidget {
-  const ScheduleApp({super.key, required this.store});
+  const ScheduleApp({super.key, required this.store, this.account});
 
   final AppStore store;
+
+  /// 省略時（テストなど）は Firebase を使わないアカウント
+  final AccountService? account;
 
   @override
   State<ScheduleApp> createState() => _ScheduleAppState();
@@ -31,6 +39,9 @@ class ScheduleApp extends StatefulWidget {
 /// ライト／ダークの切り替えを受け持つ。
 /// 色トークン（Fl）はグローバルなので、切り替え時は画面全体を再構築する。
 class _ScheduleAppState extends State<ScheduleApp> with WidgetsBindingObserver {
+  late final AccountService _account =
+      widget.account ?? AccountService(widget.store);
+
   FlThemeMode get _mode => FlThemeMode.values.firstWhere(
         (m) => m.name == widget.store.themeMode,
         orElse: () => FlThemeMode.system,
@@ -78,7 +89,9 @@ class _ScheduleAppState extends State<ScheduleApp> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     return StoreScope(
       store: widget.store,
-      child: MaterialApp(
+      child: AccountScope(
+        account: _account,
+        child: MaterialApp(
         title: 'スケジュール確認',
         debugShowCheckedModeBanner: false,
         theme: buildFluentTheme(),
@@ -91,6 +104,7 @@ class _ScheduleAppState extends State<ScheduleApp> with WidgetsBindingObserver {
           GlobalCupertinoLocalizations.delegate,
         ],
         home: HomeShell(),
+      ),
       ),
     );
   }
@@ -166,7 +180,7 @@ class _HomeShellState extends State<HomeShell> {
         backgroundColor: Fl.bg3,
         body: Column(
           children: [
-            FlTopBar(title: 'スケジュール確認', trailing: FlThemeButton(onDark: true)),
+            FlTopBar(title: 'スケジュール確認', trailing: Row(mainAxisSize: MainAxisSize.min, children: [FlAccountButton(onDark: true), FlThemeButton(onDark: true)])),
             Expanded(
               child: Padding(
                 padding: EdgeInsets.fromLTRB(0, 8, 8, 8),
@@ -202,7 +216,7 @@ class _HomeShellState extends State<HomeShell> {
           index: _tab,
           children: [
             CalendarPage(controller: cal, compact: true),
-            ColoredBox(color: Fl.bg2, child: TodoPanel(trailing: FlThemeButton())),
+            ColoredBox(color: Fl.bg2, child: TodoPanel(trailing: Row(mainAxisSize: MainAxisSize.min, children: [FlAccountButton(), FlThemeButton()]))),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [

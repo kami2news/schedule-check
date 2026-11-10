@@ -863,6 +863,7 @@ class FlTextField extends StatefulWidget {
     this.leading,
     this.trailing,
     this.textInputAction,
+    this.obscure = false,
   });
 
   final TextEditingController? controller;
@@ -876,6 +877,9 @@ class FlTextField extends StatefulWidget {
   final Widget? leading;
   final Widget? trailing;
   final TextInputAction? textInputAction;
+
+  /// パスワード入力など、文字を隠す
+  final bool obscure;
 
   @override
   State<FlTextField> createState() => _FlTextFieldState();
@@ -939,6 +943,7 @@ class _FlTextFieldState extends State<FlTextField> {
                       onSubmitted: widget.onSubmitted,
                       onChanged: widget.onChanged,
                       textInputAction: widget.textInputAction,
+                      obscureText: widget.obscure,
                       cursorColor: Fl.brandFg,
                       style: FlText.body1,
                       decoration: InputDecoration(
