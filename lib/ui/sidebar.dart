@@ -6,6 +6,7 @@ import '../store.dart';
 import 'controller.dart';
 import 'edit_pages.dart';
 import 'fluent.dart';
+import 'finder_pages.dart';
 import 'fluent_extras.dart';
 import 'mini_month.dart';
 
@@ -46,19 +47,20 @@ class CalendarSidebar extends StatelessWidget {
               padding: EdgeInsets.symmetric(vertical: 8),
               child: Divider(),
             ),
-            InkWell(
+            _SideAction(
+              icon: FluentIcons.clipboard_paste_24_regular,
+              label: 'メールなどから取り込む',
               onTap: onImport,
-              child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: Row(
-                  children: [
-                    Icon(FluentIcons.clipboard_paste_24_regular,
-                        size: 20, color: Fl.fg2),
-                    SizedBox(width: 12),
-                    Text('メールなどから取り込む', style: FlText.body1),
-                  ],
-                ),
-              ),
+            ),
+            _SideAction(
+              icon: FluentIcons.calendar_search_20_regular,
+              label: '空き時間を探す（候補日をコピー）',
+              onTap: () => openFreeTime(context),
+            ),
+            _SideAction(
+              icon: FluentIcons.clock_24_regular,
+              label: '時限の時刻を設定',
+              onTap: () => showPeriodSettings(context),
             ),
           ],
         );
@@ -342,6 +344,32 @@ class _CalendarEditorState extends State<_CalendarEditor> {
                 ),
               ],
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// サイドバー下部の操作（取り込み・空き時間など）
+class _SideAction extends StatelessWidget {
+  const _SideAction({required this.icon, required this.label, required this.onTap});
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Row(
+          children: [
+            Icon(icon, size: 20, color: Fl.fg2),
+            SizedBox(width: 12),
+            Expanded(child: Text(label, style: FlText.body1)),
           ],
         ),
       ),

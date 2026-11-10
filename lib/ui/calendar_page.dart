@@ -3,6 +3,8 @@ import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 
 import '../models.dart';
 import 'controller.dart';
+import 'edit_pages.dart';
+import 'finder_pages.dart';
 import 'fluent.dart';
 import 'mini_month.dart';
 import 'sidebar.dart';
@@ -159,6 +161,38 @@ class _CalendarPageState extends State<CalendarPage> {
           ],
           SizedBox(width: 8),
           _viewMenu(c),
+          if (compact)
+            PopupMenuButton<String>(
+              tooltip: 'その他',
+              position: PopupMenuPosition.under,
+              icon: Icon(FluentIcons.more_vertical_24_regular, size: 20),
+              onSelected: (v) {
+                switch (v) {
+                  case 'search':
+                    openSearch(context, c);
+                  case 'free':
+                    openFreeTime(context);
+                  case 'periods':
+                    showPeriodSettings(context);
+                }
+              },
+              itemBuilder: (_) => [
+                for (final (v, icon, label) in [
+                  ('search', FluentIcons.search_24_regular, '検索'),
+                  ('free', FluentIcons.calendar_search_20_regular, '空き時間を探す'),
+                  ('periods', FluentIcons.clock_24_regular, '時限の時刻を設定'),
+                ])
+                  PopupMenuItem<String>(
+                    value: v,
+                    height: 36,
+                    child: Row(children: [
+                      Icon(icon, size: 16),
+                      SizedBox(width: 10),
+                      Text(label),
+                    ]),
+                  ),
+              ],
+            ),
         ],
       ),
     );

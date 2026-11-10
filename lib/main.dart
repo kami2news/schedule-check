@@ -10,6 +10,7 @@ import 'ui/account_page.dart';
 import 'ui/calendar_page.dart';
 import 'ui/controller.dart';
 import 'ui/edit_pages.dart';
+import 'ui/finder_pages.dart';
 import 'ui/fluent.dart';
 import 'ui/fluent_extras.dart';
 import 'ui/import_page.dart';
@@ -182,7 +183,16 @@ class _HomeShellState extends State<HomeShell> {
         backgroundColor: Fl.bg3,
         body: Column(
           children: [
-            FlTopBar(title: 'スケジュール確認', trailing: Row(mainAxisSize: MainAxisSize.min, children: [FlAccountButton(onDark: true), FlThemeButton(onDark: true)])),
+            FlTopBar(
+              title: 'スケジュール確認',
+              trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                // Outlook と同じく、上部バーに検索欄
+                _TopSearchBox(onTap: () => openSearch(context, cal)),
+                SizedBox(width: 8),
+                FlAccountButton(onDark: true),
+                FlThemeButton(onDark: true),
+              ]),
+            ),
             Expanded(
               child: Padding(
                 padding: EdgeInsets.fromLTRB(0, 8, 8, 8),
@@ -250,6 +260,37 @@ class _HomeShellState extends State<HomeShell> {
           setState(() => _tab = i);
           StoreScope.read(context).setUiValue('tab', '$i');
         },
+      ),
+    );
+  }
+}
+
+/// 上部バーの検索欄（押すと検索画面を開く）
+class _TopSearchBox extends StatelessWidget {
+  const _TopSearchBox({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(Fl.r4),
+      child: Container(
+        width: 280,
+        height: 32,
+        padding: EdgeInsets.symmetric(horizontal: 10),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: Fl.isDark ? 0.08 : 0.92),
+          borderRadius: BorderRadius.circular(Fl.r4),
+        ),
+        child: Row(children: [
+          Icon(FluentIcons.search_24_regular,
+              size: 16, color: Fl.isDark ? Fl.fg2 : Fl.brand),
+          SizedBox(width: 8),
+          Text('検索',
+              style: FlText.body1.copyWith(color: Fl.isDark ? Fl.fg3 : Fl.fg2)),
+        ]),
       ),
     );
   }
