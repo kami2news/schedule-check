@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   pages: write
   id-token: write
 
@@ -31,6 +31,17 @@ jobs:
       - run: flutter analyze --no-fatal-infos
       - run: flutter test
       - run: flutter build web --release --base-href /schedule-check/
+
+      # ビルド結果を preview-build ブランチにも置く（見た目の確認用）
+      - name: Publish build to preview-build branch
+        run: |
+          cd build/web
+          git init -q -b preview-build
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "build ${GITHUB_SHA}"
+          git push -q -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" preview-build
 
       - uses: actions/upload-pages-artifact@v3
         with:
