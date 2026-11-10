@@ -194,7 +194,7 @@ class _TimeGridState extends State<TimeGrid> {
 
   Widget _block(BuildContext context, Event e, double h, double w) {
     // 細い列では1文字ずつ折り返さないよう、タイトル1行だけを省略表示にする
-    final narrow = w < 64;
+    final narrow = w < 40;
     final lines = narrow ? 1 : math.max(1, ((h - 4) / 16).floor());
     return MouseRegion(
       cursor: SystemMouseCursors.click,
