@@ -379,6 +379,9 @@ Future<int?> showFlTimeList(BuildContext context, int initialMin,
   );
 }
 
+/// ビルド番号（CI で --dart-define=BUILD_ID=<コミット> を渡す。ローカルでは dev）
+const kBuildId = String.fromEnvironment('BUILD_ID', defaultValue: 'dev');
+
 /// 表示テーマ（システム／ライト／ダーク）の切り替えメニュー
 class FlThemeButton extends StatelessWidget {
   const FlThemeButton({super.key, this.onDark = false});
@@ -412,6 +415,14 @@ class FlThemeButton extends StatelessWidget {
               ],
             ),
           ),
+        PopupMenuDivider(),
+        // どの版を見ているか確認できるようにビルド番号を出す
+        PopupMenuItem<FlThemeMode>(
+          enabled: false,
+          height: 28,
+          child: Text('バージョン $kBuildId',
+              style: FlText.caption1.copyWith(color: Fl.fg3)),
+        ),
       ],
       child: Padding(
         padding: EdgeInsets.all(8),

@@ -30,7 +30,16 @@ jobs:
       - run: flutter pub get
       - run: flutter analyze --no-fatal-infos
       - run: flutter test
-      - run: flutter build web --release --base-href /schedule-check/
+      - run: flutter build web --release --base-href /schedule-check/ --dart-define=BUILD_ID=${GITHUB_SHA::7}
+
+      # 更新がすぐ反映されるよう、読み込むファイルにビルドごとの ?v= を付ける（ブラウザのキャッシュ対策）
+      - name: Cache-bust entry files
+        run: |
+          V=${GITHUB_SHA::7}
+          sed -i "s/main\.dart\.js\"/main.dart.js?v=$V\"/g" build/web/flutter_bootstrap.js
+          sed -i "s/src=\"flutter_bootstrap\.js\"/src=\"flutter_bootstrap.js?v=$V\"/" build/web/index.html
+          grep -c "main.dart.js?v=$V" build/web/flutter_bootstrap.js
+          grep "flutter_bootstrap.js?v=$V" build/web/index.html
 
       # ビルド結果を preview-build ブランチにも置く（見た目の確認用）
       - name: Publish build to preview-build branch
