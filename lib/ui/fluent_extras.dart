@@ -437,3 +437,89 @@ class FlThemeButton extends StatelessWidget {
     );
   }
 }
+
+/// 選択肢から1つ選ぶダイアログ（Fluent の RadioGroup ＋ Dialog）。キャンセルなら null
+Future<T?> showFlChoice<T>(
+  BuildContext context, {
+  required String title,
+  required List<(T value, String label)> options,
+  required T initial,
+  required String confirmLabel,
+  bool danger = false,
+}) {
+  var selected = initial;
+  return showFlDialog<T>(
+    context,
+    maxWidth: 400,
+    child: StatefulBuilder(
+      builder: (ctx, setState) => Material(
+        color: Fl.bg1,
+        child: Padding(
+          padding: EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: FlText.subtitle1),
+              SizedBox(height: 12),
+              for (final (v, label) in options)
+                InkWell(
+                  borderRadius: BorderRadius.circular(Fl.r4),
+                  onTap: () => setState(() => selected = v),
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                    child: Row(
+                      children: [
+                        // Fluent のラジオ（外枠＋選択中は中の点）
+                        Container(
+                          width: 18,
+                          height: 18,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                                color: v == selected
+                                    ? Fl.brandFg
+                                    : Fl.strokeAccessible),
+                          ),
+                          child: v == selected
+                              ? Container(
+                                  width: 10,
+                                  height: 10,
+                                  decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: Fl.brandFg),
+                                )
+                              : null,
+                        ),
+                        SizedBox(width: 10),
+                        Expanded(child: Text(label, style: FlText.body1)),
+                      ],
+                    ),
+                  ),
+                ),
+              SizedBox(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  FilledButton(
+                    style: danger
+                        ? FilledButton.styleFrom(backgroundColor: Fl.danger)
+                        : null,
+                    onPressed: () => Navigator.of(ctx).pop(selected),
+                    child: Text(confirmLabel),
+                  ),
+                  SizedBox(width: 8),
+                  OutlinedButton(
+                    onPressed: () => Navigator.of(ctx).pop(),
+                    child: Text('キャンセル'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
+}

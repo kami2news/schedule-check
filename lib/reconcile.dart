@@ -28,7 +28,8 @@ class MatchResult {
       this.task,
       this.conflicts = const [],
       this.canApply = true,
-      this.enrich = false});
+      this.enrich = false,
+      this.occurrence});
 
   final MatchKind kind;
 
@@ -47,6 +48,11 @@ class MatchResult {
   /// 同じ予定に、メール側にしかない情報（リンク・場所・メモ）を足せるか
   final bool enrich;
 
+  /// 対象が毎週の予定のとき、その回の日付（この回のみ／以降に反映する）
+  final DateTime? occurrence;
+
+  bool get isRecurring => occurrence != null;
+
   bool get hasTarget => event != null || task != null;
 
   /// 最初にチェックを入れておくか（削除は念のため手動で選んでもらう）
@@ -54,7 +60,8 @@ class MatchResult {
         MatchKind.fresh || MatchKind.conflict => true,
         MatchKind.duplicate => enrich,
         MatchKind.update => canApply,
-        MatchKind.cancel => false,
+        // 毎週の予定の1回分を消すだけなら最初からチェック、単発の予定の削除は手動で
+        MatchKind.cancel => canApply && isRecurring,
       };
 }
 
@@ -146,7 +153,8 @@ MatchResult reconcile(Candidate c, List<Event> events, List<TaskItem> tasks) {
       if (same.length == 1) target = same.first;
     }
     if (target == null) return MatchResult(MatchKind.cancel, canApply: false);
-    return MatchResult(MatchKind.cancel, event: target, canApply: !target.weekly);
+    return MatchResult(MatchKind.cancel,
+        event: target, occurrence: target.weekly ? day : null);
   }
 
   // ---- 同じ日に似た予定がある ----
@@ -158,7 +166,8 @@ MatchResult reconcile(Candidate c, List<Event> events, List<TaskItem> tasks) {
           enrich: _hasExtra(c,
               url: target.url, place: target.place, note: target.note));
     }
-    return MatchResult(MatchKind.update, event: target, canApply: !target.weekly);
+    return MatchResult(MatchKind.update,
+        event: target, occurrence: target.weekly ? day : null);
   }
 
   // ---- 「変更」の連絡なら、前後3週間から元の予定を探す ----

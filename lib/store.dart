@@ -255,6 +255,91 @@ class AppStore extends ChangeNotifier {
     return true;
   }
 
+  // ---- 繰り返しの予定（この回のみ・この回以降・すべて） ----
+
+  /// 毎週の予定 [series] の [day] の回だけを [changed] の内容に変える。
+  /// 元の予定からその日を除き、その回は単発の予定として切り出す。
+  Event changeOccurrence(Event series, DateTime day, Event changed) {
+    final d = dateOnly(day);
+    series.exdates.add(d);
+    upsertEvent(series);
+    final single = changed.copyWith(
+      id: newId(),
+      weekly: false,
+      clearRepeatUntil: true,
+      exdates: {},
+      seriesId: series.id,
+      originalDate: d,
+    );
+    upsertEvent(single);
+    return single;
+  }
+
+  /// 毎週の予定 [series] の [day] 以降を [changed] の内容に変える。
+  /// 元の予定は前日で終わらせ、[day] からは新しい繰り返しとして続ける。
+  Event changeFollowing(Event series, DateTime day, Event changed) {
+    final d = dateOnly(day);
+    if (!d.isAfter(series.firstDate)) {
+      // 最初の回からなら「すべての回」と同じ
+      final all = changed.copyWith(id: series.id, exdates: {...series.exdates});
+      upsertEvent(all);
+      return all;
+    }
+    final oldUntil = series.repeatUntil;
+    final later = series.exdates.where((x) => !x.isBefore(d)).toSet();
+    series.repeatUntil = d.subtract(const Duration(days: 1));
+    series.exdates.removeAll(later);
+    upsertEvent(series);
+    // 曜日を変えた場合は、新しい曜日に合わせてずらした除外日だけ引き継ぐ
+    final shift = dateOnly(changed.date).difference(d).inDays;
+    final next = changed.copyWith(
+      id: newId(),
+      weekly: true,
+      repeatUntil: changed.weekly ? changed.repeatUntil : oldUntil,
+      exdates: {for (final x in later) x.add(Duration(days: shift))},
+      seriesId: series.seriesId ?? series.id,
+    );
+    upsertEvent(next);
+    return next;
+  }
+
+  /// 毎週の予定の [day] の回だけ削除する（休講など）
+  void deleteOccurrence(Event series, DateTime day) {
+    series.exdates.add(dateOnly(day));
+    upsertEvent(series);
+  }
+
+  /// 毎週の予定の [day] 以降を削除する（最初の回からならすべて削除）
+  void deleteFollowing(Event series, DateTime day) {
+    final d = dateOnly(day);
+    if (!d.isAfter(series.firstDate)) {
+      deleteSeries(series);
+      return;
+    }
+    series.repeatUntil = d.subtract(const Duration(days: 1));
+    series.exdates.removeWhere((x) => !x.isBefore(d));
+    upsertEvent(series);
+    // 切り出していた回のうち、それ以降のものも消す
+    for (final e in events
+        .where((e) =>
+            e.seriesId == series.id &&
+            e.originalDate != null &&
+            !e.originalDate!.isBefore(d))
+        .toList()) {
+      deleteEvent(e.id);
+    }
+  }
+
+  /// 毎週の予定をすべて削除する（切り出した回もいっしょに消す）
+  void deleteSeries(Event series) {
+    for (final e in events
+        .where((e) => e.seriesId == series.id && e.originalDate != null)
+        .toList()) {
+      deleteEvent(e.id);
+    }
+    deleteEvent(series.id);
+  }
+
   // ---- 更新 ----
 
   void upsertEvent(Event e) {

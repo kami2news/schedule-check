@@ -99,10 +99,22 @@ class Event {
     this.note = '',
     this.url = '',
     this.showAs = ShowAs.busy,
-  });
+    Set<DateTime>? exdates,
+    this.seriesId,
+    this.originalDate,
+  }) : exdates = exdates ?? {};
 
   final String id;
   String title;
+
+  /// 毎週の予定で、その回だけ無い日（休講・「この回のみ」変更した日）
+  final Set<DateTime> exdates;
+
+  /// 毎週の予定から切り出した回・分割した続きのとき、元の予定の id
+  String? seriesId;
+
+  /// 「この回のみ」変更した回の、本来の日付
+  DateTime? originalDate;
 
   /// 所属するカレンダー（[CalendarDef.id]）
   String calendarId;
@@ -141,8 +153,44 @@ class Event {
     if (d.isBefore(first)) return false;
     if (d.weekday != first.weekday) return false;
     if (repeatUntil != null && d.isAfter(dateOnly(repeatUntil!))) return false;
+    if (exdates.contains(d)) return false;
     return true;
   }
+
+  /// 毎週の予定の、最初の回の日付
+  DateTime get firstDate => dateOnly(date);
+
+  /// 繰り返しから切り出した回（「この回のみ」変更したもの）か
+  bool get isException => originalDate != null;
+
+  /// 中身を写した新しい予定（id などを差し替えるとき用）
+  Event copyWith({
+    String? id,
+    DateTime? date,
+    bool? weekly,
+    DateTime? repeatUntil,
+    bool clearRepeatUntil = false,
+    Set<DateTime>? exdates,
+    String? seriesId,
+    DateTime? originalDate,
+  }) =>
+      Event(
+        id: id ?? this.id,
+        title: title,
+        calendarId: calendarId,
+        showAs: showAs,
+        date: date ?? this.date,
+        startMin: startMin,
+        endMin: endMin,
+        weekly: weekly ?? this.weekly,
+        repeatUntil: clearRepeatUntil ? null : (repeatUntil ?? this.repeatUntil),
+        place: place,
+        note: note,
+        url: url,
+        exdates: exdates ?? {...this.exdates},
+        seriesId: seriesId ?? this.seriesId,
+        originalDate: originalDate ?? this.originalDate,
+      );
 
   Map<String, dynamic> toJson() => {
         'id': id,
@@ -157,6 +205,10 @@ class Event {
         'place': place,
         'note': note,
         'url': url,
+        if (exdates.isNotEmpty)
+          'exdates': ([...exdates]..sort()).map((d) => d.toIso8601String()).toList(),
+        if (seriesId != null) 'seriesId': seriesId,
+        if (originalDate != null) 'originalDate': originalDate!.toIso8601String(),
       };
 
   factory Event.fromJson(Map<String, dynamic> j) => Event(
@@ -177,6 +229,14 @@ class Event {
         place: (j['place'] as String?) ?? '',
         note: (j['note'] as String?) ?? '',
         url: (j['url'] as String?) ?? '',
+        exdates: {
+          for (final x in (j['exdates'] as List?) ?? const [])
+            dateOnly(DateTime.parse(x as String)),
+        },
+        seriesId: j['seriesId'] as String?,
+        originalDate: j['originalDate'] == null
+            ? null
+            : DateTime.parse(j['originalDate'] as String),
       );
 }
 

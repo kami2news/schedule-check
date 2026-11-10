@@ -21,6 +21,9 @@ class _ImportPageState extends State<ImportPage> {
   final _text = TextEditingController();
   List<Candidate> _cands = [];
   final Map<Candidate, MatchResult> _matches = {};
+
+  /// 毎週の予定への変更・中止を「この回以降」にも反映する候補
+  final Set<Candidate> _following = {};
   int _skipped = 0;
   bool _parsed = false;
 
@@ -83,14 +86,34 @@ class _ImportPageState extends State<ImportPage> {
       switch (m.kind) {
         case MatchKind.cancel:
           if (!m.canApply) break;
-          if (m.event != null) store.deleteEvent(m.event!.id);
+          final ev = m.event;
+          if (ev != null && m.isRecurring) {
+            _following.contains(c)
+                ? store.deleteFollowing(ev, m.occurrence!)
+                : store.deleteOccurrence(ev, m.occurrence!);
+          } else if (ev != null) {
+            store.deleteEvent(ev.id);
+          }
           if (m.task != null) store.deleteTask(m.task!.id);
           deleted++;
         case MatchKind.duplicate:
         case MatchKind.update:
           if (!m.canApply) break;
           final e = m.event, t = m.task;
-          if (e != null) {
+          if (e != null && m.kind == MatchKind.update && m.isRecurring) {
+            // 毎週の予定は、その回（または以降）だけを変える
+            final changed = e.copyWith(date: m.occurrence);
+            if (c.startMin != null) {
+              changed.startMin = c.startMin;
+              changed.endMin = c.endMin ?? defaultEnd(c.startMin!);
+            }
+            if (changed.url.isEmpty) changed.url = url;
+            if (changed.place.isEmpty) changed.place = place;
+            changed.note = merged(changed.note);
+            _following.contains(c)
+                ? store.changeFollowing(e, m.occurrence!, changed)
+                : store.changeOccurrence(e, m.occurrence!, changed);
+          } else if (e != null) {
             if (m.kind == MatchKind.update) {
               if (!e.weekly) e.date = dateOnly(c.date);
               if (c.startMin != null) {
@@ -147,6 +170,7 @@ class _ImportPageState extends State<ImportPage> {
     setState(() {
       _cands = [];
       _matches.clear();
+      _following.clear();
       _parsed = false;
       _text.clear();
     });
@@ -192,6 +216,10 @@ class _ImportPageState extends State<ImportPage> {
               key: ObjectKey(c),
               c: c,
               match: _matches[c],
+              following: _following.contains(c),
+              onFollowingChanged: (v) => setState(() {
+                v ? _following.add(c) : _following.remove(c);
+              }),
               onChanged: () => _rematch(c),
             ),
           if (_skipped > 0)
@@ -211,10 +239,17 @@ class _ImportPageState extends State<ImportPage> {
 
 class _CandidateTile extends StatefulWidget {
   const _CandidateTile(
-      {super.key, required this.c, required this.match, required this.onChanged});
+      {super.key,
+      required this.c,
+      required this.match,
+      required this.following,
+      required this.onFollowingChanged,
+      required this.onChanged});
 
   final Candidate c;
   final MatchResult? match;
+  final bool following;
+  final ValueChanged<bool> onFollowingChanged;
   final VoidCallback onChanged;
 
   @override
@@ -328,7 +363,12 @@ class _CandidateTileState extends State<_CandidateTile> {
             if (widget.match != null && widget.match!.kind != MatchKind.fresh)
               Padding(
                 padding: EdgeInsets.fromLTRB(8, 0, 0, 6),
-                child: _MatchBanner(match: widget.match!, c: c),
+                child: _MatchBanner(
+                  match: widget.match!,
+                  c: c,
+                  following: widget.following,
+                  onFollowingChanged: widget.onFollowingChanged,
+                ),
               ),
             Row(
               children: [
@@ -481,10 +521,16 @@ class _CandidateTileState extends State<_CandidateTile> {
 
 /// 照合結果の説明（登録済み・変更・中止・重なり）
 class _MatchBanner extends StatelessWidget {
-  const _MatchBanner({required this.match, required this.c});
+  const _MatchBanner(
+      {required this.match,
+      required this.c,
+      required this.following,
+      required this.onFollowingChanged});
 
   final MatchResult match;
   final Candidate c;
+  final bool following;
+  final ValueChanged<bool> onFollowingChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -501,8 +547,8 @@ class _MatchBanner extends StatelessWidget {
       MatchKind.update => (
           FluentIcons.edit_16_regular,
           Fl.warning,
-          !match.canApply
-              ? '毎週の予定$nameの変更のようです。毎週の予定は1日だけ変えられないので、予定を開いて直してください'
+          match.isRecurring
+              ? '毎週の予定$nameの${fmtDate(match.occurrence!)}の回を ${describeCandidateTime(c)} に変更します'
               : e != null
                   ? '既存の$nameを ${describeCandidateTime(c)} に変更します'
                   : '既存のタスク$nameの期限を ${describeCandidateTime(c)} に変更します'
@@ -512,8 +558,8 @@ class _MatchBanner extends StatelessWidget {
           Fl.danger,
           !match.hasTarget
               ? '中止の連絡のようですが、対象の予定が見つかりません'
-              : !match.canApply
-                  ? '毎週の予定$nameの中止の連絡です。1日だけ消すことはできないので、必要なら予定を開いて直してください'
+              : match.isRecurring
+                  ? '毎週の予定$nameの${fmtDate(match.occurrence!)}の回の中止（休講など）の連絡です。チェックすると、この回を削除します'
                   : '$nameの中止の連絡です。チェックすると、この予定を削除します'
         ),
       MatchKind.conflict => (
@@ -537,7 +583,40 @@ class _MatchBanner extends StatelessWidget {
             child: Icon(icon, size: 16, color: color),
           ),
           SizedBox(width: 8),
-          Expanded(child: Text(text, style: FlText.caption1.copyWith(color: Fl.fg1))),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(text, style: FlText.caption1.copyWith(color: Fl.fg1)),
+                // 毎週の予定の変更・中止は、以降の回にも反映できる
+                if (match.isRecurring &&
+                    (match.kind == MatchKind.update ||
+                        match.kind == MatchKind.cancel))
+                  InkWell(
+                    onTap: () => onFollowingChanged(!following),
+                    child: Padding(
+                      padding: EdgeInsets.only(top: 6),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          FlCheckCircle(
+                            checked: following,
+                            onTap: () => onFollowingChanged(!following),
+                          ),
+                          SizedBox(width: 2),
+                          Text(
+                            match.kind == MatchKind.cancel
+                                ? 'この回以降もすべて削除する'
+                                : 'この回以降にも反映する',
+                            style: FlText.caption1Strong,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
         ],
       ),
     );

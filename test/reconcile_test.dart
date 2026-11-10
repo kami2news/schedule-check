@@ -69,14 +69,21 @@ void main() {
       expect(bare.event!.id, '1');
     });
 
-    test('毎週の予定は1日だけ変えられないので反映できない', () {
+    test('毎週の予定は、その回だけに反映できる', () {
       final events = [
         ev('1', '環境化学', DateTime(2026, 10, 2), 9 * 60, 10 * 60 + 30,
             weekly: true, cal: 'lecture'),
       ];
       final m = reconcile(one('11/20 環境化学 休講'), events, []);
       expect(m.kind, MatchKind.cancel);
-      expect(m.canApply, isFalse);
+      expect(m.canApply, isTrue);
+      expect(m.isRecurring, isTrue);
+      expect(m.occurrence, DateTime(2026, 11, 20));
+      expect(m.defaultSelected, isTrue);
+
+      final u = reconcile(one('11/20 13:00-14:30 環境化学'), events, []);
+      expect(u.kind, MatchKind.update);
+      expect(u.occurrence, DateTime(2026, 11, 20));
     });
 
     test('似た予定が無く時間が重なれば「重なり」、何も無ければ「新規」', () {

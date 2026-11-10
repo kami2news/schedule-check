@@ -57,10 +57,34 @@ Future<void> showFlDialogOrPage(
 }
 
 /// 予定の追加（[event] が null）または編集
+/// [occurrence] は、毎週の予定をカレンダー上のどの回から開いたか
 Future<void> openEventEditor(BuildContext context,
-    {Event? event, DateTime? date, int? startMin}) {
-  return _openEditor(context,
-      EventEditPage(event: event, initialDate: date, initialStartMin: startMin));
+    {Event? event, DateTime? date, int? startMin, DateTime? occurrence}) {
+  return _openEditor(
+      context,
+      EventEditPage(
+          event: event,
+          initialDate: date,
+          initialStartMin: startMin,
+          occurrence: occurrence));
+}
+
+/// 繰り返しの予定を変更・削除する範囲
+enum RecurScope { one, following, all }
+
+Future<RecurScope?> _askScope(BuildContext context, {required bool delete}) {
+  return showFlChoice<RecurScope>(
+    context,
+    title: delete ? '繰り返しの予定を削除' : '繰り返しの予定を変更',
+    options: [
+      (RecurScope.one, 'この回のみ'),
+      (RecurScope.following, 'この回以降'),
+      (RecurScope.all, 'すべての回'),
+    ],
+    initial: RecurScope.one,
+    confirmLabel: delete ? '削除' : '保存',
+    danger: delete,
+  );
 }
 
 /// タスクの追加（[task] が null）または編集
@@ -169,10 +193,17 @@ Widget _errorText(String? msg) {
 
 class EventEditPage extends StatefulWidget {
   const EventEditPage(
-      {super.key, this.event, this.initialDate, this.initialStartMin});
+      {super.key,
+      this.event,
+      this.initialDate,
+      this.initialStartMin,
+      this.occurrence});
 
   final Event? event;
   final DateTime? initialDate;
+
+  /// 毎週の予定を開いた回の日付（この回のみ／以降の変更に使う）
+  final DateTime? occurrence;
 
   /// 時間グリッドの空き枠をタップしたときの開始時刻（分）
   final int? initialStartMin;
@@ -198,6 +229,10 @@ class _EventEditPageState extends State<EventEditPage> {
 
   bool get _isNew => widget.event == null;
 
+  /// 毎週の予定を、カレンダー上の特定の回から開いたか
+  bool get _isOccurrence =>
+      widget.event != null && widget.event!.weekly && widget.occurrence != null;
+
   @override
   void initState() {
     super.initState();
@@ -208,7 +243,9 @@ class _EventEditPageState extends State<EventEditPage> {
     _url = TextEditingController(text: e?.url ?? '');
     _cal = e?.calendarId ?? 'other';
     _showAs = e?.showAs ?? ShowAs.busy;
-    _date = e?.date ?? dateOnly(widget.initialDate ?? DateTime.now());
+    _date = (e != null && e.weekly && widget.occurrence != null)
+        ? dateOnly(widget.occurrence!)
+        : (e?.date ?? dateOnly(widget.initialDate ?? DateTime.now()));
     _allDay = e?.allDay ?? false;
     _start = e?.startMin ?? widget.initialStartMin ?? 9 * 60;
     _end = e?.endMin ?? math.min(_start + 60, 23 * 60 + 59);
@@ -257,17 +294,17 @@ class _EventEditPageState extends State<EventEditPage> {
     if (_error != null) _error = _validate();
   }
 
-  void _save() {
+  Future<void> _save() async {
     final err = _validate();
     if (err != null) {
       setState(() => _error = err);
       return;
     }
-    final title = _title.text.trim();
     final store = StoreScope.read(context);
-    store.upsertEvent(Event(
-      id: widget.event?.id ?? store.newId(),
-      title: title,
+    final e = widget.event;
+    final edited = Event(
+      id: e?.id ?? store.newId(),
+      title: _title.text.trim(),
       calendarId: store.calendarOf(_cal).id,
       showAs: _showAs,
       date: _date,
@@ -278,17 +315,56 @@ class _EventEditPageState extends State<EventEditPage> {
       place: _place.text.trim(),
       note: _note.text.trim(),
       url: _checkedUrl(_url) ?? '',
-    ));
-    Navigator.of(context).pop();
+      exdates: e == null ? null : {...e.exdates},
+      seriesId: e?.seriesId,
+      originalDate: e?.originalDate,
+    );
+
+    if (_isOccurrence) {
+      final scope = await _askScope(context, delete: false);
+      if (scope == null || !mounted) return;
+      final occ = dateOnly(widget.occurrence!);
+      switch (scope) {
+        case RecurScope.one:
+          store.changeOccurrence(e!, occ, edited);
+        case RecurScope.following:
+          store.changeFollowing(e!, occ, edited);
+        case RecurScope.all:
+          // この回で日付を動かした分だけ、最初の回もずらす
+          final shift = dateOnly(_date).difference(occ).inDays;
+          store.upsertEvent(edited.weekly
+              ? edited.copyWith(date: e!.firstDate.add(Duration(days: shift)))
+              : edited);
+      }
+    } else {
+      store.upsertEvent(edited);
+    }
+    if (mounted) Navigator.of(context).pop();
   }
 
   Future<void> _delete() async {
-    if (!await _confirmDelete(context, widget.event!.weekly ? '繰り返しの予定全体' : 'この予定')) {
-      return;
+    final e = widget.event!;
+    final store = StoreScope.read(context);
+    if (_isOccurrence) {
+      final scope = await _askScope(context, delete: true);
+      if (scope == null || !mounted) return;
+      final occ = dateOnly(widget.occurrence!);
+      switch (scope) {
+        case RecurScope.one:
+          store.deleteOccurrence(e, occ);
+        case RecurScope.following:
+          store.deleteFollowing(e, occ);
+        case RecurScope.all:
+          store.deleteSeries(e);
+      }
+    } else {
+      if (!await _confirmDelete(context, e.weekly ? '繰り返しの予定全体' : 'この予定')) {
+        return;
+      }
+      if (!mounted) return;
+      e.weekly ? store.deleteSeries(e) : store.deleteEvent(e.id);
     }
-    if (!mounted) return;
-    StoreScope.read(context).deleteEvent(widget.event!.id);
-    Navigator.of(context).pop();
+    if (mounted) Navigator.of(context).pop();
   }
 
   @override
@@ -299,6 +375,23 @@ class _EventEditPageState extends State<EventEditPage> {
       onDelete: _isNew ? null : _delete,
       children: [
         _errorText(_error),
+        if (_isOccurrence || (widget.event?.isException ?? false))
+          Padding(
+            padding: EdgeInsets.only(bottom: 12),
+            child: Row(children: [
+              Icon(FluentIcons.arrow_repeat_all_24_regular,
+                  size: 16, color: Fl.fg3),
+              SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  _isOccurrence
+                      ? '毎週の予定の${fmtDate(widget.occurrence!)}の回です。保存・削除のときに「この回のみ／この回以降／すべての回」を選べます'
+                      : '毎週の予定のうち、${fmtDate(widget.event!.originalDate!)}の回だけを変更した予定です',
+                  style: FlText.caption1.copyWith(color: Fl.fg3),
+                ),
+              ),
+            ]),
+          ),
         FlField(
           label: 'タイトル',
           child: FlTextField(
@@ -350,9 +443,11 @@ class _EventEditPageState extends State<EventEditPage> {
           label: '日付',
           child: FlPickerField(
             icon: FluentIcons.calendar_ltr_24_regular,
-            text: _weekly
-                ? '${fmtLongDate(_date)} から（毎週${weekdayNames[_date.weekday - 1]}曜）'
-                : fmtLongDate(_date),
+            text: _isOccurrence
+                ? '${fmtLongDate(_date)}（毎週${weekdayNames[_date.weekday - 1]}曜の回）'
+                : _weekly
+                    ? '${fmtLongDate(_date)} から（毎週${weekdayNames[_date.weekday - 1]}曜）'
+                    : fmtLongDate(_date),
             onTap: () async {
               final v = await _pickDate(context, _date);
               if (v != null) setState(() => _date = dateOnly(v));

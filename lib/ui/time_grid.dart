@@ -129,11 +129,11 @@ class _TimeGridState extends State<TimeGrid> {
     );
   }
 
-  Widget _allDayEventChip(BuildContext context, Event e) {
+  Widget _allDayEventChip(BuildContext context, Event e, DateTime day) {
     return Padding(
       padding: EdgeInsets.fromLTRB(2, 0, 2, 2),
       child: GestureDetector(
-        onTap: () => openEventEditor(context, event: e),
+        onTap: () => openEventEditor(context, event: e, occurrence: day),
         child: SizedBox(
           width: double.infinity,
           child: FlAccentBox(
@@ -192,14 +192,14 @@ class _TimeGridState extends State<TimeGrid> {
     );
   }
 
-  Widget _block(BuildContext context, Event e, double h, double w) {
+  Widget _block(BuildContext context, Event e, DateTime day, double h, double w) {
     // 細い列では1文字ずつ折り返さないよう、タイトル1行だけを省略表示にする
     final narrow = w < 40;
     final lines = narrow ? 1 : math.max(1, ((h - 4) / 16).floor());
     return MouseRegion(
       cursor: SystemMouseCursors.click,
       child: GestureDetector(
-      onTap: () => openEventEditor(context, event: e),
+      onTap: () => openEventEditor(context, event: e, occurrence: day),
       child: FlAccentBox(
         accent: StoreScope.read(context).colorOf(e),
         showAs: e.showAs,
@@ -271,6 +271,7 @@ class _TimeGridState extends State<TimeGrid> {
             child: _block(
               context,
               p.event,
+              day,
               math.max(
                   (_endOf(p.event) - p.event.startMin!) / 60 * _hourH - 2, 20.0),
               colW / p.cols - 3,
@@ -346,7 +347,7 @@ class _TimeGridState extends State<TimeGrid> {
                     child: Column(
                       children: [
                         for (final e in events[i].where((e) => e.allDay))
-                          _allDayEventChip(context, e),
+                          _allDayEventChip(context, e, days[i]),
                         for (final t in tasks[i]) _allDayTaskChip(context, t),
                       ],
                     ),
