@@ -20,6 +20,12 @@ class AppStore extends ChangeNotifier {
   /// 表示テーマ（'system' / 'light' / 'dark'）
   String get themeMode => _prefs.getString('themeMode') ?? 'system';
 
+  /// 画面の表示状態（最後のタブ・表示形式など）。変更通知はしない
+  String? uiValue(String key) => _prefs.getString('ui.$key');
+
+  void setUiValue(String key, String value) =>
+      _prefs.setString('ui.$key', value);
+
   void setThemeMode(String mode) {
     _prefs.setString('themeMode', mode);
     notifyListeners();

@@ -154,4 +154,73 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.textContaining('テスト授業'), findsNothing);
   });
+
+  testWidgets('エラーは入力を直した時点で消え、無効なリンクは保存できない', (tester) async {
+    final store = await _storeWithSamples();
+    tester.view.physicalSize = const Size(1400, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(ScheduleApp(store: store));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('新しい予定'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('保存'));
+    await tester.pumpAndSettle();
+    expect(find.text('タイトルを入力してください'), findsOneWidget);
+
+    final fields = find.descendant(
+        of: find.byType(Dialog), matching: find.byType(TextField));
+    await tester.enterText(fields.first, '面談');
+    await tester.pumpAndSettle();
+    expect(find.text('タイトルを入力してください'), findsNothing);
+
+    // リンク欄（場所の次）に無効な値
+    await tester.enterText(fields.at(2), 'not-a-url');
+    await tester.pumpAndSettle();
+    expect(find.textContaining('有効なURLを入力してください'), findsOneWidget);
+    await tester.tap(find.text('保存'));
+    await tester.pumpAndSettle();
+    expect(find.text('リンクの形式が正しくありません'), findsOneWidget);
+    expect(store.events.any((e) => e.title == '面談'), isFalse);
+
+    await tester.enterText(fields.at(2), 'zoom.us/j/1');
+    await tester.pumpAndSettle();
+    expect(find.text('リンクの形式が正しくありません'), findsNothing);
+    await tester.tap(find.text('保存'));
+    await tester.pumpAndSettle();
+    expect(store.events.singleWhere((e) => e.title == '面談').url,
+        'https://zoom.us/j/1');
+  });
+
+  testWidgets('狭い画面の週表示は横スクロールになり、表示形式は再読込後も残る',
+      (tester) async {
+    final store = await _storeWithSamples();
+    tester.view.physicalSize = const Size(320, 700);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(ScheduleApp(store: store));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(PopupMenuButton<CalView>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.descendant(
+      of: find.byType(PopupMenuItem<CalView>),
+      matching: find.text('週'),
+    ));
+    await tester.pumpAndSettle();
+    expect(
+        find.byWidgetPredicate((w) =>
+            w is SingleChildScrollView && w.scrollDirection == Axis.horizontal),
+        findsOneWidget);
+    expect(tester.takeException(), isNull);
+    expect(store.uiValue('view'), 'week');
+
+    // 作り直しても週表示のまま
+    await tester.pumpWidget(SizedBox());
+    await tester.pumpWidget(ScheduleApp(store: store));
+    await tester.pumpAndSettle();
+    expect(find.text('週'), findsOneWidget);
+  });
 }

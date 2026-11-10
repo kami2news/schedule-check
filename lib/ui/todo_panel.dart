@@ -39,7 +39,10 @@ class TodoPanel extends StatefulWidget {
 }
 
 class _TodoPanelState extends State<TodoPanel> {
-  TodoList _list = TodoList.myDay;
+  late TodoList _list = TodoList.values.firstWhere(
+    (l) => l.name == StoreScope.read(context).uiValue('todoList'),
+    orElse: () => TodoList.myDay,
+  );
   final TextEditingController _quick = TextEditingController();
   final FocusNode _focus = FocusNode();
   DateTime? _quickDue;
@@ -122,7 +125,10 @@ class _TodoPanelState extends State<TodoPanel> {
           labels: [for (final l in TodoList.values) l.label],
           counts: [for (final l in TodoList.values) countOf(l)],
           selected: TodoList.values.indexOf(_list),
-          onSelected: (i) => setState(() => _list = TodoList.values[i]),
+          onSelected: (i) => setState(() {
+            _list = TodoList.values[i];
+            StoreScope.read(context).setUiValue('todoList', _list.name);
+          }),
         ),
         Padding(
           padding: EdgeInsets.fromLTRB(12, 12, 12, 4),

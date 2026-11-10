@@ -116,7 +116,34 @@ Widget _linkField(
         ],
       ],
     ),
-  );
+  ).withHelp(url.isNotEmpty && normalizeUrl(url) == null
+      ? '有効なURLを入力してください（例: https://zoom.us/j/...）'
+      : null);
+}
+
+/// リンク欄の値を確認する。空なら ''、無効なら null、有効なら整えたURL
+String? _checkedUrl(TextEditingController c) {
+  final t = c.text.trim();
+  if (t.isEmpty) return '';
+  return normalizeUrl(t);
+}
+
+extension on FlField {
+  /// 入力欄の下に赤い補足を出す
+  Widget withHelp(String? message) {
+    if (message == null) return this;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        FlField(label: label, child: child),
+        Transform.translate(
+          offset: Offset(0, -8),
+          child: Text(message,
+              style: FlText.caption1.copyWith(color: Fl.danger)),
+        ),
+      ],
+    );
+  }
 }
 
 Widget _errorText(String? msg) {
@@ -204,25 +231,39 @@ class _EventEditPageState extends State<EventEditPage> {
     setState(() {
       _start = v;
       if (_end <= _start) _end = (_start + 60).clamp(0, 23 * 60 + 59).toInt();
+      _revalidate();
     });
   }
 
   Future<void> _chooseEnd() async {
     final v = await _pickTime(context, _end);
     if (v == null) return;
-    setState(() => _end = v);
+    setState(() {
+      _end = v;
+      _revalidate();
+    });
+  }
+
+  /// 入力内容を確認し、問題があればメッセージを返す
+  String? _validate() {
+    if (_title.text.trim().isEmpty) return 'タイトルを入力してください';
+    if (!_allDay && _end <= _start) return '終了時刻は開始時刻より後にしてください';
+    if (_checkedUrl(_url) == null) return 'リンクの形式が正しくありません';
+    return null;
+  }
+
+  /// エラー表示中なら、入力が変わるたびに確認し直して解消したら消す
+  void _revalidate() {
+    if (_error != null) _error = _validate();
   }
 
   void _save() {
+    final err = _validate();
+    if (err != null) {
+      setState(() => _error = err);
+      return;
+    }
     final title = _title.text.trim();
-    if (title.isEmpty) {
-      setState(() => _error = 'タイトルを入力してください');
-      return;
-    }
-    if (!_allDay && _end <= _start) {
-      setState(() => _error = '終了時刻は開始時刻より後にしてください');
-      return;
-    }
     final store = StoreScope.read(context);
     store.upsertEvent(Event(
       id: widget.event?.id ?? store.newId(),
@@ -236,7 +277,7 @@ class _EventEditPageState extends State<EventEditPage> {
       repeatUntil: _weekly ? _until : null,
       place: _place.text.trim(),
       note: _note.text.trim(),
-      url: _url.text.trim(),
+      url: _checkedUrl(_url) ?? '',
     ));
     Navigator.of(context).pop();
   }
@@ -260,7 +301,11 @@ class _EventEditPageState extends State<EventEditPage> {
         _errorText(_error),
         FlField(
           label: 'タイトル',
-          child: FlTextField(controller: _title, autofocus: _isNew),
+          child: FlTextField(
+            controller: _title,
+            autofocus: _isNew,
+            onChanged: (_) => setState(_revalidate),
+          ),
         ),
         Builder(builder: (context) {
           final store = StoreScope.of(context);
@@ -317,7 +362,10 @@ class _EventEditPageState extends State<EventEditPage> {
         FlSwitchTile(
           title: '終日',
           value: _allDay,
-          onChanged: (v) => setState(() => _allDay = v),
+          onChanged: (v) => setState(() {
+            _allDay = v;
+            _revalidate();
+          }),
         ),
         if (!_allDay)
           Padding(
@@ -383,7 +431,7 @@ class _EventEditPageState extends State<EventEditPage> {
                 size: 16, color: Fl.fg3),
           ),
         ),
-        _linkField(context, _url, () => setState(() {})),
+        _linkField(context, _url, () => setState(_revalidate)),
         FlField(
           label: 'メモ（任意）',
           child: FlTextField(
@@ -442,12 +490,23 @@ class _TaskEditPageState extends State<TaskEditPage> {
     super.dispose();
   }
 
+  String? _validate() {
+    if (_title.text.trim().isEmpty) return 'タイトルを入力してください';
+    if (_checkedUrl(_url) == null) return 'リンクの形式が正しくありません';
+    return null;
+  }
+
+  void _revalidate() {
+    if (_error != null) _error = _validate();
+  }
+
   void _save() {
-    final title = _title.text.trim();
-    if (title.isEmpty) {
-      setState(() => _error = 'タイトルを入力してください');
+    final err = _validate();
+    if (err != null) {
+      setState(() => _error = err);
       return;
     }
+    final title = _title.text.trim();
     final store = StoreScope.read(context);
     store.upsertTask(TaskItem(
       id: widget.task?.id ?? store.newId(),
@@ -457,7 +516,7 @@ class _TaskEditPageState extends State<TaskEditPage> {
       done: widget.task?.done ?? false,
       important: _important,
       note: _note.text.trim(),
-      url: _url.text.trim(),
+      url: _checkedUrl(_url) ?? '',
     ));
     Navigator.of(context).pop();
   }
@@ -479,7 +538,11 @@ class _TaskEditPageState extends State<TaskEditPage> {
         _errorText(_error),
         FlField(
           label: 'タイトル',
-          child: FlTextField(controller: _title, autofocus: _isNew),
+          child: FlTextField(
+            controller: _title,
+            autofocus: _isNew,
+            onChanged: (_) => setState(_revalidate),
+          ),
         ),
         FlSwitchTile(
           title: '重要',
@@ -522,7 +585,7 @@ class _TaskEditPageState extends State<TaskEditPage> {
             },
           ),
         SizedBox(height: 8),
-        _linkField(context, _url, () => setState(() {}),
+        _linkField(context, _url, () => setState(_revalidate),
             hint: '提出先・資料などのURL'),
         FlField(
           label: 'メモ（任意）',

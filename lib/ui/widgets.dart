@@ -51,25 +51,22 @@ class EmptyNote extends StatelessWidget {
 
 /// リンクを新しいタブ（アプリでは外部アプリ）で開く。開けなければ通知する。
 Future<void> openLink(BuildContext context, String url) async {
-  var u = url.trim();
-  if (u.isEmpty) return;
-  if (!u.startsWith(RegExp(r'https?://', caseSensitive: false))) {
-    u = 'https://$u';
-  }
-  final uri = Uri.tryParse(u);
+  final u = normalizeUrl(url);
   final messenger = ScaffoldMessenger.maybeOf(context);
   var ok = false;
-  if (uri != null) {
+  if (u != null) {
     try {
-      ok = await launchUrl(uri,
+      ok = await launchUrl(Uri.parse(u),
           mode: LaunchMode.externalApplication, webOnlyWindowName: '_blank');
     } catch (_) {
       ok = false;
     }
   }
   if (!ok) {
-    messenger?.showSnackBar(
-        SnackBar(content: Text('リンクを開けませんでした')));
+    messenger?.showSnackBar(SnackBar(
+        content: Text(u == null
+            ? 'リンクの形式が正しくありません'
+            : 'リンクを開けませんでした')));
   }
 }
 
@@ -90,8 +87,10 @@ class FlLinkButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final label = linkLabel(url);
+    final valid = normalizeUrl(url) != null;
     return FilledButton.icon(
-      onPressed: () => openLink(context, url),
+      // 形式が正しくない間は押せない
+      onPressed: valid ? () => openLink(context, url) : null,
       icon: Icon(linkIcon(url), size: 18),
       label: Text(isMeetingLink(url) ? '$labelに参加' : 'リンクを開く'),
     );

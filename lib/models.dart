@@ -253,3 +253,20 @@ String linkLabel(String url) {
 
 /// オンライン会議のリンクかどうか
 bool isMeetingLink(String url) => linkLabel(url) != 'リンク';
+
+/// 入力されたリンクを整える。「zoom.us/j/1」のように https:// が無ければ補う。
+/// 開けない形（空白を含む・ドメインが無いなど）なら null
+String? normalizeUrl(String input) {
+  var u = input.trim();
+  if (u.isEmpty || RegExp(r'\s').hasMatch(u)) return null;
+  if (!RegExp(r'^[a-zA-Z][a-zA-Z0-9+.-]*://').hasMatch(u)) u = 'https://$u';
+  final uri = Uri.tryParse(u);
+  if (uri == null) return null;
+  if (uri.scheme != 'http' && uri.scheme != 'https') return null;
+  final host = uri.host;
+  if (host.isEmpty) return null;
+  if (host != 'localhost' && !RegExp(r'^[^.]+(\.[^.]+)+$').hasMatch(host)) {
+    return null;
+  }
+  return u;
+}

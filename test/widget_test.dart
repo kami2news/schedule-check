@@ -209,4 +209,14 @@ void main() {
       expect(parseText('11/26 有給', now).candidates.single.showAs, ShowAs.away);
     });
   });
+
+  test('リンクの形式チェック', () {
+    expect(normalizeUrl('https://zoom.us/j/123'), 'https://zoom.us/j/123');
+    expect(normalizeUrl('zoom.us/j/123'), 'https://zoom.us/j/123');
+    expect(normalizeUrl('not-a-url'), isNull);
+    expect(normalizeUrl('https://'), isNull);
+    expect(normalizeUrl('javascript:alert(1)'), isNull);
+    expect(normalizeUrl('ftp://example.com'), isNull);
+    expect(normalizeUrl('https://exa mple.com'), isNull);
+  });
 }

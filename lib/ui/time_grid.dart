@@ -14,6 +14,9 @@ import 'widgets.dart';
 const double _hourH = 56;
 const double _gutter = 48;
 
+/// 週表示で1日の列に最低限必要な幅（これより狭い画面では横スクロール）
+const double _minDayWidth = 92;
+
 class _Placed {
   _Placed(this.event, this.col);
 
@@ -78,10 +81,13 @@ class TimeGrid extends StatefulWidget {
 class _TimeGridState extends State<TimeGrid> {
   final ScrollController _scroll =
       ScrollController(initialScrollOffset: 7 * _hourH - 12);
+  final ScrollController _hScroll = ScrollController();
+  bool _hJumped = false;
 
   @override
   void dispose() {
     _scroll.dispose();
+    _hScroll.dispose();
     super.dispose();
   }
 
@@ -186,8 +192,10 @@ class _TimeGridState extends State<TimeGrid> {
     );
   }
 
-  Widget _block(BuildContext context, Event e, double h) {
-    final lines = math.max(1, ((h - 4) / 16).floor());
+  Widget _block(BuildContext context, Event e, double h, double w) {
+    // 細い列では1文字ずつ折り返さないよう、タイトル1行だけを省略表示にする
+    final narrow = w < 64;
+    final lines = narrow ? 1 : math.max(1, ((h - 4) / 16).floor());
     return MouseRegion(
       cursor: SystemMouseCursors.click,
       child: GestureDetector(
@@ -195,28 +203,38 @@ class _TimeGridState extends State<TimeGrid> {
       child: FlAccentBox(
         accent: StoreScope.read(context).colorOf(e),
         showAs: e.showAs,
-        child: Text.rich(
-          TextSpan(children: [
-            if (e.url.isNotEmpty)
-              WidgetSpan(
-                alignment: PlaceholderAlignment.middle,
-                child: Padding(
-                  padding: EdgeInsets.only(right: 3),
-                  child: Icon(linkIcon(e.url, small: true),
-                      size: 12, color: StoreScope.read(context).colorOf(e)),
-                ),
-              ),
-            TextSpan(text: e.title, style: FlText.caption1Strong),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text.rich(
+              TextSpan(children: [
+                if (e.url.isNotEmpty)
+                  WidgetSpan(
+                    alignment: PlaceholderAlignment.middle,
+                    child: Padding(
+                      padding: EdgeInsets.only(right: 3),
+                      child: Icon(linkIcon(e.url, small: true),
+                          size: 12,
+                          color: StoreScope.read(context).colorOf(e)),
+                    ),
+                  ),
+                TextSpan(text: e.title),
+              ]),
+              maxLines: lines > 1 ? lines - 1 : 1,
+              softWrap: !narrow,
+              overflow: TextOverflow.ellipsis,
+              style: FlText.caption1Strong,
+            ),
+            // 時刻・場所は折り返さず1行で省略する
             if (lines > 1)
-              TextSpan(
-                text: '\n${e.timeLabel}'
-                    '${e.place.isEmpty ? '' : '  ${e.place}'}',
+              Text(
+                '${e.timeLabel}${e.place.isEmpty ? '' : '  ${e.place}'}',
+                maxLines: 1,
+                softWrap: false,
+                overflow: TextOverflow.ellipsis,
                 style: FlText.caption1.copyWith(color: Fl.fg2),
               ),
-          ]),
-          maxLines: lines,
-          overflow: TextOverflow.ellipsis,
-          style: FlText.caption1,
+          ],
         ),
       ),
     ));
@@ -255,6 +273,7 @@ class _TimeGridState extends State<TimeGrid> {
               p.event,
               math.max(
                   (_endOf(p.event) - p.event.startMin!) / 60 * _hourH - 2, 20.0),
+              colW / p.cols - 3,
             ),
           ),
         if (isToday)
@@ -295,7 +314,7 @@ class _TimeGridState extends State<TimeGrid> {
       if (n > maxAll) maxAll = n;
     }
 
-    return Column(
+    final content = Column(
       children: [
         Row(
           children: [
@@ -416,5 +435,30 @@ class _TimeGridState extends State<TimeGrid> {
         ),
       ],
     );
+
+    // 狭い画面の週表示: 1日あたりの最小幅を確保して横スクロールにする
+    return LayoutBuilder(builder: (context, cs) {
+      final perDay = (cs.maxWidth - _gutter) / days.length;
+      if (days.length == 1 || perDay >= _minDayWidth) return content;
+      final width = _gutter + _minDayWidth * days.length;
+      if (!_hJumped) {
+        _hJumped = true;
+        final i = days.indexOf(c.selected);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!_hScroll.hasClients || i < 0) return;
+          final target = (i * _minDayWidth - _minDayWidth / 2)
+              .clamp(0.0, _hScroll.position.maxScrollExtent);
+          _hScroll.jumpTo(target);
+        });
+      }
+      return Scrollbar(
+        controller: _hScroll,
+        child: SingleChildScrollView(
+          controller: _hScroll,
+          scrollDirection: Axis.horizontal,
+          child: SizedBox(width: width, child: content),
+        ),
+      );
+    });
   }
 }

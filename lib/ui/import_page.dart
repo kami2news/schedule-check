@@ -47,15 +47,19 @@ class _ImportPageState extends State<ImportPage> {
     final tasks = <TaskItem>[];
     for (final c in _cands.where((c) => c.selected)) {
       final title = c.title.trim().isEmpty ? '(無題)' : c.title.trim();
+      // リンクとして開けない値はメモに残す
+      final rawUrl = c.url.trim();
+      final url = normalizeUrl(rawUrl) ?? '';
+      final extraNote = rawUrl.isNotEmpty && url.isEmpty ? 'リンク: $rawUrl' : '';
+      final note = [c.note.trim(), extraNote].where((x) => x.isNotEmpty).join('\n');
       if (c.type == ImportType.task) {
         final place = c.place.trim();
-        final note = c.note.trim();
         tasks.add(TaskItem(
           id: store.newId(),
           title: title,
           due: c.date,
           dueMin: c.startMin,
-          url: c.url.trim(),
+          url: url,
           // タスクには場所の欄がないのでメモにまとめる
           note: [if (place.isNotEmpty) '場所: $place', if (note.isNotEmpty) note]
               .join('\n'),
@@ -71,8 +75,8 @@ class _ImportPageState extends State<ImportPage> {
           startMin: s,
           endMin: s == null ? null : (c.endMin ?? defaultEnd(s)),
           place: c.place.trim(),
-          url: c.url.trim(),
-          note: c.note.trim(),
+          url: url,
+          note: note,
         ));
       }
     }

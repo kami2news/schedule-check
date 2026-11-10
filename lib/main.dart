@@ -121,12 +121,26 @@ class _HomeShellState extends State<HomeShell> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // 広めの画面は週表示、スマホ幅は日表示から始める
-    _cal ??= CalendarController(
-      view: MediaQuery.sizeOf(context).width >= kDialogBreakpoint
-          ? CalView.week
-          : CalView.day,
+    if (_cal != null) return;
+    final store = StoreScope.read(context);
+    // 前回の表示形式を復元。初回は広めの画面なら週、スマホ幅なら日から始める
+    final saved = CalView.values
+        .where((v) => v.name == store.uiValue('view'))
+        .firstOrNull;
+    _cal = CalendarController(
+      view: saved ??
+          (MediaQuery.sizeOf(context).width >= kDialogBreakpoint
+              ? CalView.week
+              : CalView.day),
     );
+    var lastView = _cal!.view;
+    _cal!.addListener(() {
+      if (_cal!.view != lastView) {
+        lastView = _cal!.view;
+        store.setUiValue('view', lastView.name);
+      }
+    });
+    _tab = (int.tryParse(store.uiValue('tab') ?? '') ?? 0).clamp(0, 2);
   }
 
   @override
@@ -216,7 +230,10 @@ class _HomeShellState extends State<HomeShell> {
       bottomNavigationBar: FlBottomNav(
         items: _navItems,
         index: _tab,
-        onChanged: (i) => setState(() => _tab = i),
+        onChanged: (i) {
+          setState(() => _tab = i);
+          StoreScope.read(context).setUiValue('tab', '$i');
+        },
       ),
     );
   }
