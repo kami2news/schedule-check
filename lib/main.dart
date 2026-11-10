@@ -7,6 +7,7 @@ import 'ui/calendar_page.dart';
 import 'ui/controller.dart';
 import 'ui/edit_pages.dart';
 import 'ui/fluent.dart';
+import 'ui/fluent_extras.dart';
 import 'ui/import_page.dart';
 import 'ui/layout.dart';
 import 'ui/sidebar.dart';
