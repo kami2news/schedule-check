@@ -58,7 +58,7 @@ class _ScheduleAppState extends State<ScheduleApp> with WidgetsBindingObserver {
     _messengerKey.currentState?.showSnackBar(SnackBar(
       duration: Duration(seconds: 12),
       content: Row(children: [
-        Icon(FluentIcons.alert_24_regular, size: 18, color: Colors.white),
+        Icon(FluentIcons.alert_24_regular, size: 18, color: Fl.brandFg),
         SizedBox(width: 10),
         Expanded(
           child: Text('${r.title}\n${r.body}', maxLines: 3, overflow: TextOverflow.ellipsis),
@@ -66,6 +66,7 @@ class _ScheduleAppState extends State<ScheduleApp> with WidgetsBindingObserver {
       ]),
       action: SnackBarAction(
         label: '表示',
+        textColor: Fl.brandFg,
         onPressed: () {
           final ctx = _navKey.currentContext;
           if (ctx == null) return;
