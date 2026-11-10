@@ -41,6 +41,8 @@ jobs:
 
       # ビルド結果を preview-build ブランチにも置く（見た目の確認用）
       - name: Publish build to preview-build branch
+        # 確認用なので、失敗しても公開は止めない
+        continue-on-error: true
         run: |
           cd build/web
           git init -q -b preview-build
