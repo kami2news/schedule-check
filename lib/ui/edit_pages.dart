@@ -1,7 +1,40 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../models.dart';
 import '../store.dart';
+import 'layout.dart';
+
+/// 広い画面ではダイアログ、狭い画面では全画面で開く
+Future<void> _openEditor(BuildContext context, Widget page) {
+  if (useDialog(context)) {
+    return showDialog<void>(
+      context: context,
+      builder: (_) => Dialog(
+        clipBehavior: Clip.antiAlias,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 520, maxHeight: 680),
+          child: page,
+        ),
+      ),
+    );
+  }
+  return Navigator.of(context)
+      .push(MaterialPageRoute<void>(builder: (_) => page));
+}
+
+/// 予定の追加（[event] が null）または編集
+Future<void> openEventEditor(BuildContext context,
+    {Event? event, DateTime? date, int? startMin}) {
+  return _openEditor(context,
+      EventEditPage(event: event, initialDate: date, initialStartMin: startMin));
+}
+
+/// タスクの追加（[task] が null）または編集
+Future<void> openTaskEditor(BuildContext context, {TaskItem? task}) {
+  return _openEditor(context, TaskEditPage(task: task));
+}
 
 Future<DateTime?> _pickDate(BuildContext context, DateTime initial) {
   return showDatePicker(
@@ -50,10 +83,14 @@ void _snack(BuildContext context, String msg) {
 // ---------------------------------------------------------------------------
 
 class EventEditPage extends StatefulWidget {
-  const EventEditPage({super.key, this.event, this.initialDate});
+  const EventEditPage(
+      {super.key, this.event, this.initialDate, this.initialStartMin});
 
   final Event? event;
   final DateTime? initialDate;
+
+  /// 時間グリッドの空き枠をタップしたときの開始時刻（分）
+  final int? initialStartMin;
 
   @override
   State<EventEditPage> createState() => _EventEditPageState();
@@ -83,8 +120,8 @@ class _EventEditPageState extends State<EventEditPage> {
     _kind = e?.kind ?? EventKind.other;
     _date = e?.date ?? dateOnly(widget.initialDate ?? DateTime.now());
     _allDay = e?.allDay ?? false;
-    _start = e?.startMin ?? 9 * 60;
-    _end = e?.endMin ?? (_start + 60);
+    _start = e?.startMin ?? widget.initialStartMin ?? 9 * 60;
+    _end = e?.endMin ?? math.min(_start + 60, 23 * 60 + 59);
     _weekly = e?.weekly ?? false;
     _until = e?.repeatUntil;
   }
@@ -280,6 +317,7 @@ class _TaskEditPageState extends State<TaskEditPage> {
   late final TextEditingController _note;
   DateTime? _due;
   int? _dueMin;
+  bool _important = false;
 
   bool get _isNew => widget.task == null;
 
@@ -291,6 +329,7 @@ class _TaskEditPageState extends State<TaskEditPage> {
     _note = TextEditingController(text: t?.note ?? '');
     _due = t?.due;
     _dueMin = t?.dueMin;
+    _important = t?.important ?? false;
   }
 
   @override
@@ -313,6 +352,7 @@ class _TaskEditPageState extends State<TaskEditPage> {
       due: _due,
       dueMin: _due == null ? null : _dueMin,
       done: widget.task?.done ?? false,
+      important: _important,
       note: _note.text.trim(),
     ));
     Navigator.of(context).pop();
@@ -348,7 +388,14 @@ class _TaskEditPageState extends State<TaskEditPage> {
             decoration: const InputDecoration(
                 labelText: 'タイトル', border: OutlineInputBorder()),
           ),
-          const SizedBox(height: 12),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            secondary: Icon(_important ? Icons.star : Icons.star_border,
+                color: _important ? Colors.amber : null),
+            title: const Text('重要'),
+            value: _important,
+            onChanged: (v) => setState(() => _important = v),
+          ),
           ListTile(
             contentPadding: EdgeInsets.zero,
             leading: const Icon(Icons.flag_outlined),

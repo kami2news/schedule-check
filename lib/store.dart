@@ -110,6 +110,14 @@ class AppStore extends ChangeNotifier {
     notifyListeners();
   }
 
+  void toggleImportant(String id) {
+    final i = tasks.indexWhere((t) => t.id == id);
+    if (i < 0) return;
+    tasks[i].important = !tasks[i].important;
+    _save();
+    notifyListeners();
+  }
+
   void addMany({List<Event> newEvents = const [], List<TaskItem> newTasks = const []}) {
     events.addAll(newEvents);
     tasks.addAll(newTasks);

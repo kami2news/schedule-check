@@ -4,6 +4,16 @@ const weekdayNames = ['月', '火', '水', '木', '金', '土', '日'];
 
 DateTime dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
 
+DateTime addDays(DateTime d, int n) => DateTime(d.year, d.month, d.day + n);
+
+/// 週の開始曜日。Outlook（日本語版）に合わせて日曜始まり。月曜始まりにするなら false
+const kWeekStartsOnSunday = true;
+
+DateTime startOfWeek(DateTime d) {
+  final offset = kWeekStartsOnSunday ? d.weekday % 7 : d.weekday - 1;
+  return DateTime(d.year, d.month, d.day - offset);
+}
+
 String fmtDate(DateTime d) =>
     '${d.month}/${d.day}(${weekdayNames[d.weekday - 1]})';
 
@@ -121,6 +131,7 @@ class TaskItem {
     this.due,
     this.dueMin,
     this.done = false,
+    this.important = false,
     this.note = '',
   });
 
@@ -129,6 +140,9 @@ class TaskItem {
   DateTime? due;
   int? dueMin;
   bool done;
+
+  /// 「重要」（星）マーク
+  bool important;
   String note;
 
   Map<String, dynamic> toJson() => {
@@ -137,6 +151,7 @@ class TaskItem {
         'due': due?.toIso8601String(),
         'dueMin': dueMin,
         'done': done,
+        'important': important,
         'note': note,
       };
 
@@ -146,6 +161,7 @@ class TaskItem {
         due: j['due'] == null ? null : DateTime.parse(j['due'] as String),
         dueMin: j['dueMin'] as int?,
         done: (j['done'] as bool?) ?? false,
+        important: (j['important'] as bool?) ?? false,
         note: (j['note'] as String?) ?? '',
       );
 }
