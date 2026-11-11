@@ -61,48 +61,59 @@ let stats = { sent: 0, failed: 0, removed: 0 };
 
 const uidOf = (ref) => ref.parent.parent.id;
 
-function watch() {
-  db.collectionGroup('pushQueue').onSnapshot(
-    (snap) => {
-      for (const ch of snap.docChanges()) {
-        const uid = uidOf(ch.doc.ref);
-        if (ch.type === 'removed') queues.delete(uid);
-        else queues.set(uid, ch.doc.data().items || []);
-      }
+// Firestore の監視は、エラーが起きると止まる。止まったら30秒後に張り直す
+function listen(name, onChange, reset) {
+  db.collectionGroup(name).onSnapshot(
+    (snap) => snap.docChanges().forEach(onChange),
+    (e) => {
+      console.error(`${name} の監視が止まりました（30秒後に再開）:`, e.message);
+      setTimeout(() => {
+        reset();
+        listen(name, onChange, reset);
+      }, 30000);
     },
-    (e) => console.error('pushQueue の監視に失敗:', e.message),
+  );
+}
+
+function watch() {
+  listen(
+    'pushQueue',
+    (ch) => {
+      const uid = uidOf(ch.doc.ref);
+      if (ch.type === 'removed') queues.delete(uid);
+      else queues.set(uid, ch.doc.data().items || []);
+    },
+    () => queues.clear(),
   );
 
-  db.collectionGroup('pushSubs').onSnapshot(
-    (snap) => {
-      for (const ch of snap.docChanges()) {
-        const uid = uidOf(ch.doc.ref);
-        const m = subs.get(uid) || new Map();
-        if (ch.type === 'removed') m.delete(ch.doc.id);
-        else {
-          const d = ch.doc.data();
-          m.set(ch.doc.id, { ref: ch.doc.ref, sub: { endpoint: d.endpoint, keys: d.keys } });
-        }
-        if (m.size) subs.set(uid, m);
-        else subs.delete(uid);
+  listen(
+    'pushSubs',
+    (ch) => {
+      const uid = uidOf(ch.doc.ref);
+      const m = subs.get(uid) || new Map();
+      if (ch.type === 'removed') m.delete(ch.doc.id);
+      else {
+        const d = ch.doc.data();
+        m.set(ch.doc.id, { ref: ch.doc.ref, sub: { endpoint: d.endpoint, keys: d.keys } });
       }
+      if (m.size) subs.set(uid, m);
+      else subs.delete(uid);
     },
-    (e) => console.error('pushSubs の監視に失敗:', e.message),
+    () => subs.clear(),
   );
 
   // アプリの「テスト通知」ボタン
-  db.collectionGroup('pushTest').onSnapshot(
-    (snap) => {
-      for (const ch of snap.docChanges()) {
-        if (ch.type === 'removed') continue;
-        const uid = uidOf(ch.doc.ref);
-        const item = { k: `test-${Date.now()}`, t: 'テスト通知', b: '通知の設定ができています' };
-        sendToUser(uid, item)
-          .catch((e) => console.error('テスト通知に失敗:', e.message))
-          .finally(() => ch.doc.ref.delete().catch(() => {}));
-      }
+  listen(
+    'pushTest',
+    (ch) => {
+      if (ch.type === 'removed') return;
+      const uid = uidOf(ch.doc.ref);
+      const item = { k: `test-${Date.now()}`, t: 'テスト通知', b: '通知の設定ができています' };
+      sendToUser(uid, item)
+        .catch((e) => console.error('テスト通知に失敗:', e.message))
+        .finally(() => ch.doc.ref.delete().catch(() => {}));
     },
-    (e) => console.error('pushTest の監視に失敗:', e.message),
+    () => {},
   );
 }
 
@@ -172,6 +183,8 @@ http
     );
   })
   .listen(process.env.PORT || 8080);
+
+process.on('unhandledRejection', (e) => console.error('処理されなかったエラー:', e));
 
 const state = await db.collection('serverPrivate').doc('state').get();
 lastRun = state.exists ? state.data().lastRun : null;

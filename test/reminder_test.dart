@@ -1,6 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:schedule_check/models.dart';
 import 'package:schedule_check/reminders.dart';
+import 'package:schedule_check/store.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   test('通知の表示名', () {
@@ -85,6 +87,24 @@ void main() {
         [], [t, done], DateTime(2026, 11, 13, 15), DateTime(2026, 11, 13, 16));
     expect(h.single.title, 'レポート提出');
     expect(h.single.body, '期限 今日 17:00');
+  });
+
+  test('最初から付ける通知（既定）は種類ごとに保存される', () async {
+    SharedPreferences.setMockInitialValues({});
+    final store = await AppStore.load();
+    expect(store.defaultReminder('timed'), isNull);
+    var notified = 0;
+    store.addListener(() => notified++);
+    store.setDefaultReminder('timed', 15);
+    store.setDefaultReminder('deadline', 360);
+    expect(notified, 2);
+    expect(store.defaultReminder('timed'), 15);
+    expect(store.defaultReminder('allDay'), isNull);
+    // 締め切りの既定は、時刻なしの締め切りにだけ付ける
+    expect(store.defaultDeadlineReminder(null), 360);
+    expect(store.defaultDeadlineReminder(17 * 60), isNull);
+    store.setDefaultReminder('timed', null);
+    expect(store.defaultReminder('timed'), isNull);
   });
 
   test('通知の設定は保存して読み戻せる', () {

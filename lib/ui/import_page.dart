@@ -163,6 +163,7 @@ class _ImportPageState extends State<ImportPage> {
               dueMin: dueMin,
               eventId: linked,
               followEnd: linked != null,
+              reminder: linked != null ? null : store.defaultDeadlineReminder(dueMin),
               url: url,
               // タスクには場所の欄がないのでメモにまとめる
               note: [if (place.isNotEmpty) '場所: $place', if (note.isNotEmpty) note]
@@ -183,6 +184,7 @@ class _ImportPageState extends State<ImportPage> {
               place: place,
               url: url,
               note: note,
+              reminder: store.defaultReminder(s == null ? 'allDay' : 'timed'),
             ));
           }
       }

@@ -294,7 +294,10 @@ class _EventEditPageState extends State<EventEditPage> {
     _end = e?.endMin ?? math.min(_start + 60, 23 * 60 + 59);
     _repeat = e?.repeat;
     _until = e?.repeatUntil;
-    _reminder = e?.reminder;
+    // 新しい予定には、設定した既定の通知を最初から入れておく
+    _reminder = e != null
+        ? e.reminder
+        : StoreScope.read(context).defaultReminder(_allDay ? 'allDay' : 'timed');
   }
 
   @override
@@ -487,8 +490,12 @@ class _EventEditPageState extends State<EventEditPage> {
           value: _allDay,
           onChanged: (v) => setState(() {
             _allDay = v;
-            // 終日と時刻ありでは通知の選び方が違うので、近いものに置き換える
-            if (_reminder != null) _reminder = v ? 360 : 15;
+            // 終日と時刻ありでは通知の選び方が違うので、既定（なければ近いもの）に置き換える
+            if (_reminder != null) {
+              _reminder = StoreScope.read(context)
+                      .defaultReminder(v ? 'allDay' : 'timed') ??
+                  (v ? 360 : 15);
+            }
             _revalidate();
           }),
         ),
@@ -633,7 +640,9 @@ class _TaskEditPageState extends State<TaskEditPage> {
             ? dateOnly(widget.occurrence!)
             : null);
     _followEnd = t?.followEnd ?? false;
-    _reminder = t?.reminder;
+    _reminder = t != null
+        ? t.reminder
+        : StoreScope.read(context).defaultDeadlineReminder(null);
     final ev = widget.forEvent;
     if (t == null && ev != null) {
       // 予定から作るときは、その日を期限の初期値にする
@@ -1133,7 +1142,17 @@ class _PeriodSettingsState extends State<_PeriodSettings> {
 /// 予定・タスクの「通知」欄。選んだときにブラウザの通知の許可を求める
 class ReminderField extends StatefulWidget {
   const ReminderField(
-      {super.key, required this.value, required this.allDay, required this.onChanged});
+      {super.key,
+      required this.value,
+      required this.allDay,
+      required this.onChanged,
+      this.label = '通知',
+      this.showNote = true});
+
+  final String label;
+
+  /// 通知の届き方の説明を下に出すか
+  final bool showNote;
 
   final int? value;
 
@@ -1167,7 +1186,7 @@ class _ReminderFieldState extends State<ReminderField> {
       ...presets,
       if (cur != none && !presets.contains(cur)) cur,
     ];
-    final note = widget.value == null
+    final note = widget.value == null || !widget.showNote
         ? null
         : switch (_perm) {
             'granted' => null,
@@ -1177,7 +1196,7 @@ class _ReminderFieldState extends State<ReminderField> {
             _ => 'アプリを開いている間に、画面内でお知らせします',
           };
     return FlField(
-      label: '通知',
+      label: widget.label,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

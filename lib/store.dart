@@ -406,6 +406,22 @@ class AppStore extends ChangeNotifier {
   // ---- 予定とタスクのつながり ----
 
   /// 予定（繰り返しなら [day] の回）に関連するタスク
+  // ---- 通知の既定（この端末の設定） ----
+
+  /// 新しく作るものに最初から付ける通知。[kind] は 'timed'（時刻のある予定）/
+  /// 'allDay'（終日の予定）/ 'deadline'（締め切り）。null は「なし」
+  int? defaultReminder(String kind) => int.tryParse(uiValue('remind.$kind') ?? '');
+
+  void setDefaultReminder(String kind, int? minutes) {
+    setUiValue('remind.$kind', minutes == null ? '' : '$minutes');
+    notifyListeners();
+  }
+
+  /// 締め切り（タスク）の既定の通知。時刻つきの締め切りには時刻用の選び方が要るので、
+  /// 既定（終日用）は時刻なしの締め切りにだけ付ける
+  int? defaultDeadlineReminder(int? dueMin) =>
+      dueMin == null ? defaultReminder('deadline') : null;
+
   List<TaskItem> tasksFor(Event e, [DateTime? day]) {
     final d = day == null ? null : dateOnly(day);
     return tasks

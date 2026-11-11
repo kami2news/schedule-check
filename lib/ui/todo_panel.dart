@@ -71,6 +71,7 @@ class _TodoPanelState extends State<TodoPanel> {
       title: title,
       due: due,
       important: _list == TodoList.important,
+      reminder: due == null ? null : store.defaultDeadlineReminder(null),
     ));
     _quick.clear();
     setState(() => _quickDue = null);

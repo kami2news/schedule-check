@@ -120,9 +120,50 @@ class PushService extends ChangeNotifier {
       status = PushStatus.serverNotReady;
     } else {
       final cur = await pushCurrent();
-      status = cur.isNotEmpty && _subId.isNotEmpty ? PushStatus.on : PushStatus.off;
+      if (cur.isEmpty) {
+        // 端末側の登録が消えている（許可の取り消し・アプリの入れ直しなど）
+        if (_subId.isNotEmpty) {
+          store.setUiValue('pushSubId', '');
+          store.setUiValue('pushOn', '');
+        }
+        status = PushStatus.off;
+      } else if (_subId.isEmpty) {
+        status = PushStatus.off;
+      } else {
+        status = PushStatus.on;
+        unawaited(_repairSubscription(cur));
+      }
     }
     notifyListeners();
+  }
+
+  Map<String, dynamic> _subDoc(Map<String, dynamic> sub) => {
+        'endpoint': sub['endpoint'],
+        'keys': sub['keys'],
+        'device': pushIsIOS() ? 'iPhone / iPad' : 'ブラウザ',
+        'createdAt': FieldValue.serverTimestamp(),
+      };
+
+  /// サーバー側の宛先が消えていたら書き直す（送信失敗でサーバーが消した場合や、
+  /// ブラウザが宛先を作り直した場合）
+  Future<void> _repairSubscription(String raw) async {
+    final uid = _uid;
+    if (uid == null) return;
+    try {
+      final sub = jsonDecode(raw) as Map<String, dynamic>;
+      final id = subscriptionId(sub['endpoint'] as String);
+      final col = _db.collection('users').doc(uid).collection('pushSubs');
+      if (id != _subId) {
+        // 宛先が変わった: 古いものを消して新しいものを登録
+        await col.doc(_subId).delete();
+        await col.doc(id).set(_subDoc(sub));
+        store.setUiValue('pushSubId', id);
+      } else if (!(await col.doc(id).get()).exists) {
+        await col.doc(id).set(_subDoc(sub));
+      }
+    } catch (e) {
+      debugPrint('通知の宛先を確認できませんでした: $e');
+    }
   }
 
   /// この端末で受け取る。ボタンを押した処理の中で、待たずに呼ぶこと
@@ -145,12 +186,7 @@ class PushService extends ChangeNotifier {
     }
     final sub = jsonDecode(raw) as Map<String, dynamic>;
     final id = subscriptionId(sub['endpoint'] as String);
-    await _db.collection('users').doc(_uid).collection('pushSubs').doc(id).set({
-      'endpoint': sub['endpoint'],
-      'keys': sub['keys'],
-      'device': pushIsIOS() ? 'iPhone / iPad' : 'ブラウザ',
-      'createdAt': FieldValue.serverTimestamp(),
-    });
+    await _db.collection('users').doc(_uid).collection('pushSubs').doc(id).set(_subDoc(sub));
     store.setUiValue('pushSubId', id);
     store.setUiValue('pushOn', '1');
     // 一覧がまだサーバーに無ければすぐ書く
