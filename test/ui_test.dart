@@ -75,6 +75,89 @@ void main() {
     expect(find.textContaining('テスト授業'), findsOneWidget);
   });
 
+  Future<void> pumpWide(WidgetTester tester, AppStore store) async {
+    tester.view.physicalSize = const Size(1400, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(ScheduleApp(store: store));
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets('予定を押すとプレビューが開き、関連タスクが見える', (tester) async {
+    final store = await _storeWithSamples();
+    store.upsertTask(TaskItem(
+        id: 't2', title: '持ち物を準備', due: dateOnly(DateTime.now()), eventId: 'e1'));
+    await pumpWide(tester, store);
+
+    // To Do のカードに、ひも付いている予定の名前が出る
+    expect(find.text('テスト授業').evaluate().length, greaterThanOrEqualTo(2));
+
+    await tester.tap(find.textContaining('テスト授業').first);
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('編集'), findsOneWidget);
+    expect(find.text('持ち物を準備'), findsWidgets);
+    await tester.tap(find.byTooltip('閉じる'));
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('編集'), findsNothing);
+  });
+
+  testWidgets('検索・空き時間・通知の設定が開ける', (tester) async {
+    final store = await _storeWithSamples();
+    await pumpWide(tester, store);
+
+    await tester.tap(find.text('検索'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+        find.descendant(of: find.byType(Dialog), matching: find.byType(TextField)),
+        'テスト');
+    await tester.pumpAndSettle();
+    expect(find.text('これからの予定'), findsOneWidget);
+    await tester.tap(find.byTooltip('閉じる'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('空き時間の候補をコピー'));
+    await tester.pumpAndSettle();
+    expect(find.text('予定として数えるカレンダー'), findsOneWidget);
+    expect(find.textContaining('コピー'), findsWidgets);
+    await tester.tap(find.byTooltip('閉じる'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('通知の設定'));
+    await tester.pumpAndSettle();
+    expect(find.text('最初から付ける通知'), findsOneWidget);
+    expect(find.text('時刻のある予定'), findsOneWidget);
+  });
+
+  testWidgets('取り込み: 貼り付けた文章から候補が出る（時限・締め切り）', (tester) async {
+    final store = await _storeWithSamples();
+    await pumpWide(tester, store);
+
+    await tester.tap(find.text('メールなどから取り込む'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+        find.descendant(of: find.byType(Dialog), matching: find.byType(TextField)),
+        '12/1 3限 環境化学 補講\n提出期限：12月5日 0:00 実験レポート');
+    await tester.tap(find.text('解析する'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('環境化学'), findsWidgets);
+    expect(find.textContaining('実験レポート'), findsWidgets);
+    // 3限 → 13:00、0:00 締め切り → 前日（12/4）の終日
+    expect(find.textContaining('13:00'), findsWidgets);
+    expect(find.textContaining('12/4'), findsWidgets);
+  });
+
+  testWidgets('時刻つきの締め切りは、時間の欄に印が出る', (tester) async {
+    final store = await _storeWithSamples();
+    final today = dateOnly(DateTime.now());
+    store.upsertTask(TaskItem(id: 'd1', title: '書類を出す', due: today, dueMin: 15 * 60));
+    store.upsertTask(
+        TaskItem(id: 'd2', title: '申込みをする', due: today, dueMin: 15 * 60 + 5));
+    await pumpWide(tester, store);
+    // 終日欄のチップと、時間の欄の札の両方に時刻つきで出る
+    expect(find.text('15:00 書類を出す').evaluate().length, 2);
+    expect(find.text('15:05 申込みをする').evaluate().length, 2);
+  });
+
   testWidgets('狭い画面: 日ビューとタブ切り替え', (tester) async {
     final store = await _storeWithSamples();
     tester.view.physicalSize = const Size(390, 800);

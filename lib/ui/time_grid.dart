@@ -242,28 +242,22 @@ class _TimeGridState extends State<TimeGrid> {
     ));
   }
 
-  /// 近い時刻（札が重なる20分以内）の締め切りは横に並べる。(タスク, 何番目, 何個中)
-  List<(TaskItem, int, int)> _layoutMarks(List<TaskItem> marks) {
+  /// 札（高さ約17px）が重ならないよう、前の札にかかる分だけ下にずらす。(タスク, 札をずらす量)
+  List<(TaskItem, double)> _layoutMarks(List<TaskItem> marks) {
     final sorted = [...marks]..sort((a, b) => a.dueMin!.compareTo(b.dueMin!));
-    final out = <(TaskItem, int, int)>[];
-    var group = <TaskItem>[];
-    void flush() {
-      for (var i = 0; i < group.length; i++) {
-        out.add((group[i], i, group.length));
-      }
-      group = [];
-    }
-
+    final out = <(TaskItem, double)>[];
+    var prevBottom = double.negativeInfinity;
     for (final t in sorted) {
-      if (group.isNotEmpty && t.dueMin! - group.first.dueMin! >= 20) flush();
-      group.add(t);
+      final top = t.dueMin! / 60 * _hourH + 2;
+      final labelTop = math.max(top, prevBottom + 1);
+      out.add((t, labelTop - top));
+      prevBottom = labelTop + 17;
     }
-    flush();
     return out;
   }
 
   /// 時刻つきの締め切りの印。その時刻に1分の枠（線）を引き、短い札を付ける
-  Widget _deadlineMark(BuildContext context, TaskItem t) {
+  Widget _deadlineMark(BuildContext context, TaskItem t, [double shift = 0]) {
     final color = t.done ? Fl.fg3 : Fl.warning;
     return MouseRegion(
       cursor: SystemMouseCursors.click,
@@ -281,7 +275,7 @@ class _TimeGridState extends State<TimeGrid> {
               child: ColoredBox(color: color),
             ),
             Positioned(
-              top: 2,
+              top: 2 + shift,
               left: 0,
               right: 0,
               child: Align(
@@ -363,13 +357,14 @@ class _TimeGridState extends State<TimeGrid> {
             ),
           ),
         // 締め切りの印は予定の上に重ねる
-        for (final (t, i, n) in _layoutMarks(marks))
+        // 近い時刻の締め切りは、線はそれぞれの時刻に引き、札だけ下にずらして重ならないようにする
+        for (final (t, shift) in _layoutMarks(marks))
           Positioned(
             top: t.dueMin! / 60 * _hourH,
-            left: i * (colW - 2) / n,
-            width: (colW - 2) / n,
-            height: 18,
-            child: _deadlineMark(context, t),
+            left: 0,
+            width: colW - 2,
+            height: 18 + shift,
+            child: _deadlineMark(context, t, shift),
           ),
         if (isToday)
           Positioned(
