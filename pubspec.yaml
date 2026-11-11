@@ -33,11 +33,7 @@ flutter:
     # Segoe UI 互換のオープンフォント Selawik (SIL OFL 1.1, assets/fonts/OFL-Selawik.txt)
     - family: Selawik
       fonts:
-        - asset: assets/fonts/Selawik-Light.ttf
-          weight: 300
         - asset: assets/fonts/Selawik-Regular.ttf
           weight: 400
         - asset: assets/fonts/Selawik-Semibold.ttf
           weight: 600
-        - asset: assets/fonts/Selawik-Bold.ttf
-          weight: 700

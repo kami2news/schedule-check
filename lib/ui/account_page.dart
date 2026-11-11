@@ -483,16 +483,20 @@ class _PushSectionState extends State<PushSection> {
     });
     try {
       await f();
-      if (mounted) setState(() {
-        _msg = done;
-        _error = false;
-      });
+      if (mounted) {
+        setState(() {
+          _msg = done;
+          _error = false;
+        });
+      }
     } catch (e) {
       final s = '$e'.replaceFirst('Bad state: ', '');
-      if (mounted) setState(() {
-        _msg = s;
-        _error = true;
-      });
+      if (mounted) {
+        setState(() {
+          _msg = s;
+          _error = true;
+        });
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }

@@ -1030,7 +1030,7 @@ class _PeriodSettings extends StatefulWidget {
 }
 
 class _PeriodSettingsState extends State<_PeriodSettings> {
-  late List<(int, int)> _list = [...StoreScope.read(context).periods];
+  late final List<(int, int)> _list = [...StoreScope.read(context).periods];
 
   Future<void> _pick(int i, bool isStart) async {
     final (s, e) = _list[i];

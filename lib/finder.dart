@@ -52,9 +52,9 @@ List<SearchHit> searchAll(
   final upcoming = <SearchHit>[], past = <SearchHit>[];
   for (final e in events) {
     if (!_hit(query, [e.title, e.place, e.note, e.url])) continue;
-    final DateTime? d = e.weekly ? (nextOccurrence(e, today) ?? e.firstDate) : e.firstDate;
+    final d = e.weekly ? (nextOccurrence(e, today) ?? e.firstDate) : e.firstDate;
     final hit = SearchHit.event(e, d);
-    (d != null && !d.isBefore(today) ? upcoming : past).add(hit);
+    (!d.isBefore(today) ? upcoming : past).add(hit);
   }
   upcoming.sort((a, b) => a.date!.compareTo(b.date!));
   past.sort((a, b) => b.date!.compareTo(a.date!));
