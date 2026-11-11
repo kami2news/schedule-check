@@ -257,63 +257,45 @@ class _TimeGridState extends State<TimeGrid> {
   }
 
   /// 時刻つきの締め切りの印。その時刻に1分の枠（線）を引き、短い札を付ける
-  Widget _deadlineMark(BuildContext context, TaskItem t, [double shift = 0]) {
+  Widget _deadlineMark(BuildContext context, TaskItem t) {
     final color = t.done ? Fl.fg3 : Fl.warning;
     return MouseRegion(
       cursor: SystemMouseCursors.click,
       child: GestureDetector(
         onTap: () => openTaskEditor(context, task: t),
-        child: Stack(
-          clipBehavior: Clip.none,
-          children: [
-            // 1分ぶんの枠（見えるよう最低2px）
-            Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
-              height: math.max(_hourH / 60, 2),
-              child: ColoredBox(color: color),
-            ),
-            Positioned(
-              top: 2 + shift,
-              left: 0,
-              right: 0,
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Container(
-                  padding: EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                  decoration: BoxDecoration(
-                    color: Fl.bg1,
-                    border: Border.all(color: color),
-                    borderRadius: BorderRadius.only(
-                      bottomLeft: Radius.circular(Fl.r4),
-                      bottomRight: Radius.circular(Fl.r4),
-                    ),
-                  ),
-                  child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    Icon(
-                        t.done
-                            ? FluentIcons.checkmark_circle_16_filled
-                            : FluentIcons.flag_16_regular,
-                        size: 11,
-                        color: color),
-                    SizedBox(width: 3),
-                    Flexible(
-                      child: Text(
-                        '${fmtMin(t.dueMin!)} ${t.title}',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: FlText.caption2.copyWith(
-                          color: t.done ? Fl.fg3 : Fl.fg1,
-                          decoration: t.done ? TextDecoration.lineThrough : null,
-                        ),
-                      ),
-                    ),
-                  ]),
-                ),
+        child: Align(
+          alignment: Alignment.topLeft,
+          child: Container(
+            padding: EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+            decoration: BoxDecoration(
+              color: Fl.bg1,
+              border: Border.all(color: color),
+              borderRadius: BorderRadius.only(
+                bottomLeft: Radius.circular(Fl.r4),
+                bottomRight: Radius.circular(Fl.r4),
               ),
             ),
-          ],
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              Icon(
+                  t.done
+                      ? FluentIcons.checkmark_circle_16_filled
+                      : FluentIcons.flag_16_regular,
+                  size: 11,
+                  color: color),
+              SizedBox(width: 3),
+              Flexible(
+                child: Text(
+                  '${fmtMin(t.dueMin!)} ${t.title}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: FlText.caption2.copyWith(
+                    color: t.done ? Fl.fg3 : Fl.fg1,
+                    decoration: t.done ? TextDecoration.lineThrough : null,
+                  ),
+                ),
+              ),
+            ]),
+          ),
         ),
       ),
     );
@@ -358,13 +340,24 @@ class _TimeGridState extends State<TimeGrid> {
           ),
         // 締め切りの印は予定の上に重ねる
         // 近い時刻の締め切りは、線はそれぞれの時刻に引き、札だけ下にずらして重ならないようにする
-        for (final (t, shift) in _layoutMarks(marks))
+        // 先に線をすべて引き、その上に札を置く（線が別の札の文字にかからないように）
+        for (final t in marks)
           Positioned(
             top: t.dueMin! / 60 * _hourH,
             left: 0,
             width: colW - 2,
-            height: 18 + shift,
-            child: _deadlineMark(context, t, shift),
+            height: math.max(_hourH / 60, 2),
+            child: IgnorePointer(
+              child: ColoredBox(color: t.done ? Fl.fg3 : Fl.warning),
+            ),
+          ),
+        for (final (t, shift) in _layoutMarks(marks))
+          Positioned(
+            top: t.dueMin! / 60 * _hourH + 2 + shift,
+            left: 0,
+            width: colW - 2,
+            height: 17,
+            child: _deadlineMark(context, t),
           ),
         if (isToday)
           Positioned(
