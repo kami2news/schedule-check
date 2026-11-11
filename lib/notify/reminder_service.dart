@@ -43,8 +43,10 @@ class ReminderService {
     final items = remindersBetween(store.events, store.tasks, from, now);
     _last = now;
     store.setUiValue(_key, now.toIso8601String());
+    // この端末でプッシュ通知を受け取っているなら、そちらと二重にならないよう画面内だけにする
+    final pushOn = store.uiValue('pushOn') == '1';
     for (final r in items) {
-      final shown = showSystemNotification(r.title, r.body, tag: r.key);
+      final shown = !pushOn && showSystemNotification(r.title, r.body, tag: r.key);
       onFire?.call(r, shown);
     }
     return items;

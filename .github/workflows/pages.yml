@@ -25,6 +25,11 @@ jobs:
           channel: stable
           cache: true
 
+      # 通知サーバー（Railway 用）のテスト
+      - name: Test push server
+        working-directory: server
+        run: npm ci && npm test
+
       - run: flutter pub get
       - run: flutter analyze --no-fatal-infos
       - run: flutter test
@@ -36,6 +41,7 @@ jobs:
           V=${GITHUB_SHA::7}
           sed -i "s/main\.dart\.js\"/main.dart.js?v=$V\"/g" build/web/flutter_bootstrap.js
           sed -i "s/src=\"flutter_bootstrap\.js\"/src=\"flutter_bootstrap.js?v=$V\"/" build/web/index.html
+          sed -i "s/src=\"push\.js\"/src=\"push.js?v=$V\"/" build/web/index.html
           grep -c "main.dart.js?v=$V" build/web/flutter_bootstrap.js
           grep "flutter_bootstrap.js?v=$V" build/web/index.html
 

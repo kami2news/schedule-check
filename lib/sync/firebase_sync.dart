@@ -124,7 +124,7 @@ class FirebaseSync implements RemoteSink {
 
   /// アカウント削除用: このユーザーのデータをすべて消す
   Future<void> deleteAll() async {
-    for (final name in ['events', 'tasks', 'calendars']) {
+    for (final name in ['events', 'tasks', 'calendars', 'pushSubs', 'pushQueue', 'pushTest']) {
       final snap = await _col(name).get();
       var batch = _db.batch();
       var n = 0;

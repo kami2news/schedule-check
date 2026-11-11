@@ -3,6 +3,7 @@ import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 
 import '../store.dart';
 import '../sync/account.dart';
+import '../sync/push_service.dart';
 import '../sync/firebase_sync.dart';
 import 'edit_pages.dart';
 import 'fluent.dart';
@@ -420,6 +421,11 @@ class _AccountPageState extends State<AccountPage> {
         padding: EdgeInsets.symmetric(vertical: 16),
         child: Divider(),
       ),
+      PushSection(push: acc.push),
+      Padding(
+        padding: EdgeInsets.symmetric(vertical: 16),
+        child: Divider(),
+      ),
       Text('アカウントの削除', style: FlText.body1Strong),
       SizedBox(height: 4),
       Text('アカウントと、クラウドに保存した予定・タスク・カレンダーをすべて削除します。元に戻せません。',
@@ -445,5 +451,134 @@ class _AccountPageState extends State<AccountPage> {
         ),
       ),
     ];
+  }
+}
+
+
+/// 「アプリを閉じていても届く通知」の設定（この端末ごと）
+class PushSection extends StatefulWidget {
+  const PushSection({super.key, required this.push});
+
+  final PushService push;
+
+  @override
+  State<PushSection> createState() => _PushSectionState();
+}
+
+class _PushSectionState extends State<PushSection> {
+  bool _busy = false;
+  String? _msg;
+  bool _error = false;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.push.refreshStatus();
+  }
+
+  Future<void> _run(Future<void> Function() f, String done) async {
+    setState(() {
+      _busy = true;
+      _msg = null;
+    });
+    try {
+      await f();
+      if (mounted) setState(() {
+        _msg = done;
+        _error = false;
+      });
+    } catch (e) {
+      final s = '$e'.replaceFirst('Bad state: ', '');
+      if (mounted) setState(() {
+        _msg = s;
+        _error = true;
+      });
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: widget.push,
+      builder: (context, _) {
+        final p = widget.push;
+        final (String text, Widget? action) = switch (p.status) {
+          PushStatus.checking => ('確認中…', null),
+          PushStatus.unsupported => (
+              'この端末・ブラウザでは、アプリを閉じているときの通知は使えません。開いている間は画面内でお知らせします。',
+              null
+            ),
+          PushStatus.needsHomeScreen => (
+              'iPhone では、Safari の共有ボタンから「ホーム画面に追加」し、ホーム画面のアイコンから開くと設定できます。',
+              null
+            ),
+          PushStatus.serverNotReady => (
+              '通知サーバーの準備ができていません（設定の途中か、サーバーが止まっています）。',
+              OutlinedButton(
+                onPressed: _busy ? null : () => _run(p.refreshStatus, ''),
+                child: Text('もう一度確認'),
+              )
+            ),
+          PushStatus.off => (
+              'この端末ではまだ受け取っていません。',
+              FilledButton.icon(
+                // iPhone では押した直後に許可を求める必要があるので、待たずに呼ぶ
+                onPressed: _busy
+                    ? null
+                    : () => _run(p.enableHere, 'この端末で通知を受け取ります。「テスト通知」で届くか確認できます'),
+                icon: Icon(FluentIcons.alert_on_24_regular, size: 18),
+                label: Text('この端末で受け取る'),
+              )
+            ),
+          PushStatus.on => (
+              'この端末で受け取っています。',
+              Wrap(spacing: 8, runSpacing: 8, children: [
+                OutlinedButton.icon(
+                  onPressed: _busy
+                      ? null
+                      : () => _run(p.sendTest, 'テスト通知を頼みました。数秒で届きます'),
+                  icon: Icon(FluentIcons.send_24_regular, size: 18),
+                  label: Text('テスト通知'),
+                ),
+                TextButton(
+                  onPressed: _busy ? null : () => _run(p.disableHere, '受け取りをやめました'),
+                  child: Text('この端末では受け取らない'),
+                ),
+              ])
+            ),
+        };
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('アプリを閉じていても届く通知', style: FlText.body1Strong),
+            SizedBox(height: 4),
+            Text('予定・タスクで設定した通知を、サーバーから届けます。端末ごとに設定します。',
+                style: FlText.caption1.copyWith(color: Fl.fg3)),
+            SizedBox(height: 8),
+            Row(children: [
+              Icon(
+                p.status == PushStatus.on
+                    ? FluentIcons.alert_on_24_regular
+                    : FluentIcons.alert_24_regular,
+                size: 20,
+                color: p.status == PushStatus.on ? Fl.success : Fl.fg2,
+              ),
+              SizedBox(width: 10),
+              Expanded(child: Text(text, style: FlText.body1)),
+            ]),
+            if (action != null) ...[SizedBox(height: 8), action],
+            if (_msg != null && _msg!.isNotEmpty)
+              Padding(
+                padding: EdgeInsets.only(top: 6),
+                child: Text(_msg!,
+                    style: FlText.caption1
+                        .copyWith(color: _error ? Fl.danger : Fl.fg2)),
+              ),
+          ],
+        );
+      },
+    );
   }
 }

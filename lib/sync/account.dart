@@ -9,6 +9,7 @@ import 'package:flutter/widgets.dart';
 import '../store.dart';
 import '../firebase_options.dart';
 import 'firebase_sync.dart';
+import 'push_service.dart';
 
 /// ログイン方法
 enum SignInMethod { google, email }
@@ -28,6 +29,9 @@ class AccountService extends ChangeNotifier {
   SyncState syncState = SyncState.connecting;
   FirebaseSync? _sync;
   StreamSubscription<User?>? _authSub;
+
+  /// アプリを閉じていても届く通知（ログイン中のみ）
+  late final PushService push = PushService(store);
 
   bool get signedIn => user != null;
 
@@ -66,6 +70,7 @@ class AccountService extends ChangeNotifier {
     }
     await _sync?.stop();
     _sync = null;
+    push.stop();
     user = u;
     if (u == null) {
       store.detachRemote();
@@ -78,6 +83,7 @@ class AccountService extends ChangeNotifier {
       _sync = sync;
       store.attachRemote(sync);
       sync.start();
+      push.start(u.uid);
     }
     notifyListeners();
   }
@@ -130,12 +136,21 @@ class AccountService extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> signOut() => FirebaseAuth.instance.signOut();
+  /// ログアウト。この端末への通知も止める（別の人が使っても届かないように）
+  Future<void> signOut() async {
+    try {
+      await push.disableHere().timeout(const Duration(seconds: 5));
+    } catch (_) {}
+    await FirebaseAuth.instance.signOut();
+  }
 
   /// アカウントとクラウド上のデータを削除する
   Future<void> deleteAccount() async {
     final u = FirebaseAuth.instance.currentUser;
     if (u == null) return;
+    try {
+      await push.disableHere().timeout(const Duration(seconds: 5));
+    } catch (_) {}
     await _sync?.deleteAll();
     await u.delete();
   }
@@ -152,6 +167,7 @@ class AccountService extends ChangeNotifier {
   void dispose() {
     _authSub?.cancel();
     _sync?.stop();
+    push.dispose();
     super.dispose();
   }
 }
