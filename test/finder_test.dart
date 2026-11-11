@@ -73,6 +73,25 @@ void main() {
       expect(formatSlots(s), '・11/16(月) 10:00〜11:30\n・11/16(月) 14:30〜18:00');
     });
 
+    test('数えないカレンダーの予定は無視。終日の予定を気にしない設定もできる', () {
+      final memo = Event(
+          id: 'm', title: 'メモ', date: mon16, startMin: 10 * 60, endMin: 12 * 60, calendarId: 'memo');
+      final allDay = ev('z', '学園祭', mon16, null, null);
+      const o = FreeTimeOptions(days: 1, dayStart: 9 * 60, dayEnd: 13 * 60, minMinutes: 60);
+      expect(findFreeSlots([memo], mon16, o).map((x) => (x.start, x.end)).toList(),
+          [(9 * 60, 10 * 60), (12 * 60, 13 * 60)]);
+      expect(
+          findFreeSlots([memo], mon16, o, ignoreCalendars: {'memo'})
+              .map((x) => (x.start, x.end))
+              .toList(),
+          [(9 * 60, 13 * 60)]);
+      expect(
+          findFreeSlots([allDay], mon16,
+                  const FreeTimeOptions(days: 1, allDayBusy: false))
+              .length,
+          1);
+    });
+
     test('終日の予定がある日は空いていない扱い', () {
       final events = [ev('z', '学園祭', mon16, null, null)];
       final s = findFreeSlots(events, mon16, const FreeTimeOptions(days: 1));

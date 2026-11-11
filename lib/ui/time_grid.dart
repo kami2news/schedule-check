@@ -242,6 +242,26 @@ class _TimeGridState extends State<TimeGrid> {
     ));
   }
 
+  /// 近い時刻（札が重なる20分以内）の締め切りは横に並べる。(タスク, 何番目, 何個中)
+  List<(TaskItem, int, int)> _layoutMarks(List<TaskItem> marks) {
+    final sorted = [...marks]..sort((a, b) => a.dueMin!.compareTo(b.dueMin!));
+    final out = <(TaskItem, int, int)>[];
+    var group = <TaskItem>[];
+    void flush() {
+      for (var i = 0; i < group.length; i++) {
+        out.add((group[i], i, group.length));
+      }
+      group = [];
+    }
+
+    for (final t in sorted) {
+      if (group.isNotEmpty && t.dueMin! - group.first.dueMin! >= 20) flush();
+      group.add(t);
+    }
+    flush();
+    return out;
+  }
+
   /// 時刻つきの締め切りの印。その時刻に1分の枠（線）を引き、短い札を付ける
   Widget _deadlineMark(BuildContext context, TaskItem t) {
     final color = t.done ? Fl.fg3 : Fl.warning;
@@ -343,11 +363,11 @@ class _TimeGridState extends State<TimeGrid> {
             ),
           ),
         // 締め切りの印は予定の上に重ねる
-        for (final t in marks)
+        for (final (t, i, n) in _layoutMarks(marks))
           Positioned(
             top: t.dueMin! / 60 * _hourH,
-            left: 0,
-            width: colW - 2,
+            left: i * (colW - 2) / n,
+            width: (colW - 2) / n,
             height: 18,
             child: _deadlineMark(context, t),
           ),

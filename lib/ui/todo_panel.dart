@@ -219,6 +219,7 @@ class _TaskRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = task;
     final info = dueInfo(context, t);
+    final linked = StoreScope.of(context).eventOf(t);
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 12, vertical: 2),
       child: DecoratedBox(
@@ -257,8 +258,8 @@ class _TaskRow extends StatelessWidget {
                           ),
                         ),
                         if (t.due != null ||
-                            t.url.isNotEmpty ||
-                            t.note.isNotEmpty)
+                            t.note.isNotEmpty ||
+                            (t.reminder != null && !t.done))
                           Row(
                             children: [
                               if (t.due != null)
@@ -275,6 +276,28 @@ class _TaskRow extends StatelessWidget {
                                 Icon(FluentIcons.note_16_regular,
                                     size: 14, color: Fl.fg3),
                               ],
+                              if (t.reminder != null && !t.done) ...[
+                                SizedBox(width: 8),
+                                Icon(FluentIcons.alert_16_regular,
+                                    size: 14, color: Fl.fg3),
+                              ],
+                            ],
+                          ),
+                        // ひも付いている予定（持ち物・終了報告など）
+                        if (linked != null)
+                          Row(
+                            children: [
+                              Icon(FluentIcons.calendar_ltr_16_regular,
+                                  size: 12, color: Fl.fg3),
+                              SizedBox(width: 4),
+                              Flexible(
+                                child: Text(
+                                  linked.title,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: FlText.caption1.copyWith(color: Fl.fg3),
+                                ),
+                              ),
                             ],
                           ),
                       ],

@@ -202,6 +202,10 @@ class _FreeTimePageState extends State<_FreeTimePage> {
   int _min = 60;
   bool _weekends = false;
   int _buffer = 0;
+  bool _allDayBusy = true;
+
+  /// 空き時間の計算に入れないカレンダー（例: 自分用のメモのカレンダー）
+  final Set<String> _ignored = {};
   final Set<String> _picked = {};
 
   Widget _option<T>(String label, T value, List<(T, String)> items, ValueChanged<T> onChanged) {
@@ -236,8 +240,10 @@ class _FreeTimePageState extends State<_FreeTimePage> {
         minMinutes: _min,
         weekends: _weekends,
         buffer: _buffer,
+        allDayBusy: _allDayBusy,
       ),
       now: now,
+      ignoreCalendars: _ignored,
     );
     final chosen = slots.where((s) => _picked.contains(s.label)).toList();
     final copyTarget = chosen.isEmpty ? slots : chosen;
@@ -295,6 +301,43 @@ class _FreeTimePageState extends State<_FreeTimePage> {
             _weekends = v;
             _picked.clear();
           }),
+        ),
+        FlCheckRow(
+          label: '終日の予定がある日は候補にしない',
+          value: _allDayBusy,
+          onChanged: (v) => setState(() {
+            _allDayBusy = v;
+            _picked.clear();
+          }),
+        ),
+        SizedBox(height: 8),
+        Text('予定として数えるカレンダー', style: FlText.body1Strong),
+        SizedBox(height: 4),
+        Wrap(
+          spacing: 4,
+          children: [
+            for (final c in store.calendars)
+              InkWell(
+                borderRadius: BorderRadius.circular(Fl.r4),
+                onTap: () => setState(() {
+                  if (!_ignored.remove(c.id)) _ignored.add(c.id);
+                  _picked.clear();
+                }),
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    FlColorDot(
+                        color: c.color,
+                        filled: !_ignored.contains(c.id),
+                        size: 14),
+                    SizedBox(width: 6),
+                    Text(c.name,
+                        style: FlText.body1.copyWith(
+                            color: _ignored.contains(c.id) ? Fl.fg3 : Fl.fg1)),
+                  ]),
+                ),
+              ),
+          ],
         ),
         Padding(
           padding: EdgeInsets.fromLTRB(0, 12, 0, 4),
