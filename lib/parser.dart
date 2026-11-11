@@ -89,6 +89,29 @@ final _mdKanjiRe = RegExp(r'(\d{1,2})\s*月\s*(\d{1,2})\s*日');
 final _mdSlashRe = RegExp(r'(?<![\d:/])(\d{1,2})/(\d{1,2})(?![\d:/])');
 final _relRe = RegExp(r'明後日|明日|今日|本日');
 
+/// 「来週金曜」「今週の水曜日」「再来週月曜」
+final _relWeekRe = RegExp(r'(今週|来週|再来週)\s*の?\s*([月火水木金土日])(?:曜日?)?');
+
+/// 「3限」「3・4限」「2〜3時限」「5コマ目」
+final _periodRe = RegExp(
+    r'([1-9１-９])\s*(?:[・,、\-〜~～]\s*([1-9１-９])\s*)?(?:時限目?|限目?|コマ目?)');
+
+/// 取り込み中に使う時限の時刻（parseText が設定する）
+List<(int, int)> _periods = const [];
+
+int _digit(String s) {
+  final c = s.codeUnitAt(0);
+  return c >= 0xFF10 ? c - 0xFF10 : c - 0x30;
+}
+
+/// 「正午」「午後3時」「午前9:30」を、ふつうの時刻の書き方に直す
+String _plainTimeWords(String s) => s
+    .replaceAll('正午', '12:00')
+    .replaceAllMapped(RegExp(r'午後\s*(\d{1,2})(?=\s*[:：時])'),
+        (m) => '${int.parse(m.group(1)!) % 12 + 12}')
+    .replaceAllMapped(RegExp(r'午前\s*(\d{1,2})(?=\s*[:：時])'),
+        (m) => '${int.parse(m.group(1)!) % 12}');
+
 const _timeTok = r'(\d{1,2})(?:[:：](\d{2})|時(?!間)(?:(\d{1,2})分?)?)';
 final _rangeRe =
     RegExp(_timeTok + r'\s*(?:[-〜~～–—ー]|から)\s*' + _timeTok);
@@ -96,7 +119,8 @@ final _singleRe = RegExp(_timeTok);
 
 final _taskWords = RegExp(r'締切|締め切り|〆|提出|期限|まで');
 final _shiftWords = RegExp(r'シフト|バイト|勤務|出勤');
-final _lectureWords = RegExp(r'授業|講義|ゼミ|実験|休講|補講|試験|テスト');
+final _lectureWords =
+    RegExp(r'授業|講義|ゼミ|実験|休講|補講|試験|テスト|[1-9１-９]\s*(?:時限|限)');
 
 /// URL の前に付きがちなラベル（「Zoom:」「URL：」など）
 final _linkLabelRe = RegExp(
@@ -190,7 +214,8 @@ String? _asHeading(String line) {
 }
 
 /// 補足行から時刻を拾う（日付の行に時刻がなかったとき用）
-({int? start, int? end, String rest}) _extractTime(String s) {
+({int? start, int? end, String rest}) _extractTime(String src) {
+  final s = _plainTimeWords(src);
   final r = _rangeRe.firstMatch(s);
   if (r != null) {
     final a = _toMin(r, 1, 2, 3);
@@ -207,6 +232,19 @@ String? _asHeading(String line) {
       return (start: v, end: null, rest: s.replaceRange(m.start, m.end, ' '));
     }
   }
+  // 時刻がなければ時限（「3限」「3・4限」）から決める
+  final p = _periodRe.firstMatch(s);
+  if (p != null && _periods.isNotEmpty) {
+    final a = _digit(p.group(1)!);
+    final b = p.group(2) == null ? a : _digit(p.group(2)!);
+    if (a <= b && b <= _periods.length) {
+      return (
+        start: _periods[a - 1].$1,
+        end: _periods[b - 1].$2,
+        rest: s.replaceRange(p.start, p.end, ' '),
+      );
+    }
+  }
   return (start: null, end: null, rest: s);
 }
 
@@ -214,6 +252,7 @@ int? _toMin(Match m, int hourGroup, int minGroupA, int minGroupB) {
   final h = int.parse(m.group(hourGroup)!);
   final mi =
       int.tryParse(m.group(minGroupA) ?? m.group(minGroupB) ?? '') ?? 0;
+  if (h == 24 && mi == 0) return 24 * 60; // 24:00（その日の終わり）
   if (h > 23 || mi > 59) return null;
   return h * 60 + mi;
 }
@@ -254,6 +293,16 @@ DateTime? _validDate(int y, int m, int d) {
         return (date: dt, rest: s.replaceRange(m.start, m.end, ' '));
       }
     }
+  }
+
+  m = _relWeekRe.firstMatch(s);
+  if (m != null) {
+    final weeks = const {'今週': 0, '来週': 1, '再来週': 2}[m.group(1)!]!;
+    // 週の始まり（日曜）からの日数
+    final wd = '日月火水木金土'.indexOf(m.group(2)!);
+    final offset = kWeekStartsOnSunday ? wd : (wd + 6) % 7;
+    final dt = addDays(startOfWeek(today), weeks * 7 + offset);
+    return (date: dt, rest: s.replaceRange(m.start, m.end, ' '));
   }
 
   m = _relRe.firstMatch(s);
@@ -404,8 +453,10 @@ List<Candidate> _parseWorkNotices(List<String> lines, Set<int> consumed,
   return out;
 }
 
+/// [periods] は時限の時刻（「3限」を時刻に直すのに使う）
 ParseResult parseText(String text, DateTime now,
-    {List<CalendarDef>? calendars}) {
+    {List<CalendarDef>? calendars, List<(int, int)>? periods}) {
+  _periods = periods ?? const [];
   final cals = calendars ?? defaultCalendars();
   // 長い名前から順に照合する（「試験」より「追試験」を優先）
   final byName = [...cals]..sort((a, b) => b.name.length.compareTo(a.name.length));
@@ -569,8 +620,13 @@ ParseResult parseText(String text, DateTime now,
       date: d.date,
       type: type,
       source: line,
-      startMin: start,
-      endMin: type == ImportType.task ? null : end,
+      // 24:00 は締め切りなら「その日いっぱい」、予定なら 23:59 として扱う
+      startMin: type == ImportType.task || start == null
+          ? start
+          : math.min(start, 23 * 60 + 59),
+      endMin: type == ImportType.task || end == null
+          ? null
+          : math.min(end, 23 * 60 + 59),
       url: urls.isEmpty ? '' : urls.first,
       note: urls.length > 1 ? urls.skip(1).join('\n') : '',
     );

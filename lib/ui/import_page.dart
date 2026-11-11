@@ -36,7 +36,8 @@ class _ImportPageState extends State<ImportPage> {
   void _parse() {
     FocusScope.of(context).unfocus();
     final r = parseText(_text.text, DateTime.now(),
-        calendars: StoreScope.read(context).calendars);
+        calendars: StoreScope.read(context).calendars,
+        periods: StoreScope.read(context).periods);
     final store = StoreScope.read(context);
     _matches.clear();
     for (final c in r.candidates) {

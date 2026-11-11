@@ -25,6 +25,54 @@ void main() {
     expect((c.date, c.startMin), (DateTime(2026, 11, 20), null));
   });
 
+  group('取り込み: 時限・正午・24:00・来週の曜日', () {
+    // now は 2026/11/10（火）
+    const periods = [
+      (9 * 60, 10 * 60 + 30),
+      (10 * 60 + 40, 12 * 60 + 10),
+      (13 * 60, 14 * 60 + 30),
+      (14 * 60 + 40, 16 * 60 + 10),
+    ];
+    Candidate one(String t) => parseText(t, now, periods: periods).candidates.single;
+
+    test('「3限」「3・4限」を時限の時刻にする（授業として）', () {
+      final a = one('11/20 3限 環境化学 補講');
+      expect((a.startMin, a.endMin), (13 * 60, 14 * 60 + 30));
+      expect(a.type, ImportType.lecture);
+      expect(a.title.contains('限'), isFalse);
+      final b = one('11/24 ３・４限 地球科学実験');
+      expect((b.startMin, b.endMin), (13 * 60, 16 * 60 + 10));
+      // 時刻が書いてあればそちらを使う
+      final c = one('11/25 13:10〜14:40 3限 統計学');
+      expect((c.startMin, c.endMin), (13 * 60 + 10, 14 * 60 + 40));
+      // 時限の設定を渡さないときは時刻なし
+      expect(parseText('11/20 3限 環境化学', now).candidates.single.startMin, isNull);
+    });
+
+    test('正午・午後・午前', () {
+      final a = one('11/20 正午までにレポートを提出');
+      expect((a.type, a.startMin), (ImportType.task, 12 * 60));
+      final b = one('11/21 午後3時から面談');
+      expect(b.startMin, 15 * 60);
+      final c = one('11/22 午前9:30〜午後0:30 研究室見学');
+      expect((c.startMin, c.endMin), (9 * 60 + 30, 12 * 60 + 30));
+    });
+
+    test('24:00 の締め切りはその日の終日、予定の終わりは 23:59', () {
+      final a = one('提出期限：11月20日 24:00');
+      expect((a.date, a.startMin), (DateTime(2026, 11, 20), null));
+      final b = one('11/21 22:00〜24:00 夜間作業');
+      expect((b.startMin, b.endMin), (22 * 60, 23 * 60 + 59));
+    });
+
+    test('今週・来週・再来週の曜日', () {
+      expect(one('来週金曜 14:00 面談').date, DateTime(2026, 11, 20));
+      expect(one('今週の木曜日 18:00 ミーティング').date, DateTime(2026, 11, 12));
+      expect(one('再来週月曜までにレポート提出').date, DateTime(2026, 11, 23));
+      expect(one('来週日曜 10:00 イベント設営').date, DateTime(2026, 11, 15));
+    });
+  });
+
   test('締め切りのそろえ方と、時間の欄に印を出すか', () {
     final d = DateTime(2026, 12, 1);
     expect(normalizeDeadline(d, 0), (DateTime(2026, 11, 30), null));
