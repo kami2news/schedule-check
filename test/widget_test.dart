@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:schedule_check/models.dart';
 import 'package:schedule_check/parser.dart';
+import 'package:schedule_check/store.dart';
 
 void main() {
   final now = DateTime(2026, 11, 10);
@@ -45,6 +46,15 @@ void main() {
       // 時刻が書いてあればそちらを使う
       final c = one('11/25 13:10〜14:40 3限 統計学');
       expect((c.startMin, c.endMin), (13 * 60 + 10, 14 * 60 + 40));
+      // 2桁の時限と、初期値（50分授業・休み10分）
+      final d = parseText('11/26 10限 特別講義', now, periods: kDefaultPeriods)
+          .candidates
+          .single;
+      expect((d.startMin, d.endMin), (18 * 60, 18 * 60 + 50));
+      final e = parseText('11/27 1・2限 環境化学', now, periods: kDefaultPeriods)
+          .candidates
+          .single;
+      expect((e.startMin, e.endMin), (9 * 60, 10 * 60 + 50));
       // 時限の設定を渡さないときは時刻なし
       expect(parseText('11/20 3限 環境化学', now).candidates.single.startMin, isNull);
     });

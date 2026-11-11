@@ -150,7 +150,10 @@ void main() {
   });
 
   test('時限の時刻は保存でき、未設定なら仮の時程', () {
-    expect(store.periods.first, (9 * 60, 10 * 60 + 30));
+    // 初期値: 50分授業・休み10分（1限 9:00〜9:50 … 10限 18:00〜18:50）
+    expect(store.periods.first, (9 * 60, 9 * 60 + 50));
+    expect(store.periods[1], (10 * 60, 10 * 60 + 50));
+    expect(store.periods.length, 10);
     store.setPeriods([(9 * 60 + 10, 10 * 60 + 40)]);
     expect(store.periods, [(9 * 60 + 10, 10 * 60 + 40)]);
   });

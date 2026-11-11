@@ -94,12 +94,13 @@ final _relWeekRe = RegExp(r'(今週|来週|再来週)\s*の?\s*([月火水木金
 
 /// 「3限」「3・4限」「2〜3時限」「5コマ目」
 final _periodRe = RegExp(
-    r'([1-9１-９])\s*(?:[・,、\-〜~～]\s*([1-9１-９])\s*)?(?:時限目?|限目?|コマ目?)');
+    r'(1[0-2]|[1-9１-９])\s*(?:[・,、\-〜~～]\s*(1[0-2]|[1-9１-９])\s*)?(?:時限目?|限目?|コマ目?)');
 
 /// 取り込み中に使う時限の時刻（parseText が設定する）
 List<(int, int)> _periods = const [];
 
 int _digit(String s) {
+  if (s.length > 1) return int.parse(s); // 10〜12
   final c = s.codeUnitAt(0);
   return c >= 0xFF10 ? c - 0xFF10 : c - 0x30;
 }
@@ -120,7 +121,7 @@ final _singleRe = RegExp(_timeTok);
 final _taskWords = RegExp(r'締切|締め切り|〆|提出|期限|まで');
 final _shiftWords = RegExp(r'シフト|バイト|勤務|出勤');
 final _lectureWords =
-    RegExp(r'授業|講義|ゼミ|実験|休講|補講|試験|テスト|[1-9１-９]\s*(?:時限|限)');
+    RegExp(r'授業|講義|ゼミ|実験|休講|補講|試験|テスト|[0-9１-９]\s*(?:時限|限)');
 
 /// URL の前に付きがちなラベル（「Zoom:」「URL：」など）
 final _linkLabelRe = RegExp(
