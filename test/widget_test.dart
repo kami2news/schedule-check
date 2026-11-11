@@ -11,8 +11,30 @@ void main() {
     final c = r.candidates.first;
     expect(c.type, ImportType.task);
     expect(c.date, DateTime(2026, 11, 20));
-    expect(c.startMin, 23 * 60 + 59);
+    expect(c.startMin, isNull); // 23:59 締め切りは終日扱い
     expect(c.title, 'レポート提出');
+  });
+
+  test('締め切りの時刻: 0:00 は前日の終日、それ以外の時刻は残す', () {
+    final a = parseText('提出期限：11月21日 0:00', now).candidates.single;
+    expect(a.type, ImportType.task);
+    expect((a.date, a.startMin), (DateTime(2026, 11, 20), null));
+    final b = parseText('11/20 17:00までにレポートを提出', now).candidates.single;
+    expect((b.date, b.startMin), (DateTime(2026, 11, 20), 17 * 60));
+    final c = parseText('11/20 レポート提出', now).candidates.single;
+    expect((c.date, c.startMin), (DateTime(2026, 11, 20), null));
+  });
+
+  test('締め切りのそろえ方と、時間の欄に印を出すか', () {
+    final d = DateTime(2026, 12, 1);
+    expect(normalizeDeadline(d, 0), (DateTime(2026, 11, 30), null));
+    expect(normalizeDeadline(d, 24 * 60), (d, null));
+    expect(normalizeDeadline(d, 23 * 60 + 59), (d, null));
+    expect(normalizeDeadline(d, 12 * 60), (d, 12 * 60));
+    expect(normalizeDeadline(d, null), (d, null));
+    expect(TaskItem(id: 'a', title: 'x', due: d, dueMin: 12 * 60).hasTimeMark, isTrue);
+    expect(TaskItem(id: 'b', title: 'x', due: d, dueMin: 23 * 60 + 59).hasTimeMark, isFalse);
+    expect(TaskItem(id: 'c', title: 'x', due: d).hasTimeMark, isFalse);
   });
 
   test('シフトの時間帯を読み取る', () {
@@ -123,7 +145,7 @@ void main() {
           .single;
       expect(c.title, 'レポートを提出');
       expect(c.type, ImportType.task);
-      expect(c.startMin, 23 * 60 + 59);
+      expect(c.startMin, isNull);
       expect(titleOf('12月1日（月）は休講です'), '休講');
       expect(titleOf('11/19 13:00からゼミを行います'), 'ゼミ');
     });

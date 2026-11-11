@@ -138,8 +138,9 @@ class _ImportPageState extends State<ImportPage> {
             store.upsertEvent(e);
           } else if (t != null) {
             if (m.kind == MatchKind.update) {
-              t.due = dateOnly(c.date);
-              if (c.startMin != null) t.dueMin = c.startMin;
+              final (d, min) = normalizeDeadline(c.date, c.startMin);
+              t.due = d;
+              if (c.startMin != null) t.dueMin = min;
             }
             if (t.url.isEmpty) t.url = url;
             t.note = merged(t.note);
@@ -150,11 +151,15 @@ class _ImportPageState extends State<ImportPage> {
         case MatchKind.conflict:
           if (c.type == ImportType.task) {
             final linked = c.linkGroup == null ? null : groupEvent[c.linkGroup!];
+            // 種類を「タスク」に変えた候補もあるので、ここでも締め切りの形にそろえる
+            final (due, dueMin) = linked != null
+                ? (c.date, c.startMin)
+                : normalizeDeadline(c.date, c.startMin);
             tasks.add(TaskItem(
               id: store.newId(),
               title: title,
-              due: c.date,
-              dueMin: c.startMin,
+              due: due,
+              dueMin: dueMin,
               eventId: linked,
               followEnd: linked != null,
               url: url,

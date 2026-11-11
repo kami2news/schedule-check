@@ -20,6 +20,19 @@ String fmtLongDate(DateTime d) =>
 String fmtDate(DateTime d) =>
     '${d.month}/${d.day}(${weekdayNames[d.weekday - 1]})';
 
+/// 締め切りの日時のそろえ方:
+/// - 0:00（24:00）締め切りは「前日いっぱい」なので、前日の終日にする
+/// - 23:59 締め切りは、その日の終日にする
+/// - それ以外の時刻はそのまま（カレンダーにその時刻の印を出す）
+(DateTime, int?) normalizeDeadline(DateTime date, int? min) {
+  final d = dateOnly(date);
+  if (min == null) return (d, null);
+  if (min <= 0) return (addDays(d, -1), null);
+  if (min >= 24 * 60) return (d, null); // 24:00 = その日の終わり
+  if (min >= 23 * 60 + 59) return (d, null);
+  return (d, min);
+}
+
 String fmtMin(int m) =>
     '${(m ~/ 60).toString().padLeft(2, '0')}:${(m % 60).toString().padLeft(2, '0')}';
 
@@ -410,6 +423,11 @@ class TaskItem {
 
   /// 通知（期限の何分前か）。時刻なしの期限は当日 0:00 から数える。null なら通知しない
   int? reminder;
+
+  /// カレンダーの時間の欄に、締め切り時刻の印（1分の枠）を出すか。
+  /// 0:00 や 23:59 は終日扱いなので出さない
+  bool get hasTimeMark =>
+      due != null && dueMin != null && dueMin! > 0 && dueMin! < 23 * 60 + 59;
 
   Map<String, dynamic> toJson() => {
         'id': id,

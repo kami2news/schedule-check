@@ -178,7 +178,8 @@ class _TimeGridState extends State<TimeGrid> {
               SizedBox(width: 4),
               Expanded(
                 child: Text(
-                  t.title,
+                  // 時刻つきの締め切りは時刻も添える（時間の欄にも印が出る）
+                  t.hasTimeMark ? '${fmtMin(t.dueMin!)} ${t.title}' : t.title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: FlText.caption1.copyWith(
@@ -241,8 +242,71 @@ class _TimeGridState extends State<TimeGrid> {
     ));
   }
 
+  /// 時刻つきの締め切りの印。その時刻に1分の枠（線）を引き、短い札を付ける
+  Widget _deadlineMark(BuildContext context, TaskItem t) {
+    final color = t.done ? Fl.fg3 : Fl.warning;
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: () => openTaskEditor(context, task: t),
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            // 1分ぶんの枠（見えるよう最低2px）
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              height: math.max(_hourH / 60, 2),
+              child: ColoredBox(color: color),
+            ),
+            Positioned(
+              top: 2,
+              left: 0,
+              right: 0,
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Container(
+                  padding: EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                  decoration: BoxDecoration(
+                    color: Fl.bg1,
+                    border: Border.all(color: color),
+                    borderRadius: BorderRadius.only(
+                      bottomLeft: Radius.circular(Fl.r4),
+                      bottomRight: Radius.circular(Fl.r4),
+                    ),
+                  ),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    Icon(
+                        t.done
+                            ? FluentIcons.checkmark_circle_16_filled
+                            : FluentIcons.flag_16_regular,
+                        size: 11,
+                        color: color),
+                    SizedBox(width: 3),
+                    Flexible(
+                      child: Text(
+                        '${fmtMin(t.dueMin!)} ${t.title}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: FlText.caption2.copyWith(
+                          color: t.done ? Fl.fg3 : Fl.fg1,
+                          decoration: t.done ? TextDecoration.lineThrough : null,
+                        ),
+                      ),
+                    ),
+                  ]),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _dayColumn(BuildContext context, DateTime day, double colW,
-      List<Event> timed, bool isToday) {
+      List<Event> timed, bool isToday, List<TaskItem> marks) {
     final now = DateTime.now();
     final nowMin = now.hour * 60 + now.minute;
     return Stack(
@@ -277,6 +341,15 @@ class _TimeGridState extends State<TimeGrid> {
                   (_endOf(p.event) - p.event.startMin!) / 60 * _hourH - 2, 20.0),
               colW / p.cols - 3,
             ),
+          ),
+        // 締め切りの印は予定の上に重ねる
+        for (final t in marks)
+          Positioned(
+            top: t.dueMin! / 60 * _hourH,
+            left: 0,
+            width: colW - 2,
+            height: 18,
+            child: _deadlineMark(context, t),
           ),
         if (isToday)
           Positioned(
@@ -422,6 +495,7 @@ class _TimeGridState extends State<TimeGrid> {
                                         .where((e) => !e.allDay)
                                         .toList(),
                                     days[i] == today,
+                                    tasks[i].where((t) => t.hasTimeMark).toList(),
                                   ),
                                 ),
                               ),

@@ -579,6 +579,13 @@ ParseResult parseText(String text, DateTime now,
     needsTitle = weak ? c : null;
     fromHeading = borrowed ? c : null;
   }
+  // 締め切りは終日が基本（0:00 は前日、23:59 はその日の終日。ほかの時刻は残す）
+  for (final c in out) {
+    if (c.type != ImportType.task || c.linkEnd) continue;
+    final (d, m) = normalizeDeadline(c.date, c.startMin);
+    c.date = d;
+    c.startMin = m;
+  }
   return ParseResult(out, skipped);
 }
 

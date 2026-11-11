@@ -667,11 +667,17 @@ class _TaskEditPageState extends State<TaskEditPage> {
     }
     final title = _title.text.trim();
     final store = StoreScope.read(context);
+    // 0:00 締め切りは前日の終日、23:59 はその日の終日にそろえる（予定の終了に合わせる場合は除く）
+    var due = _due;
+    int? dueMin = _due == null ? null : _dueMin;
+    if (due != null && !(_eventId != null && _followEnd)) {
+      (due, dueMin) = normalizeDeadline(due, dueMin);
+    }
     store.upsertTask(TaskItem(
       id: widget.task?.id ?? store.newId(),
       title: title,
-      due: _due,
-      dueMin: _due == null ? null : _dueMin,
+      due: due,
+      dueMin: dueMin,
       done: widget.task?.done ?? false,
       important: _important,
       note: _note.text.trim(),
