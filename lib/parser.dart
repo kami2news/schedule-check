@@ -914,6 +914,10 @@ ParseResult parseText(String text, DateTime now,
       if (h != null) {
         // 「提出」など短い語だけ残った場合は見出しと組み合わせる
         title = title.isEmpty || h.contains(title) ? h : '$h $title';
+        // 「申込締切：〜」のように見出しと別の締め切りなら、何の締め切りかを添える
+        final lb = cleaned.label;
+        final pre = lb.replaceFirst(RegExp(r'(?:期限|締切|締め切り)$'), '');
+        if (pre.isNotEmpty && pre != lb && !h.contains(pre)) title = '$h（$lb）';
         weak = false;
         borrowed = true;
       } else if (title.isEmpty && cleaned.label.isNotEmpty &&
