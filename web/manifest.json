@@ -4,7 +4,7 @@
     "start_url": ".",
     "display": "standalone",
     "background_color": "#F5F5F5",
-    "theme_color": "#0F6CBD",
+    "theme_color": "#10218B",
     "description": "バイト・授業・締切をまとめて確認するスケジュール確認アプリ",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
