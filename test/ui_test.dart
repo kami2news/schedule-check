@@ -277,6 +277,8 @@ void main() {
     await showLink();
     await tester.enterText(link, 'not-a-url');
     await tester.pumpAndSettle();
+    await showLink();
+    expect(tester.widget<TextField>(link).controller!.text, 'not-a-url');
     expect(find.textContaining('有効なURLを入力してください'), findsOneWidget);
     await tester.tap(find.text('保存'));
     await tester.pumpAndSettle();

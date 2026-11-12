@@ -198,16 +198,17 @@ String? _checkedUrl(TextEditingController c) {
 extension on FlField {
   /// 入力欄の下に赤い補足を出す
   Widget withHelp(String? message) {
-    if (message == null) return this;
+    // 補足の有無で部品の並びを変えない（変えると入力欄が作り直され、入力中にフォーカスが外れる）
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         FlField(label: label, child: child),
-        Transform.translate(
-          offset: Offset(0, -8),
-          child: Text(message,
-              style: FlText.caption1.copyWith(color: Fl.danger)),
-        ),
+        if (message != null)
+          Transform.translate(
+            offset: Offset(0, -8),
+            child: Text(message,
+                style: FlText.caption1.copyWith(color: Fl.danger)),
+          ),
       ],
     );
   }
