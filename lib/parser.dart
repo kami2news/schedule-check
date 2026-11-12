@@ -47,7 +47,11 @@ class Candidate {
     this.place = '',
     this.calendarId = 'other',
     this.showAs = ShowAs.busy,
+    this.endOffset = 0,
   });
+
+  /// 終了が開始日の何日後か（夜勤など、日をまたぐ予定は 1）
+  int endOffset;
 
   String title;
 
@@ -103,6 +107,14 @@ int _digit(String s) {
   if (s.length > 1) return int.parse(s); // 10〜12
   final c = s.codeUnitAt(0);
   return c >= 0xFF10 ? c - 0xFF10 : c - 0x30;
+}
+
+/// _extractTime の終了時刻を (その日の中の分, 何日後か) に分ける。
+/// ちょうど 24:00 は同じ日の 23:59、24:00 を超える分は翌日
+(int?, int) _splitEnd(int? end) {
+  if (end == null) return (null, 0);
+  if (end > 24 * 60) return (end - 24 * 60, 1);
+  return (math.min(end, 23 * 60 + 59), 0);
 }
 
 /// 「正午」「午後3時」「午前9:30」を、ふつうの時刻の書き方に直す
@@ -222,7 +234,11 @@ String? _asHeading(String line) {
     final a = _toMin(r, 1, 2, 3);
     var b = _toMin(r, 4, 5, 6);
     if (a != null && b != null) {
-      if (b <= a) b = null;
+      if (b <= a) {
+        // 「22:00〜5:00」のように夜に始まり朝までに終わるなら、翌日に終わる予定。
+        // 24:00 を足した値で返す（受け取る側で「翌日」に直す）。それ以外は終了時刻なし
+        b = a >= 12 * 60 && b <= 12 * 60 ? b + 24 * 60 : null;
+      }
       return (start: a, end: b, rest: s.replaceRange(r.start, r.end, ' '));
     }
   }
@@ -332,7 +348,7 @@ final _addrRe = RegExp('現場住所\\s*[:：]\\s*(.+?)$_fieldStop');
 final _jobRe = RegExp('作業内容\\s*[:：]\\s*(.+?)$_fieldStop');
 
 /// 「作業日: / 作業時間: / 現場名: / 現場住所: / 作業内容:」の書式の勤務連絡を読む。
-/// 夜勤（日付をまたぐ）は2つの予定に分け、終了時刻に「終了報告」のタスクも作る。
+/// 夜勤（日付をまたぐ）は翌日に終わる1つの予定にし、終了時刻に「終了報告」のタスクも作る。
 List<Candidate> _parseWorkNotices(List<String> lines, Set<int> consumed,
     List<CalendarDef> cals, String whole) {
   final out = <Candidate>[];
@@ -391,47 +407,22 @@ List<Candidate> _parseWorkNotices(List<String> lines, Set<int> consumed,
     if (!seen.add('${date.toIso8601String()} $start $end $site')) continue;
 
     group++;
+    // 夜勤（終了が開始以前）は、翌日に終わる1つの予定にする
     final overnight = end <= start;
     final endDate = overnight ? date.add(const Duration(days: 1)) : date;
-    if (overnight) {
-      out.add(Candidate(
-        title: title,
-        date: date,
-        type: ImportType.shift,
-        source: source,
-        startMin: start,
-        endMin: 24 * 60 - 1,
-        place: addr,
-        note: [note, '翌${fmtMin(end)}まで'].where((x) => x.isNotEmpty).join('\n'),
-        calendarId: calId,
-      ));
-      if (end > 0) {
-        out.add(Candidate(
-          title: '$title（夜勤の続き）',
-          date: endDate,
-          type: ImportType.shift,
-          source: source,
-          startMin: 0,
-          endMin: end,
-          place: addr,
-          note: note,
-          calendarId: calId,
-        ));
-      }
-    } else {
-      out.add(Candidate(
-        title: title,
-        date: date,
-        type: ImportType.shift,
-        source: source,
-        startMin: start,
-        endMin: end,
-        place: addr,
-        note: note,
-        calendarId: calId,
-      ));
-    }
-    // 最後に追加した勤務（夜勤なら翌朝の分）の終了時刻に、終了報告を結びつける
+    out.add(Candidate(
+      title: title,
+      date: date,
+      type: ImportType.shift,
+      source: source,
+      startMin: start,
+      endMin: end,
+      endOffset: overnight ? 1 : 0,
+      place: addr,
+      note: note,
+      calendarId: calId,
+    ));
+    // 追加した勤務の終了時刻に、終了報告を結びつける
     for (final c in out.reversed) {
       if (c.type == ImportType.shift) {
         c.linkGroup = group;
@@ -544,7 +535,11 @@ ParseResult parseText(String text, DateTime now,
           final t = _extractTime(src);
           if (t.start != null) {
             target.startMin = t.start;
-            if (target.type != ImportType.task) target.endMin = t.end;
+            if (target.type != ImportType.task) {
+              final (e, off) = _splitEnd(t.end);
+              target.endMin = e;
+              target.endOffset = off;
+            }
             src = t.rest;
           }
         }
@@ -625,9 +620,8 @@ ParseResult parseText(String text, DateTime now,
       startMin: type == ImportType.task || start == null
           ? start
           : math.min(start, 23 * 60 + 59),
-      endMin: type == ImportType.task || end == null
-          ? null
-          : math.min(end, 23 * 60 + 59),
+      endMin: type == ImportType.task ? null : _splitEnd(end).$1,
+      endOffset: type == ImportType.task ? 0 : _splitEnd(end).$2,
       url: urls.isEmpty ? '' : urls.first,
       note: urls.length > 1 ? urls.skip(1).join('\n') : '',
     );
@@ -638,7 +632,7 @@ ParseResult parseText(String text, DateTime now,
   }
   // 締め切りは終日が基本（0:00 は前日、23:59 はその日の終日。ほかの時刻は残す）
   for (final c in out) {
-    if (c.type != ImportType.task || c.linkEnd) continue;
+    if (c.type != ImportType.task || c.linkGroup != null) continue;
     final (d, m) = normalizeDeadline(c.date, c.startMin);
     c.date = d;
     c.startMin = m;

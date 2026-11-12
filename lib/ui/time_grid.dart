@@ -19,22 +19,27 @@ const double _gutter = 48;
 const double _minDayWidth = 92;
 
 class _Placed {
-  _Placed(this.event, this.col);
+  _Placed(this.event, this.slice, this.col);
 
   final Event event;
+
+  /// この日にかかっている部分（日をまたぐ予定は、日ごとに切って表示する）
+  final EventSlice slice;
   final int col;
   int cols = 1;
-}
 
-int _endOf(Event e) {
-  final s = e.startMin!;
-  return math.max(e.endMin ?? s + 30, s + 30);
+  int get start => slice.start;
+
+  /// 表示上の終了（短い予定も30分ぶんの高さを確保）
+  int get end => math.min(math.max(slice.end, slice.start + 30), 24 * 60);
 }
 
 /// 重なる予定を横に並べるための列割り当て
-List<_Placed> _layoutDay(List<Event> events) {
-  final sorted = [...events]
-    ..sort((a, b) => a.startMin!.compareTo(b.startMin!));
+List<_Placed> _layoutDay(List<Event> events, DateTime day) {
+  final sorted = [
+    for (final e in events)
+      if (e.sliceOn(day) case final s?) (e, s)
+  ]..sort((a, b) => a.$2.start.compareTo(b.$2.start));
   final placed = <_Placed>[];
   var cluster = <_Placed>[];
   var colEnds = <int>[];
@@ -50,9 +55,10 @@ List<_Placed> _layoutDay(List<Event> events) {
     clusterEnd = -1;
   }
 
-  for (final e in sorted) {
-    final s = e.startMin!;
-    final end = _endOf(e);
+  for (final (e, slice) in sorted) {
+    final p = _Placed(e, slice, 0);
+    final s = p.start;
+    final end = p.end;
     if (cluster.isNotEmpty && s >= clusterEnd) flush();
     var col = colEnds.indexWhere((x) => x <= s);
     if (col < 0) {
@@ -61,7 +67,7 @@ List<_Placed> _layoutDay(List<Event> events) {
     } else {
       colEnds[col] = end;
     }
-    cluster.add(_Placed(e, col));
+    cluster.add(_Placed(e, slice, col));
     if (end > clusterEnd) clusterEnd = end;
   }
   flush();
@@ -322,19 +328,18 @@ class _TimeGridState extends State<TimeGrid> {
             child: SizedBox.expand(),
           ),
         ),
-        for (final p in _layoutDay(timed))
+        for (final p in _layoutDay(timed, day))
           Positioned(
-            top: p.event.startMin! / 60 * _hourH,
+            top: p.start / 60 * _hourH,
             left: p.col * (colW / p.cols) + 1,
             width: colW / p.cols - 3,
-            height: math.max(
-                (_endOf(p.event) - p.event.startMin!) / 60 * _hourH - 2, 20.0),
+            height: math.max((p.end - p.start) / 60 * _hourH - 2, 20.0),
             child: _block(
               context,
               p.event,
-              day,
-              math.max(
-                  (_endOf(p.event) - p.event.startMin!) / 60 * _hourH - 2, 20.0),
+              // 続きの日を押しても、その回（開始日）のプレビューを開く
+              p.slice.startDay,
+              math.max((p.end - p.start) / 60 * _hourH - 2, 20.0),
               colW / p.cols - 3,
             ),
           ),
@@ -429,7 +434,8 @@ class _TimeGridState extends State<TimeGrid> {
                     child: Column(
                       children: [
                         for (final e in events[i].where((e) => e.allDay))
-                          _allDayEventChip(context, e, days[i]),
+                          _allDayEventChip(context, e,
+                              e.sliceOn(days[i])?.startDay ?? days[i]),
                         for (final t in tasks[i]) _allDayTaskChip(context, t),
                       ],
                     ),

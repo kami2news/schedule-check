@@ -92,6 +92,14 @@ void main() {
           1);
     });
 
+    test('日をまたぐ予定は、翌朝の分もふさがる', () {
+      final night = Event(
+          id: 'n', title: '夜勤', date: DateTime(2026, 11, 15), startMin: 22 * 60, endMin: 11 * 60, endOffset: 1);
+      final s = findFreeSlots([night], mon16,
+          const FreeTimeOptions(days: 1, dayStart: 9 * 60, dayEnd: 15 * 60, minMinutes: 60));
+      expect(s.map((x) => (x.start, x.end)).toList(), [(11 * 60, 15 * 60)]);
+    });
+
     test('終日の予定がある日は空いていない扱い', () {
       final events = [ev('z', '学園祭', mon16, null, null)];
       final s = findFreeSlots(events, mon16, const FreeTimeOptions(days: 1));

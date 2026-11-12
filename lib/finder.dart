@@ -130,19 +130,22 @@ List<FreeSlot> findFreeSlots(
     if (!o.weekends && (day.weekday == DateTime.saturday || day.weekday == DateTime.sunday)) {
       continue;
     }
-    final todays = events.where((e) =>
-        e.occursOn(day) &&
-        e.showAs != ShowAs.free &&
-        !ignoreCalendars.contains(e.calendarId));
-    if (o.allDayBusy && todays.any((e) => e.startMin == null)) continue;
+    // その日にかかっている部分（日をまたぐ予定の続きも含む）
+    final todays = [
+      for (final e in events)
+        if (e.showAs != ShowAs.free && !ignoreCalendars.contains(e.calendarId))
+          if (e.sliceOn(day) case final s?) (e, s)
+    ];
+    if (o.allDayBusy && todays.any((x) => x.$2.allDay)) continue;
 
     // 予定のある時間（前後に余裕を足す）
     final busy = <(int, int)>[
-      for (final e in todays.where((e) => e.startMin != null))
-        (
-          e.startMin! - o.buffer,
-          (e.endMin ?? e.startMin! + 60) + o.buffer,
-        ),
+      for (final (e, s) in todays)
+        if (!s.allDay)
+          (
+            s.start - o.buffer,
+            (s.isEnd && e.endMin == null ? s.start + 60 : s.end) + o.buffer,
+          ),
     ]..sort((a, b) => a.$1.compareTo(b.$1));
 
     var cursor = o.dayStart;

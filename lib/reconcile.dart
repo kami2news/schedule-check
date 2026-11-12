@@ -180,10 +180,13 @@ MatchResult reconcile(Candidate c, List<Event> events, List<TaskItem> tasks) {
 
   // ---- 時間の重なり ----
   if (c.startMin != null) {
-    final s = c.startMin!, e = _endOf(s, c.endMin);
+    // 日をまたぐ分は 24:00 を足して比べる（開始日が同じ予定どうし）
+    final s = c.startMin!,
+        e = _endOf(s, c.endMin) + (c.endMin == null ? 0 : c.endOffset * 24 * 60);
     final over = sameDay.where((x) {
       if (x.startMin == null) return false;
-      final xs = x.startMin!, xe = _endOf(xs, x.endMin);
+      final xs = x.startMin!,
+          xe = _endOf(xs, x.endMin) + (x.endMin == null ? 0 : x.endOffset * 24 * 60);
       return s < xe && xs < e;
     }).toList();
     if (over.isNotEmpty) return MatchResult(MatchKind.conflict, conflicts: over);
@@ -231,5 +234,5 @@ String describeCandidateTime(Candidate c) {
   if (c.startMin == null) return c.type == ImportType.task ? d : '$d 終日';
   if (c.type == ImportType.task) return '$d ${fmtMin(c.startMin!)}';
   final e = c.endMin ?? defaultEnd(c.startMin!);
-  return '$d ${fmtMin(c.startMin!)}–${fmtMin(math.min(e, 24 * 60 - 1))}';
+  return '$d ${fmtMin(c.startMin!)}–${c.endOffset > 0 ? '翌' : ''}${fmtMin(math.min(e, 24 * 60 - 1))}';
 }

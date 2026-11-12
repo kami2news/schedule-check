@@ -208,6 +208,22 @@ class Recurrence {
   int get hashCode => Object.hash(freq, interval, monthlyBy, weekdays.length);
 }
 
+/// 予定のうち、ある1日にかかっている部分
+class EventSlice {
+  const EventSlice(this.startDay, this.start, this.end,
+      {required this.allDay, required this.isStart, required this.isEnd});
+
+  /// この回の開始日（続きの日でも、回を指すときはこの日付を使う）
+  final DateTime startDay;
+
+  /// その日の中での開始・終了（分）。続きの日は 0 から、まだ続く日は 24:00 まで
+  final int start, end;
+  final bool allDay;
+
+  /// この日が開始日か／終了日か
+  final bool isStart, isEnd;
+}
+
 class Event {
   Event({
     required this.id,
@@ -227,6 +243,7 @@ class Event {
     this.seriesId,
     this.originalDate,
     this.reminder,
+    this.endOffset = 0,
   })  : exdates = exdates ?? {},
         repeat = repeat ?? (weekly ? const Recurrence() : null);
 
@@ -271,13 +288,40 @@ class Event {
   /// （例: 360 = 前日 18:00、-540 = 当日 9:00）。null なら通知しない
   int? reminder;
 
+  /// 終わるのが開始日の何日後か（0 = 同じ日）。夜勤などの日をまたぐ予定は 1 以上。
+  /// 終日の予定では「何日間か - 1」
+  int endOffset;
+
   bool get allDay => startMin == null;
 
   String get timeLabel {
-    if (startMin == null) return '終日';
+    if (startMin == null) {
+      return endOffset > 0 ? '終日（${endOffset + 1}日間）' : '終日';
+    }
     if (endMin == null) return fmtMin(startMin!);
-    return '${fmtMin(startMin!)}–${fmtMin(endMin!)}';
+    final next = switch (endOffset) { 0 => '', 1 => '翌', _ => '$endOffset日後 ' };
+    return '${fmtMin(startMin!)}–$next${fmtMin(endMin!)}';
   }
+
+  /// [day] にかかっている部分（日をまたぐ予定は、続きの日にも出る）。かかっていなければ null
+  EventSlice? sliceOn(DateTime day) {
+    final d = dateOnly(day);
+    for (var k = 0; k <= endOffset; k++) {
+      final first = addDays(d, -k);
+      if (!occursOn(first)) continue;
+      if (allDay) {
+        return EventSlice(first, 0, 24 * 60, allDay: true, isStart: k == 0, isEnd: k == endOffset);
+      }
+      final s = k == 0 ? startMin! : 0;
+      final e = k == endOffset ? (endMin ?? (k == 0 ? s + 30 : 0)) : 24 * 60;
+      if (k > 0 && e <= 0) continue; // ちょうど 0:00 に終わる予定は、その日には出さない
+      return EventSlice(first, s, e, allDay: false, isStart: k == 0, isEnd: k == endOffset);
+    }
+    return null;
+  }
+
+  /// [day] にかかっているか（開始日でなくても、続きの日なら true）
+  bool coversDay(DateTime day) => sliceOn(day) != null;
 
   bool occursOn(DateTime day) {
     final d = dateOnly(day);
@@ -327,6 +371,7 @@ class Event {
         seriesId: seriesId ?? this.seriesId,
         originalDate: originalDate ?? this.originalDate,
         reminder: reminder,
+        endOffset: endOffset,
       );
 
   Map<String, dynamic> toJson() => {
@@ -348,6 +393,7 @@ class Event {
         if (seriesId != null) 'seriesId': seriesId,
         if (originalDate != null) 'originalDate': originalDate!.toIso8601String(),
         if (reminder != null) 'reminder': reminder,
+        if (endOffset > 0) 'endOffset': endOffset,
       };
 
   factory Event.fromJson(Map<String, dynamic> j) => Event(
@@ -380,6 +426,7 @@ class Event {
             ? null
             : DateTime.parse(j['originalDate'] as String),
         reminder: (j['reminder'] as num?)?.toInt(),
+        endOffset: (j['endOffset'] as num?)?.toInt() ?? 0,
       );
 }
 

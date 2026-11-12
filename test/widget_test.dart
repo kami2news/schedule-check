@@ -68,6 +68,14 @@ void main() {
       expect((c.startMin, c.endMin), (9 * 60 + 30, 12 * 60 + 30));
     });
 
+    test('夜から朝までの時間帯は、翌日に終わる予定にする', () {
+      final a = one('11/21 22:00〜5:00 夜間作業');
+      expect((a.startMin, a.endMin, a.endOffset), (22 * 60, 5 * 60, 1));
+      // 夜→朝でない逆転（書き間違いなど）は、終了時刻なし
+      final b = one('11/22 9:00〜5:00 作業');
+      expect((b.startMin, b.endMin, b.endOffset), (9 * 60, null, 0));
+    });
+
     test('24:00 の締め切りはその日の終日、予定の終わりは 23:59', () {
       final a = one('提出期限：11月20日 24:00');
       expect((a.date, a.startMin), (DateTime(2026, 11, 20), null));

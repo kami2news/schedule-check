@@ -186,4 +186,65 @@ void main() {
       expect(store.tasks.where((t) => t.id == 'Q'), isEmpty);
     });
   });
+
+  group('日をまたぐ予定', () {
+    final night = Event(
+        id: 'n',
+        title: '夜勤',
+        date: DateTime(2026, 11, 13),
+        startMin: 22 * 60,
+        endMin: 5 * 60,
+        endOffset: 1);
+
+    test('開始日と翌日の両方にかかり、それぞれの時間帯で切られる', () {
+      final a = night.sliceOn(DateTime(2026, 11, 13))!;
+      expect((a.start, a.end, a.isStart, a.isEnd), (22 * 60, 24 * 60, true, false));
+      final b = night.sliceOn(DateTime(2026, 11, 14))!;
+      expect((b.start, b.end, b.isStart, b.isEnd), (0, 5 * 60, false, true));
+      expect(b.startDay, DateTime(2026, 11, 13));
+      expect(night.sliceOn(DateTime(2026, 11, 15)), isNull);
+      expect(night.sliceOn(DateTime(2026, 11, 12)), isNull);
+      expect(night.timeLabel, '22:00–翌05:00');
+    });
+
+    test('ちょうど 0:00 に終わる予定は翌日に出さない', () {
+      final e = Event(
+          id: 'm', title: '遅番', date: DateTime(2026, 11, 13), startMin: 20 * 60, endMin: 0, endOffset: 1);
+      expect(e.coversDay(DateTime(2026, 11, 13)), isTrue);
+      expect(e.coversDay(DateTime(2026, 11, 14)), isFalse);
+    });
+
+    test('数日にわたる終日の予定・毎週の夜勤', () {
+      final trip = Event(id: 't', title: '合宿', date: DateTime(2026, 11, 20), endOffset: 2);
+      expect([for (var d = 19; d <= 23; d++) trip.coversDay(DateTime(2026, 11, d))],
+          [false, true, true, true, false]);
+      expect(trip.timeLabel, '終日（3日間）');
+      final weekly = Event(
+          id: 'w',
+          title: '毎週の夜勤',
+          date: DateTime(2026, 11, 6), // 金曜
+          startMin: 23 * 60,
+          endMin: 6 * 60,
+          endOffset: 1,
+          repeat: const Recurrence());
+      expect(weekly.sliceOn(DateTime(2026, 11, 14))!.startDay, DateTime(2026, 11, 13));
+      expect(weekly.coversDay(DateTime(2026, 11, 15)), isFalse);
+    });
+
+    test('保存して読み戻せる。予定の一覧では翌日にも出る', () async {
+      expect(Event.fromJson(night.toJson()).endOffset, 1);
+      expect(night.copyWith(id: 'x').endOffset, 1);
+      SharedPreferences.setMockInitialValues({});
+      final store = await AppStore.load();
+      store.upsertEvent(night);
+      expect(store.eventsOn(DateTime(2026, 11, 13)).map((e) => e.id), contains('n'));
+      expect(store.eventsOn(DateTime(2026, 11, 14)).map((e) => e.id), contains('n'));
+      expect(store.eventsOn(DateTime(2026, 11, 15)).map((e) => e.id), isNot(contains('n')));
+      // 終了に合わせるタスクは、翌日の終了時刻になる
+      store.upsertTask(TaskItem(id: 'r', title: '終了報告', eventId: 'n', followEnd: true));
+      store.upsertEvent(night);
+      final t = store.tasks.firstWhere((t) => t.id == 'r');
+      expect((t.due, t.dueMin), (DateTime(2026, 11, 14), 5 * 60));
+    });
+  });
 }

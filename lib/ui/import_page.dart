@@ -118,6 +118,7 @@ class _ImportPageState extends State<ImportPage> {
             if (c.startMin != null) {
               changed.startMin = c.startMin;
               changed.endMin = c.endMin ?? defaultEnd(c.startMin!);
+              changed.endOffset = c.endOffset;
             }
             if (changed.url.isEmpty) changed.url = url;
             if (changed.place.isEmpty) changed.place = place;
@@ -131,6 +132,7 @@ class _ImportPageState extends State<ImportPage> {
               if (c.startMin != null) {
                 e.startMin = c.startMin;
                 e.endMin = c.endMin ?? defaultEnd(c.startMin!);
+                e.endOffset = c.endOffset;
               }
             }
             if (e.url.isEmpty) e.url = url;
@@ -181,6 +183,7 @@ class _ImportPageState extends State<ImportPage> {
               date: c.date,
               startMin: s,
               endMin: s == null ? null : (c.endMin ?? defaultEnd(s)),
+              endOffset: s == null ? 0 : c.endOffset,
               place: place,
               url: url,
               note: note,
@@ -339,7 +342,7 @@ class _CandidateTileState extends State<_CandidateTile> {
     final v = await _pickTime(c.startMin ?? 9 * 60);
     if (v == null) return;
     c.startMin = v;
-    if (c.endMin != null && c.endMin! <= v) c.endMin = null;
+    if (c.endOffset == 0 && c.endMin != null && c.endMin! <= v) c.endMin = null;
     _changed();
   }
 
@@ -348,7 +351,8 @@ class _CandidateTileState extends State<_CandidateTile> {
     if (s == null) return;
     final v = await _pickTime(c.endMin ?? defaultEnd(s));
     if (v == null) return;
-    if (v <= s) return;
+    // 開始より前の時刻は、翌日に終わる予定（夜勤など）
+    c.endOffset = v <= s ? 1 : 0;
     c.endMin = v;
     _changed();
   }
@@ -441,6 +445,7 @@ class _CandidateTileState extends State<_CandidateTile> {
                           if (k == taskKey) {
                             c.type = ImportType.task;
                             c.endMin = null;
+                            c.endOffset = 0;
                           } else {
                             if (c.type == ImportType.task) {
                               c.type = ImportType.event;
@@ -471,7 +476,7 @@ class _CandidateTileState extends State<_CandidateTile> {
                     TextButton(
                       onPressed: _pickEnd,
                       child: Text(
-                          '〜 ${fmtMin(c.endMin ?? defaultEnd(c.startMin!))}'),
+                          '〜 ${c.endOffset > 0 ? '翌' : ''}${fmtMin(c.endMin ?? defaultEnd(c.startMin!))}'),
                     ),
                   if (c.startMin != null)
                     IconButton(
@@ -481,6 +486,7 @@ class _CandidateTileState extends State<_CandidateTile> {
                       onPressed: () {
                         c.startMin = null;
                         c.endMin = null;
+                        c.endOffset = 0;
                         _changed();
                       },
                     ),

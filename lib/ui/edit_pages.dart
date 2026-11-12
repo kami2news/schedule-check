@@ -133,11 +133,12 @@ Future<void> openTaskEditor(BuildContext context,
   return _openEditor(context, TaskEditPage(task: task));
 }
 
-Future<DateTime?> _pickDate(BuildContext context, DateTime initial) {
+Future<DateTime?> _pickDate(BuildContext context, DateTime initial,
+    {DateTime? first}) {
   return showDatePicker(
     context: context,
     initialDate: initial,
-    firstDate: DateTime(2020),
+    firstDate: first ?? DateTime(2020),
     lastDate: DateTime(2100),
   );
 }
@@ -265,6 +266,9 @@ class _EventEditPageState extends State<EventEditPage> {
   late bool _allDay;
   late int _start;
   late int _end;
+
+  /// 終了日が開始日の何日後か（夜勤などの日をまたぐ予定は 1 以上）
+  int _endOffset = 0;
   Recurrence? _repeat;
   DateTime? _until;
   int? _reminder;
@@ -286,6 +290,7 @@ class _EventEditPageState extends State<EventEditPage> {
     _url = TextEditingController(text: e?.url ?? '');
     _cal = e?.calendarId ?? 'other';
     _showAs = e?.showAs ?? ShowAs.busy;
+    _endOffset = e?.endOffset ?? 0;
     _date = (e != null && e.weekly && widget.occurrence != null)
         ? dateOnly(widget.occurrence!)
         : (e?.date ?? dateOnly(widget.initialDate ?? DateTime.now()));
@@ -314,7 +319,12 @@ class _EventEditPageState extends State<EventEditPage> {
     if (v == null) return;
     setState(() {
       _start = v;
-      if (_end <= _start) _end = (_start + 60).clamp(0, 23 * 60 + 59).toInt();
+      // 同じ日のうちに終わらなくなったら、終了を1時間後に（深夜なら翌日にまたぐ）
+      if (_endOffset == 0 && _end <= _start) {
+        final end = _start + 60;
+        _end = end % (24 * 60);
+        if (end >= 24 * 60) _endOffset = 1;
+      }
       _revalidate();
     });
   }
@@ -324,6 +334,8 @@ class _EventEditPageState extends State<EventEditPage> {
     if (v == null) return;
     setState(() {
       _end = v;
+      // 開始より前の時刻を選んだら、翌日に終わる予定（夜勤など）として扱う
+      if (_endOffset == 0 && _end <= _start) _endOffset = 1;
       _revalidate();
     });
   }
@@ -331,7 +343,9 @@ class _EventEditPageState extends State<EventEditPage> {
   /// 入力内容を確認し、問題があればメッセージを返す
   String? _validate() {
     if (_title.text.trim().isEmpty) return 'タイトルを入力してください';
-    if (!_allDay && _end <= _start) return '終了時刻は開始時刻より後にしてください';
+    if (!_allDay && _endOffset == 0 && _end <= _start) {
+      return '終了は開始より後にしてください（日をまたぐときは終了日を翌日に）';
+    }
     if (_checkedUrl(_url) == null) return 'リンクの形式が正しくありません';
     return null;
   }
@@ -357,6 +371,7 @@ class _EventEditPageState extends State<EventEditPage> {
       date: _date,
       startMin: _allDay ? null : _start,
       endMin: _allDay ? null : _end,
+      endOffset: _endOffset,
       repeat: _repeat,
       repeatUntil: _repeat != null ? _until : null,
       place: _place.text.trim(),
@@ -506,6 +521,7 @@ class _EventEditPageState extends State<EventEditPage> {
             onChanged: (st, en) => setState(() {
               _start = st;
               _end = en;
+              _endOffset = 0; // 時限は同じ日のうちに終わる
               _revalidate();
             }),
           ),
@@ -538,6 +554,30 @@ class _EventEditPageState extends State<EventEditPage> {
               ],
             ),
           ),
+        // 終了日（日をまたぐ予定・数日にわたる予定）
+        FlField(
+          label: '終了日',
+          child: FlPickerField(
+            key: ValueKey('end-date'),
+            icon: FluentIcons.calendar_ltr_24_regular,
+            text: switch (_endOffset) {
+              0 => '${fmtLongDate(_date)}（開始日と同じ）',
+              1 => '${fmtLongDate(addDays(_date, 1))}（翌日）',
+              _ => '${fmtLongDate(addDays(_date, _endOffset))}（$_endOffset日後）',
+            },
+            onTap: () async {
+              final v = await _pickDate(context, addDays(_date, _endOffset),
+                  first: _date);
+              if (v == null) return;
+              setState(() {
+                _endOffset =
+                    (dateOnly(v).difference(dateOnly(_date)).inHours / 24).round();
+                if (_endOffset < 0) _endOffset = 0;
+                _revalidate();
+              });
+            },
+          ),
+        ),
         _RepeatEditor(
           date: _date,
           value: _repeat,

@@ -226,9 +226,14 @@ class AppStore extends ChangeNotifier {
   // ---- 参照 ----
 
   List<Event> eventsOn(DateTime day) {
-    final list = events.where((e) => e.occursOn(day)).toList();
-    list.sort((a, b) => (a.startMin ?? -1).compareTo(b.startMin ?? -1));
-    return list;
+    // 日をまたぐ予定は、続きの日にも含める
+    final list = <(Event, int)>[];
+    for (final e in events) {
+      final s = e.sliceOn(day);
+      if (s != null) list.add((e, s.allDay ? -1 : s.start));
+    }
+    list.sort((a, b) => a.$2.compareTo(b.$2));
+    return [for (final (e, _) in list) e];
   }
 
   List<TaskItem> tasksDueOn(DateTime day) {
@@ -434,7 +439,8 @@ class AppStore extends ChangeNotifier {
   /// 予定の終了時刻に合わせているタスクの期限を、予定に追従させる（単発の予定のみ）
   void _followEventTime(Event e) {
     if (e.weekly || e.startMin == null) return;
-    final endDate = dateOnly(e.date);
+    // 日をまたぐ予定は、終わる日の終了時刻
+    final endDate = addDays(dateOnly(e.date), e.endOffset);
     final endMin = e.endMin ?? e.startMin!;
     for (final t in tasks.where((t) => t.eventId == e.id && t.followEnd)) {
       // 夜勤の続き（0時開始）などは同じ日の終了時刻

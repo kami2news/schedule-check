@@ -158,21 +158,19 @@ void main() {
       expect(cs.first.endMin, 21 * 60);
     });
 
-    test('夜勤は2日に分け、終了報告は翌朝', () {
+    test('夜勤は翌日に終わる1つの予定にし、終了報告は翌朝', () {
       final cs = parseText(
               '作業日:2026/11/08(日)\n作業時間:20:30-6:00(休憩1:00)\n現場名:ビッグサイト夜勤\n作業内容:撤去',
               now)
           .candidates;
-      expect(cs.length, 3);
+      expect(cs.length, 2);
       expect(cs[0].date, DateTime(2026, 11, 8));
       expect(cs[0].startMin, 20 * 60 + 30);
-      expect(cs[0].endMin, 24 * 60 - 1);
+      expect(cs[0].endMin, 6 * 60);
+      expect(cs[0].endOffset, 1);
+      expect(cs[1].type, ImportType.task);
       expect(cs[1].date, DateTime(2026, 11, 9));
-      expect(cs[1].startMin, 0);
-      expect(cs[1].endMin, 6 * 60);
-      expect(cs[2].type, ImportType.task);
-      expect(cs[2].date, DateTime(2026, 11, 9));
-      expect(cs[2].startMin, 6 * 60);
+      expect(cs[1].startMin, 6 * 60);
     });
 
     test('返信の引用で同じ通知が重なっても1件', () {
