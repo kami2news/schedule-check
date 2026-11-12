@@ -201,4 +201,89 @@ Google Meet に参加: https://meet.google.com/abc-defg-hij''');
       expect((c.date, c.startMin, c.endMin), (DateTime(2026, 11, 20), 15 * 60, 16 * 60));
     });
   });
+
+  group('追加の形式', () {
+    test('Teams 会議の招待（英語・日本語混在）', () {
+      final c = one('''件名: 共同研究 打ち合わせ
+日時: 2026年11月26日(木) 15:00-16:00 (UTC+09:00) 大阪、札幌、東京
+
+Microsoft Teams 会議
+コンピューター、モバイル アプリケーション、またはルーム デバイスで参加する
+https://teams.microsoft.com/l/meetup-join/sample
+会議 ID: 123 456 789 012
+パスコード: Ab1Cd2''');
+      expect(c.title, contains('共同研究'));
+      expect((c.startMin, c.endMin), (15 * 60, 16 * 60));
+      expect(c.url, 'https://teams.microsoft.com/l/meetup-join/sample');
+      expect(c.note, contains('会議 ID'));
+    });
+
+    test('ホテルの予約（チェックイン・チェックアウト）', () {
+      final cs = parse('''ご予約内容
+宿泊施設：サンプルホテル京都
+チェックイン：2026年12月26日（土）15:00
+チェックアウト：2026年12月27日（日）10:00''');
+      expect(cs.length, greaterThanOrEqualTo(1));
+      expect(cs.first.date, DateTime(2026, 12, 26));
+      expect(cs.first.startMin, 15 * 60);
+      expect(cs.first.title, isNot(anyOf('', 'ご予約内容', 'ご予約')));
+    });
+
+    test('映画のチケット', () {
+      final c = one('''鑑賞日時：2026/11/22(日) 18:40～20:55
+劇場：サンプルシネマ 横浜
+作品名：サンプルの冒険
+座席：G-12''');
+      expect((c.startMin, c.endMin), (18 * 60 + 40, 20 * 60 + 55));
+      expect(c.title, contains('サンプルの冒険'));
+    });
+
+    test('Webテストの受検期限', () {
+      final c = one('''【株式会社サンプル】適性検査受検のお願い
+受検期限：2026年11月19日（木）23:59まで
+受検URL：https://example.com/test''');
+      expect(c.type, ImportType.task);
+      expect((c.date, c.startMin), (DateTime(2026, 11, 19), null));
+      expect(c.title, contains('適性検査'));
+      expect(c.url, 'https://example.com/test');
+    });
+
+    test('期末試験の日程（1行に科目・時限・教室）', () {
+      final cs = parse('''期末試験日程
+1/20(火) 2限 環境化学 5101教室
+1/22(木) 4限 地球科学概論 5203教室''');
+      expect(cs.length, 2);
+      expect(cs.every((c) => c.type == ImportType.lecture), isTrue);
+      expect((cs[0].date, cs[0].startMin), (DateTime(2027, 1, 20), 10 * 60));
+      expect(cs[0].title, contains('環境化学'));
+      expect(cs[1].title, contains('地球科学概論'));
+    });
+
+    test('説明会の申込締切と開催日が両方ある', () {
+      final cs = parse('''インターンシップ説明会
+開催日時：12月10日（木）13:00〜14:30
+申込締切：12月3日（木）''');
+      final ev = cs.firstWhere((c) => c.type != ImportType.task);
+      final task = cs.firstWhere((c) => c.type == ImportType.task);
+      expect((ev.date, ev.startMin, ev.endMin), (DateTime(2026, 12, 10), 13 * 60, 14 * 60 + 30));
+      expect(ev.title, contains('インターンシップ説明会'));
+      expect(task.date, DateTime(2026, 12, 3));
+      expect(task.title, contains('申込'));
+    });
+
+    test('ゴミ出し・回覧（明日）', () {
+      final c = one('明日 8:30までに粗大ごみを出す');
+      expect(c.type, ImportType.task);
+      expect((c.date, c.startMin), (DateTime(2026, 11, 11), 8 * 60 + 30));
+    });
+
+    test('部活の連絡（集合時刻・場所）', () {
+      final c = one('''11/29(日) 練習試合
+集合：9:00 ○○大学 正門前
+解散予定 16:00''');
+      expect(c.title, '練習試合');
+      expect(c.startMin, 9 * 60);
+      expect(c.place, contains('正門前'));
+    });
+  });
 }
