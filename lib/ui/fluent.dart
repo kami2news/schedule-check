@@ -1133,7 +1133,11 @@ class FlEditorFrame extends StatelessWidget {
     required this.children,
     required this.onSave,
     this.onDelete,
+    this.error,
   });
+
+  /// 保存できない理由。保存ボタンのすぐ上（スクロールしても常に見える位置）に出す
+  final String? error;
 
   final String title;
   final List<Widget> children;
@@ -1171,7 +1175,26 @@ class FlEditorFrame extends StatelessWidget {
                 border: Border(top: BorderSide(color: Fl.stroke2)),
               ),
               padding: EdgeInsets.fromLTRB(24, 12, 24, 16),
-              child: Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (error != null)
+                    Padding(
+                      padding: EdgeInsets.only(bottom: 10),
+                      child: Row(
+                        children: [
+                          Icon(FluentIcons.error_circle_16_filled,
+                              size: 16, color: Fl.danger),
+                          SizedBox(width: 6),
+                          Expanded(
+                            child: Text(error!,
+                                style: FlText.body1.copyWith(color: Fl.danger)),
+                          ),
+                        ],
+                      ),
+                    ),
+                  Row(
                 children: [
                   FilledButton(onPressed: onSave, child: Text('保存')),
                   SizedBox(width: 8),
@@ -1187,6 +1210,8 @@ class FlEditorFrame extends StatelessWidget {
                       icon: Icon(FluentIcons.delete_24_regular, size: 18),
                       label: Text('削除'),
                     ),
+                ],
+              ),
                 ],
               ),
             ),

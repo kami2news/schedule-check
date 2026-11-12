@@ -214,22 +214,6 @@ extension on FlField {
   }
 }
 
-Widget _errorText(String? msg) {
-  if (msg == null) return SizedBox.shrink();
-  return Padding(
-    padding: EdgeInsets.only(bottom: 12),
-    child: Row(
-      children: [
-        Icon(FluentIcons.error_circle_16_filled,
-            size: 16, color: Fl.danger),
-        SizedBox(width: 6),
-        Expanded(
-          child: Text(msg, style: FlText.caption1.copyWith(color: Fl.danger)),
-        ),
-      ],
-    ),
-  );
-}
 
 // ---------------------------------------------------------------------------
 // 予定（シフト・授業・その他）の追加／編集
@@ -418,8 +402,8 @@ class _EventEditPageState extends State<EventEditPage> {
       title: _isNew ? '予定を追加' : '予定を編集',
       onSave: _save,
       onDelete: _isNew ? null : _delete,
+      error: _error,
       children: [
-        _errorText(_error),
         if (_isOccurrence || (widget.event?.isException ?? false))
           Padding(
             padding: EdgeInsets.only(bottom: 12),
@@ -753,8 +737,8 @@ class _TaskEditPageState extends State<TaskEditPage> {
       title: _isNew ? 'タスクを追加' : 'タスクを編集',
       onSave: _save,
       onDelete: _isNew ? null : _delete,
+      error: _error,
       children: [
-        _errorText(_error),
         FlField(
           label: 'タイトル',
           child: FlTextField(
