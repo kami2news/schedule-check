@@ -5,6 +5,7 @@ import '../models.dart';
 import '../store.dart';
 import 'controller.dart';
 import 'fluent.dart';
+import 'fluent_extras.dart';
 
 /// 左側（狭い画面ではヘッダー下）に出す小さな月カレンダー
 class MiniMonth extends StatelessWidget {
@@ -54,7 +55,8 @@ class MiniMonth extends StatelessWidget {
                   child: Text(
                     weekdayNames[addDays(gridStart, i).weekday - 1],
                     textAlign: TextAlign.center,
-                    style: FlText.caption1.copyWith(color: Fl.fg3),
+                    style: FlText.caption1.copyWith(
+                        color: weekendFg(addDays(gridStart, i)) ?? Fl.fg3),
                   ),
                 ),
             ],
@@ -95,9 +97,14 @@ class MiniMonth extends StatelessWidget {
 
     // 今日 = ブランド色の塗り、選択日 = 淡いブランド背景 + ブランド文字
     final Color? fill = isToday ? Fl.brand : (isSel ? Fl.brandTint : null);
+    final weekend = weekendFg(day);
     final Color textColor = isToday
         ? Colors.white
-        : (isSel ? Fl.brandFg : (inMonth ? Fl.fg1 : Fl.fg3));
+        : (isSel
+            ? Fl.brandFg
+            : (inMonth
+                ? (weekend ?? Fl.fg1)
+                : (weekend?.withValues(alpha: 0.45) ?? Fl.fg3)));
 
     return InkWell(
       onTap: () => controller.select(day),

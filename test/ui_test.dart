@@ -101,7 +101,7 @@ void main() {
     expect(find.byTooltip('編集'), findsNothing);
   });
 
-  testWidgets('検索・空き時間・通知の設定が開ける', (tester) async {
+  testWidgets('検索・空き時間・設定が開ける', (tester) async {
     final store = await _storeWithSamples();
     await pumpWide(tester, store);
 
@@ -122,10 +122,17 @@ void main() {
     await tester.tap(find.byTooltip('閉じる'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('通知の設定'));
+    await tester.tap(find.text('設定'));
     await tester.pumpAndSettle();
     expect(find.text('最初から付ける通知'), findsOneWidget);
     expect(find.text('時刻のある予定'), findsOneWidget);
+    expect(find.textContaining('この端末にだけ保存'), findsOneWidget);
+
+    // 土日の色分けを切り替えると、すぐ設定に反映される
+    expect(store.weekendColors, isTrue);
+    await tester.tap(find.text('土日を色分けする（土曜は青、日曜は赤）'));
+    await tester.pumpAndSettle();
+    expect(store.weekendColors, isFalse);
   });
 
   testWidgets('取り込み: 貼り付けた文章から候補が出る（時限・締め切り）', (tester) async {

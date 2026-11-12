@@ -18,7 +18,7 @@ extension SyncStateX on SyncState {
 }
 
 /// ログイン中のユーザーのデータを Firestore と同期する。
-/// 保存場所: users/{uid}/events, users/{uid}/tasks, users/{uid}/calendars
+/// 保存場所: users/{uid}/events, tasks, calendars, settings/main
 class FirebaseSync implements RemoteSink {
   FirebaseSync(this.store, this.uid, {required this.onState});
 
@@ -61,7 +61,19 @@ class FirebaseSync implements RemoteSink {
         store.seedRemoteCalendars();
       }
     }, onError: (_) => onState(SyncState.offline)));
+    // 設定（テーマ・時限・既定の通知など）。まだ無いアカウントには、この端末の設定を書く
+    _subs.add(_col('settings').doc('main').snapshots().listen((snap) {
+      final data = snap.data();
+      if (data != null) {
+        store.applyRemoteSettings(data);
+      } else if (!snap.metadata.isFromCache && !_settingsSeeded) {
+        _settingsSeeded = true;
+        store.seedRemoteSettings();
+      }
+    }, onError: (_) {}));
   }
+
+  bool _settingsSeeded = false;
 
   void _listen<T>(String name, T Function(Map<String, dynamic>) fromJson,
       void Function(List<T>) apply) {
@@ -122,9 +134,13 @@ class FirebaseSync implements RemoteSink {
   @override
   void removeCalendar(String id) => _col('calendars').doc(id).delete();
 
+  @override
+  void putSettings(Map<String, dynamic> settings) =>
+      _col('settings').doc('main').set(_stamp(settings));
+
   /// アカウント削除用: このユーザーのデータをすべて消す
   Future<void> deleteAll() async {
-    for (final name in ['events', 'tasks', 'calendars', 'pushSubs', 'pushQueue', 'pushTest']) {
+    for (final name in ['events', 'tasks', 'calendars', 'settings', 'pushSubs', 'pushQueue', 'pushTest']) {
       final snap = await _col(name).get();
       var batch = _db.batch();
       var n = 0;

@@ -13,6 +13,9 @@ abstract class RemoteSink {
   void removeTask(String id);
   void putCalendar(CalendarDef c, int order);
   void removeCalendar(String id);
+
+  /// アカウントに保存する設定（テーマ・時限・既定の通知など）
+  void putSettings(Map<String, dynamic> settings);
 }
 
 /// 予定・タスク・マイカレンダーを持つストア。
@@ -136,8 +139,83 @@ class AppStore extends ChangeNotifier {
     }
   }
 
+  // ---- 設定（ログイン中はアカウントに保存して、ほかの端末と同じにする） ----
+
   /// 表示テーマ（'system' / 'light' / 'dark'）
   String get themeMode => _prefs.getString('themeMode') ?? 'system';
+
+  /// 週の始まりを日曜にするか
+  bool get weekStartsSunday => _prefs.getBool('weekStartsSunday') ?? true;
+
+  void setWeekStartsSunday(bool v) {
+    _prefs.setBool('weekStartsSunday', v);
+    _applyDisplayGlobals();
+    _settingsChanged();
+  }
+
+  /// 土日を色分けするか（土曜は青、日曜は赤）
+  bool get weekendColors => _prefs.getBool('weekendColors') ?? true;
+
+  void setWeekendColors(bool v) {
+    _prefs.setBool('weekendColors', v);
+    _applyDisplayGlobals();
+    _settingsChanged();
+  }
+
+  void _applyDisplayGlobals() {
+    weekStartsOnSunday = weekStartsSunday;
+    weekendColorsOn = weekendColors;
+  }
+
+  /// アカウントに保存する設定の中身
+  Map<String, dynamic> get syncedSettings => {
+        'themeMode': themeMode,
+        'weekStartsSunday': weekStartsSunday,
+        'weekendColors': weekendColors,
+        'periods': [for (final (a, b) in periods) [a, b]],
+        'remind': {
+          for (final k in const ['timed', 'allDay', 'deadline'])
+            k: defaultReminder(k),
+        },
+      };
+
+  void _settingsChanged() {
+    _remote?.putSettings(syncedSettings);
+    notifyListeners();
+  }
+
+  /// アカウントから届いた設定を、この端末にも反映する（送り返さない）
+  void applyRemoteSettings(Map<String, dynamic> j) {
+    if (!isRemote) return;
+    if (j['themeMode'] is String) _prefs.setString('themeMode', j['themeMode'] as String);
+    if (j['weekStartsSunday'] is bool) {
+      _prefs.setBool('weekStartsSunday', j['weekStartsSunday'] as bool);
+    }
+    if (j['weekendColors'] is bool) _prefs.setBool('weekendColors', j['weekendColors'] as bool);
+    if (j['periods'] is List) {
+      try {
+        final list = [
+          for (final x in j['periods'] as List)
+            ((x as List)[0] as num).toInt(),
+        ];
+        if (list.isNotEmpty) _prefs.setString('periods', jsonEncode(j['periods']));
+      } catch (_) {}
+    }
+    if (j['remind'] is Map) {
+      final m = j['remind'] as Map;
+      for (final k in const ['timed', 'allDay', 'deadline']) {
+        if (m.containsKey(k)) {
+          final v = m[k];
+          setUiValue('remind.$k', v is num ? '${v.toInt()}' : '');
+        }
+      }
+    }
+    _applyDisplayGlobals();
+    notifyListeners();
+  }
+
+  /// 新しいアカウント（設定がまだ無い）に、この端末の設定を書き込む
+  void seedRemoteSettings() => _remote?.putSettings(syncedSettings);
 
   // ---- 時限（授業の時間帯） ----
 
@@ -158,7 +236,7 @@ class AppStore extends ChangeNotifier {
   void setPeriods(List<(int, int)> list) {
     _prefs.setString(
         'periods', jsonEncode([for (final (a, b) in list) [a, b]]));
-    notifyListeners();
+    _settingsChanged();
   }
 
   /// 画面の表示状態（最後のタブ・表示形式など）。変更通知はしない
@@ -169,13 +247,14 @@ class AppStore extends ChangeNotifier {
 
   void setThemeMode(String mode) {
     _prefs.setString('themeMode', mode);
-    notifyListeners();
+    _settingsChanged();
   }
 
   static Future<AppStore> load() async {
     final prefs = await SharedPreferences.getInstance();
     final store = AppStore._(prefs, [], [], []);
     store._loadLocal();
+    store._applyDisplayGlobals();
     return store;
   }
 
@@ -415,7 +494,7 @@ class AppStore extends ChangeNotifier {
 
   void setDefaultReminder(String kind, int? minutes) {
     setUiValue('remind.$kind', minutes == null ? '' : '$minutes');
-    notifyListeners();
+    _settingsChanged();
   }
 
   /// 締め切り（タスク）の既定の通知。時刻つきの締め切りには時刻用の選び方が要るので、

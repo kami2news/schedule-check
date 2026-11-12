@@ -379,6 +379,15 @@ Future<int?> showFlTimeList(BuildContext context, int initialMin,
   );
 }
 
+/// 土日の文字色（設定で色分けがオフ、または平日なら null）。
+/// 日本のカレンダーの慣習どおり、土曜は青・日曜は赤
+Color? weekendFg(DateTime d) {
+  if (!weekendColorsOn) return null;
+  if (d.weekday == DateTime.sunday) return Fl.isDark ? Color(0xFFE37D80) : Color(0xFFB10E1C);
+  if (d.weekday == DateTime.saturday) return Fl.isDark ? Color(0xFF479EF5) : Color(0xFF0F6CBD);
+  return null;
+}
+
 /// ビルド番号（CI で --dart-define=BUILD_ID=<コミット> を渡す。ローカルでは dev）
 const kBuildId = String.fromEnvironment('BUILD_ID', defaultValue: 'dev');
 

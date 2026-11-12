@@ -9,7 +9,7 @@ import 'fluent.dart';
 import 'finder_pages.dart';
 import 'fluent_extras.dart';
 import 'mini_month.dart';
-import 'notify_settings.dart';
+import 'settings_page.dart';
 
 /// 広い画面の左サイドバー（新しい予定・ミニカレンダー・マイカレンダー）。
 /// Outlook と同じく、パネルではなくキャンバス上にそのまま置く。
@@ -59,14 +59,9 @@ class CalendarSidebar extends StatelessWidget {
               onTap: () => openFreeTime(context),
             ),
             _SideAction(
-              icon: FluentIcons.clock_24_regular,
-              label: '時限の時刻を設定',
-              onTap: () => showPeriodSettings(context),
-            ),
-            _SideAction(
-              icon: FluentIcons.alert_24_regular,
-              label: '通知の設定',
-              onTap: () => openNotifySettings(context),
+              icon: FluentIcons.settings_24_regular,
+              label: '設定',
+              onTap: () => openSettings(context),
             ),
           ],
         );

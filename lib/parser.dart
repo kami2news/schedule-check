@@ -317,7 +317,7 @@ DateTime? _validDate(int y, int m, int d) {
     final weeks = const {'今週': 0, '来週': 1, '再来週': 2}[m.group(1)!]!;
     // 週の始まり（日曜）からの日数
     final wd = '日月火水木金土'.indexOf(m.group(2)!);
-    final offset = kWeekStartsOnSunday ? wd : (wd + 6) % 7;
+    final offset = weekStartsOnSunday ? wd : (wd + 6) % 7;
     final dt = addDays(startOfWeek(today), weeks * 7 + offset);
     return (date: dt, rest: s.replaceRange(m.start, m.end, ' '));
   }

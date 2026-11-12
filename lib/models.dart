@@ -7,10 +7,14 @@ DateTime dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
 DateTime addDays(DateTime d, int n) => DateTime(d.year, d.month, d.day + n);
 
 /// 週の開始曜日。Outlook（日本語版）に合わせて日曜始まり。月曜始まりにするなら false
-const kWeekStartsOnSunday = true;
+/// 週の始まりを日曜にするか（設定で変わる。false なら月曜始まり）
+bool weekStartsOnSunday = true;
+
+/// 土日を色分けするか（土曜は青、日曜は赤。設定で変わる）
+bool weekendColorsOn = true;
 
 DateTime startOfWeek(DateTime d) {
-  final offset = kWeekStartsOnSunday ? d.weekday % 7 : d.weekday - 1;
+  final offset = weekStartsOnSunday ? d.weekday % 7 : d.weekday - 1;
   return DateTime(d.year, d.month, d.day - offset);
 }
 
@@ -155,7 +159,7 @@ class Recurrence {
   /// 「毎週 月・水」「隔週 火曜」「毎月 第2水曜」などの表示
   String label(DateTime first) {
     String wd(Iterable<int> ds) {
-      final order = kWeekStartsOnSunday ? [7, 1, 2, 3, 4, 5, 6] : [1, 2, 3, 4, 5, 6, 7];
+      final order = weekStartsOnSunday ? [7, 1, 2, 3, 4, 5, 6] : [1, 2, 3, 4, 5, 6, 7];
       return order.where(ds.contains).map((d) => weekdayNames[d - 1]).join('・');
     }
 

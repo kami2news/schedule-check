@@ -37,7 +37,8 @@ class MonthView extends StatelessWidget {
                   child: Text(
                     weekdayNames[addDays(gridStart, i).weekday - 1],
                     textAlign: TextAlign.center,
-                    style: FlText.caption1.copyWith(color: Fl.fg3),
+                    style: FlText.caption1.copyWith(
+                        color: weekendFg(addDays(gridStart, i)) ?? Fl.fg3),
                   ),
                 ),
               ),
@@ -137,7 +138,7 @@ class MonthView extends StatelessWidget {
                       style: FlText.caption1Strong.copyWith(
                         color: isToday
                             ? Colors.white
-                            : (inMonth ? Fl.fg1 : Fl.fg3),
+                            : _dim(weekendFg(day) ?? Fl.fg1, !inMonth),
                       ),
                     ),
                   ),
@@ -221,3 +222,6 @@ class MonthView extends StatelessWidget {
     );
   }
 }
+
+/// 表示中の月以外の日は薄くする
+Color _dim(Color c, bool dim) => dim ? c.withValues(alpha: 0.45) : c;

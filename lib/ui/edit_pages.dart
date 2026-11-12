@@ -922,7 +922,7 @@ class _RepeatEditor extends StatelessWidget {
     final r = value;
     final isWeekly = r != null && r.freq == RepeatFreq.weekly;
     final days = isWeekly ? (r.weekdays.isEmpty ? {date.weekday} : r.weekdays) : <int>{};
-    final order = kWeekStartsOnSunday ? [7, 1, 2, 3, 4, 5, 6] : [1, 2, 3, 4, 5, 6, 7];
+    final order = weekStartsOnSunday ? [7, 1, 2, 3, 4, 5, 6] : [1, 2, 3, 4, 5, 6, 7];
     return FlField(
       label: '繰り返し',
       child: Column(

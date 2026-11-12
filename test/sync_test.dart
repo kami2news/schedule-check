@@ -20,6 +20,9 @@ class FakeSink implements RemoteSink {
       log.add('putCalendar ${c.id} $order');
   @override
   void removeCalendar(String id) => log.add('removeCalendar $id');
+  @override
+  void putSettings(Map<String, dynamic> settings) =>
+      log.add('putSettings ${settings['themeMode']}');
 }
 
 Event _ev(String id) => Event(id: id, title: id, date: DateTime(2026, 11, 10));
@@ -83,5 +86,39 @@ void main() {
     store.attachRemote(FakeSink());
     store.applyRemote(calendars: []);
     expect(store.calendars.map((c) => c.id), ['other', 'shift', 'lecture']);
+  });
+
+  test('設定はアカウントに送り、届いた設定は端末に反映する（送り返さない）', () async {
+    final store = await AppStore.load();
+    // ログインしていない間は送らない
+    store.setThemeMode('dark');
+    final sink = FakeSink();
+    store.attachRemote(sink);
+    store.setThemeMode('light');
+    store.setWeekendColors(false);
+    expect(sink.log.where((l) => l.startsWith('putSettings')).length, 2);
+    expect(store.syncedSettings['weekendColors'], isFalse);
+
+    sink.log.clear();
+    store.applyRemoteSettings({
+      'themeMode': 'dark',
+      'weekStartsSunday': false,
+      'weekendColors': true,
+      'periods': [
+        [540, 590],
+        [600, 650]
+      ],
+      'remind': {'timed': 15, 'allDay': null},
+    });
+    expect(sink.log, isEmpty);
+    expect(store.themeMode, 'dark');
+    expect(store.weekStartsSunday, isFalse);
+    expect(weekStartsOnSunday, isFalse);
+    expect(startOfWeek(DateTime(2026, 11, 12)), DateTime(2026, 11, 9)); // 月曜始まり
+    expect(store.periods, [(540, 590), (600, 650)]);
+    expect(store.defaultReminder('timed'), 15);
+    expect(store.defaultReminder('allDay'), isNull);
+    store.setWeekStartsSunday(true);
+    expect(startOfWeek(DateTime(2026, 11, 12)), DateTime(2026, 11, 8));
   });
 }

@@ -113,7 +113,7 @@ class _TimeGridState extends State<TimeGrid> {
             Text(
               weekdayNames[d.weekday - 1],
               style: (isToday ? FlText.caption1Strong : FlText.caption1)
-                  .copyWith(color: isToday ? Fl.brandFg : Fl.fg3),
+                  .copyWith(color: isToday ? Fl.brandFg : (weekendFg(d) ?? Fl.fg3)),
             ),
             SizedBox(height: 2),
             Container(
@@ -127,7 +127,7 @@ class _TimeGridState extends State<TimeGrid> {
               child: Text(
                 '${d.day}',
                 style: FlText.subtitle2
-                    .copyWith(color: isToday ? Colors.white : Fl.fg1),
+                    .copyWith(color: isToday ? Colors.white : (weekendFg(d) ?? Fl.fg1)),
               ),
             ),
           ],
