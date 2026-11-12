@@ -91,6 +91,34 @@ void main() {
     });
   });
 
+  group('取り込み: 「■見出し」の次の行に値がある予約メール', () {
+    test('来店日時とサロン名から、店名の予定（20:00〜）を作る', () {
+      final r = parseText('''■来店日時
+  2026年11月12日（木）20:00
+■サロン名
+  HYPER Men's yokohama【ハイパーメンズ】''', now);
+      final c = r.candidates.single;
+      expect(c.type, ImportType.event);
+      expect(c.title, startsWith("HYPER Men's yokohama"));
+      expect(c.title, contains('来店'));
+      expect(c.place, startsWith("HYPER Men's yokohama"));
+      expect((c.date, c.startMin), (DateTime(2026, 11, 12), 20 * 60));
+      expect(r.skipped, 0);
+    });
+
+    test('【見出し】や「見出し：」だけの行も同じように読む', () {
+      final c = parseText('''【予約日時】
+11月20日(金) 14:00〜15:00
+店舗名：
+みなとみらい歯科''', now).candidates.single;
+      expect(c.title, 'みなとみらい歯科（予約）');
+      expect((c.startMin, c.endMin), (14 * 60, 15 * 60));
+      // 【重要】などのタグは見出しとして扱わない
+      final d = parseText('【重要】\n11/25 10:00 健康診断', now).candidates.single;
+      expect(d.title, '健康診断');
+    });
+  });
+
   group('取り込み: Moodle のタイムライン', () {
     const one = '''2026年 11月 15日(日曜日)
 23:59

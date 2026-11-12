@@ -141,7 +141,36 @@ final _linkLabelRe = RegExp(
     caseSensitive: false);
 /// 挨拶などメモに入れなくてよい行
 final _greetingRe = RegExp(r'^(よろしく|宜しく|お疲れ|おつかれ|お世話|以上|ありがとう)');
-final _placeRe = RegExp(r'^\s*(?:場所|会場|教室|集合場所|集合)\s*[:：]\s*(.+)$');
+final _placeRe = RegExp(r'^\s*(?:場所|会場|教室|集合場所|集合|住所|所在地)\s*[:：]\s*(.+)$');
+
+/// お店・施設の名前の見出し（予約メールの「サロン名」「店舗名」など）。予定のタイトルに使い、場所にも入れる
+const _nameLabels =
+    r'(?:サロン|店|店舗|お店|施設|病院|医院|クリニック|歯科|会場|ホテル|会社|教室)名?';
+final _nameLabelRe = RegExp('^(?:$_nameLabels)\\s*[:：]\\s*(.+)\$');
+
+/// 「■来店日時」「【予約内容】」「サロン名：」のように、見出しだけの行（値は次の行）
+final _headingOnlyRe = RegExp(
+    r'^(?:[■□◆◇●○▼▽▶★☆]\s*([^\s:：【】\[\]]{1,14})\s*[:：]?|[【\[]\s*([^】\]]{1,14})\s*[】\]]\s*[:：]?|([^\s:：【】\[\]■□◆◇●]{1,14})\s*[:：])$');
+
+/// 「■見出し」の次の行に値がある書き方を「見出し：値」の1行にまとめる
+List<String> _joinHeadingValues(List<String> lines) {
+  final out = <String>[];
+  for (var i = 0; i < lines.length; i++) {
+    final m = _headingOnlyRe.firstMatch(lines[i].trim());
+    final label = m == null ? null : (m.group(1) ?? m.group(2) ?? m.group(3))!.trim();
+    final next = i + 1 < lines.length ? lines[i + 1].trim() : '';
+    if (label != null &&
+        next.isNotEmpty &&
+        !_headingOnlyRe.hasMatch(next) &&
+        !_tagRe.hasMatch('【$label】')) {
+      out.add('$label：$next');
+      i++;
+      continue;
+    }
+    out.add(lines[i]);
+  }
+  return out;
+}
 
 const _junk = r'[\s　・●■□◆◇▼▽▶►★☆○◎*＊\-–—:：,，、。/／〜~～|｜]';
 final _trimHead = RegExp('^$_junk+');
@@ -152,7 +181,7 @@ final _weekdayRe = RegExp(r'[（(]\s*[月火水木金土日](?:曜日?)?\s*[)）
 
 /// 行頭の見出しラベル（「日時：」「【件名】」など）。group(1) がラベル名
 final _labelRe = RegExp(
-    r'^(?:[【\[〈<（(]\s*)?(件名|タイトル|題名|内容|用件|日時|日程|日付|時間|開催日時?|実施日時?|期日|期限|提出期限|提出締切|締切|締め切り|〆切|イベント名?|科目名?|講義名?|授業名?|シフト|勤務)\s*(?:[】\]〉>）)]\s*[:：]?|[:：])\s*');
+    r'^(?:[【\[〈<（(]\s*)?([^\s:：【】\[\]〈〉<>（）()]{1,6}(?:日時|日程)|件名|タイトル|題名|内容|用件|日時|日程|日付|時間|開催日時?|実施日時?|期日|期限|提出期限|提出締切|締切|締め切り|〆切|イベント名?|科目名?|講義名?|授業名?|シフト|勤務)\s*(?:[】\]〉>）)]\s*[:：]?|[:：])\s*');
 
 /// タイトルとして使えるラベル行（「件名: 〜」「内容：〜」）
 final _titleLabelRe = RegExp(
@@ -537,6 +566,9 @@ List<Candidate> _parseMoodle(List<String> lines, Set<int> consumed, DateTime tod
         desc = lines[n].trim();
         used.add(n);
       }
+      // 説明の行（「〜の提出期限 · 科目名」など）が無ければ Moodle の形ではない
+      // （予約メールの「日時の行 → 店名の行」などを課題と取り違えないため）
+      if (desc.isEmpty) break;
       // 科目名: 「2026理-環境統計基礎-大木真人-月3・4-秋」の2つ目
       final course = desc.contains('·') ? desc.split('·').last.trim() : '';
       final segs = course.split(RegExp(r'[-‐－]'));
@@ -588,10 +620,10 @@ ParseResult parseText(String text, DateTime now,
 
   // 勤務連絡（ユニティーの「労働条件通知」など）は決まった書式なので先に読み取る
   // Markdown のリンク「[文字](URL)」は「文字 URL」に直してから読む
-  final lines = [
+  final lines = _joinHeadingValues([
     for (final l in text.split(RegExp(r'\r?\n')))
       l.replaceAllMapped(_mdLinkRe, (m) => '${m.group(1)} ${m.group(2)}'),
-  ];
+  ]);
   final consumed = <int>{};
   out.addAll(_parseWorkNotices(lines, consumed, cals, text));
   // Moodle のタイムライン（課題の提出期限など）
@@ -644,6 +676,19 @@ ParseResult parseText(String text, DateTime now,
       final p = _placeRe.firstMatch(line);
       if (p != null && target.place.isEmpty) {
         target.place = p.group(1)!.trim();
+        continue;
+      }
+      // 「サロン名：〜」「店舗名：〜」: タイトルがまだ弱ければ店名をタイトルに、場所にも入れる
+      final nm = _nameLabelRe.firstMatch(line.replaceAll(_trimHead, ''));
+      if (nm != null) {
+        final name = nm.group(1)!.trim();
+        if (needsTitle == target || fromHeading == target) {
+          final prefix = target.title;
+          target.title = prefix.isEmpty || prefix == name ? name : '$name（$prefix）';
+          needsTitle = null;
+          fromHeading = null;
+        }
+        if (target.place.isEmpty) target.place = name;
         continue;
       }
       final tl = _titleLabelRe.firstMatch(line);
@@ -699,7 +744,8 @@ ParseResult parseText(String text, DateTime now,
         borrowed = true;
       } else if (title.isEmpty && cleaned.label.isNotEmpty &&
           !RegExp(r'^(?:日時|日程|日付|時間|開催日|実施日)').hasMatch(cleaned.label)) {
-        title = cleaned.label; // 「提出期限」など
+        // 「提出期限」など。「来店日時」「予約日時」は「来店」「予約」にする
+        title = cleaned.label.replaceFirst(RegExp(r'(?:日時|日程)$'), '');
       }
     }
 
