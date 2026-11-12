@@ -239,8 +239,18 @@ class _HomeShellState extends State<HomeShell> {
                   children: [
                     SizedBox(
                       width: 264,
-                      child: CalendarSidebar(
-                          controller: cal, onImport: _openImport),
+                      child: Column(children: [
+                        Expanded(
+                          child: CalendarSidebar(
+                              controller: cal, onImport: _openImport),
+                        ),
+                        Padding(
+                          padding: EdgeInsets.fromLTRB(16, 4, 16, 0),
+                          child: Align(
+                              alignment: Alignment.centerLeft,
+                              child: _VersionText()),
+                        ),
+                      ]),
                     ),
                     Expanded(
                       child: FlPane(child: CalendarPage(controller: cal)),
@@ -262,7 +272,8 @@ class _HomeShellState extends State<HomeShell> {
     return Scaffold(
       backgroundColor: Fl.bg1,
       body: SafeArea(
-        child: IndexedStack(
+        child: Stack(children: [
+          Positioned.fill(child: IndexedStack(
           index: _tab,
           children: [
             CalendarPage(controller: cal, compact: true),
@@ -278,7 +289,10 @@ class _HomeShellState extends State<HomeShell> {
               ],
             ),
           ],
-        ),
+        )),
+          // 版の番号（左下にうっすら。押せないので操作のじゃまをしない）
+          Positioned(left: 6, bottom: 2, child: IgnorePointer(child: _VersionText())),
+        ]),
       ),
       floatingActionButton: _tab == 0
           ? FloatingActionButton(
@@ -330,6 +344,17 @@ class _TopSearchBox extends StatelessWidget {
               style: FlText.body1.copyWith(color: Fl.isDark ? Fl.fg3 : Fl.fg2)),
         ]),
       ),
+    );
+  }
+}
+
+/// 版の番号（うっすら表示）。不具合の報告で「どの版か」を伝えるため
+class _VersionText extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      'ver $kBuildId',
+      style: FlText.caption2.copyWith(color: Fl.fg3.withValues(alpha: 0.7)),
     );
   }
 }
