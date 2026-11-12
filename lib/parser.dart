@@ -445,6 +445,113 @@ List<Candidate> _parseWorkNotices(List<String> lines, Set<int> consumed,
   return out;
 }
 
+/// Markdown のリンク「[文字](URL)」
+final _mdLinkRe = RegExp(r'\[([^\]]+)\]\((https?://[^)\s]+)\)');
+
+/// 時刻だけの行（「23:59」）
+final _timeOnlyRe = RegExp(r'^\s*(\d{1,2})[:：](\d{2})\s*$');
+
+/// Moodle のタイムライン（直近の課題・小テストの一覧）を読む。
+///
+/// ```
+/// 2026年 11月 15日(日曜日)        ← 日付だけの行
+/// 23:59                           ← 時刻だけの行
+/// 第6週課題 https://moodle…       ← 課題名（リンク）
+/// 「課題」の提出期限 · 2026理-環境統計基礎-大木真人-月3・4-秋
+/// ```
+/// 同じ日付の下に「時刻・課題名・説明」が何件も続く形にも対応する。
+/// 課題名は科目をまたいで重なりやすい（「第6週課題」など）ので、科目名を添える
+List<Candidate> _parseMoodle(List<String> lines, Set<int> consumed, DateTime today) {
+  final out = <Candidate>[];
+  int? nextLine(int i) {
+    while (i < lines.length && lines[i].trim().isEmpty) {
+      i++;
+    }
+    return i < lines.length && !consumed.contains(i) ? i : null;
+  }
+
+  for (var i = 0; i < lines.length; i++) {
+    if (consumed.contains(i)) continue;
+    final head = lines[i].trim();
+    if (head.isEmpty) continue;
+    final d = _extractDate(head, today);
+    if (d == null) continue;
+    // 日付（と曜日・時刻）だけの行か
+    var rest = d.rest.replaceAll(_weekdayRe, ' ').replaceAll(RegExp(r'[,、\s]'), '');
+    int? headTime;
+    final ht = _timeOnlyRe.firstMatch(rest);
+    if (ht != null) {
+      headTime = int.parse(ht.group(1)!) * 60 + int.parse(ht.group(2)!);
+      rest = '';
+    }
+    if (rest.isNotEmpty) continue;
+
+    var j = i + 1;
+    var found = 0;
+    while (true) {
+      final used = <int>[];
+      var k = nextLine(j);
+      if (k == null) break;
+      int? time;
+      final tm = _timeOnlyRe.firstMatch(lines[k]);
+      if (tm != null) {
+        time = int.parse(tm.group(1)!) * 60 + int.parse(tm.group(2)!);
+        used.add(k);
+        k = nextLine(k + 1);
+        if (k == null) break;
+      } else if (found == 0 && headTime != null) {
+        time = headTime;
+      } else {
+        break; // 時刻だけの行が続かなければ、この形ではない
+      }
+      if (time > 24 * 60) break;
+
+      // 課題名の行
+      final tl = lines[k].trim();
+      if (_timeOnlyRe.hasMatch(tl) || _extractDate(tl, today) != null) break;
+      final url = urlPattern.firstMatch(tl)?.group(0) ?? '';
+      var title = tl.replaceAll(urlPattern, ' ').trim();
+      if (title.isEmpty) break;
+      used.add(k);
+
+      // 説明の行（「「課題」の提出期限 · 科目名」）
+      var desc = '';
+      final n = nextLine(k + 1);
+      if (n != null &&
+          !_timeOnlyRe.hasMatch(lines[n]) &&
+          RegExp(r'·|期限|締切|終了|開始').hasMatch(lines[n]) &&
+          _extractDate(lines[n], today) == null) {
+        desc = lines[n].trim();
+        used.add(n);
+      }
+      // 科目名: 「2026理-環境統計基礎-大木真人-月3・4-秋」の2つ目
+      final course = desc.contains('·') ? desc.split('·').last.trim() : '';
+      final segs = course.split(RegExp(r'[-‐－]'));
+      if (segs.length >= 2 && RegExp(r'^\d{4}').hasMatch(segs[0]) && segs[1].trim().isNotEmpty) {
+        title = '$title（${segs[1].trim()}）';
+      } else if (course.isNotEmpty) {
+        title = '$title（$course）';
+      }
+      // 「開始」だけの通知（小テストの公開など）は予定、それ以外は締め切り
+      final opens = desc.contains('開始') && !RegExp(r'期限|締切|終了').hasMatch(desc);
+      out.add(Candidate(
+        title: title,
+        date: d.date,
+        type: opens ? ImportType.event : ImportType.task,
+        source: [head, for (final u in used) lines[u].trim()].join(' / '),
+        startMin: time,
+        url: url,
+        note: desc,
+      ));
+      consumed.addAll(used);
+      found++;
+      j = used.last + 1;
+    }
+    if (found > 0) consumed.add(i);
+  }
+  return out;
+}
+
 /// [periods] は時限の時刻（「3限」を時刻に直すのに使う）
 ParseResult parseText(String text, DateTime now,
     {List<CalendarDef>? calendars, List<(int, int)>? periods}) {
@@ -467,9 +574,15 @@ ParseResult parseText(String text, DateTime now,
   Candidate? fromHeading;
 
   // 勤務連絡（ユニティーの「労働条件通知」など）は決まった書式なので先に読み取る
-  final lines = text.split(RegExp(r'\r?\n'));
+  // Markdown のリンク「[文字](URL)」は「文字 URL」に直してから読む
+  final lines = [
+    for (final l in text.split(RegExp(r'\r?\n')))
+      l.replaceAllMapped(_mdLinkRe, (m) => '${m.group(1)} ${m.group(2)}'),
+  ];
   final consumed = <int>{};
   out.addAll(_parseWorkNotices(lines, consumed, cals, text));
+  // Moodle のタイムライン（課題の提出期限など）
+  out.addAll(_parseMoodle(lines, consumed, today));
 
   for (var li = 0; li < lines.length; li++) {
     if (consumed.contains(li)) continue;

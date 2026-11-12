@@ -91,6 +91,54 @@ void main() {
     });
   });
 
+  group('取り込み: Moodle のタイムライン', () {
+    const one = '''2026年 11月 15日(日曜日)
+23:59
+[第6週課題](https://moodle.toho-u.ac.jp/mod/assign/view.php?id=197527)
+「課題」の提出期限 · 2026理-環境統計基礎-大木真人-月3・4-秋''';
+
+    test('課題の提出期限をタスクにする（科目名つき・リンクつき・23:59 は終日）', () {
+      final r = parseText(one, now);
+      final c = r.candidates.single;
+      expect(c.type, ImportType.task);
+      expect(c.title, '第6週課題（環境統計基礎）');
+      expect((c.date, c.startMin), (DateTime(2026, 11, 15), null));
+      expect(c.url, 'https://moodle.toho-u.ac.jp/mod/assign/view.php?id=197527');
+      expect(c.note, contains('2026理-環境統計基礎'));
+    });
+
+    test('同じ日に何件も続く形・日付が変わる形・時刻つきの締め切り', () {
+      final r = parseText('''2026年 11月 15日(日曜日)
+23:59
+第6週課題 https://moodle.toho-u.ac.jp/mod/assign/view.php?id=1
+「課題」の提出期限 · 2026理-環境統計基礎-大木真人-月3・4-秋
+
+17:00
+小テスト3
+小テスト終了 · 2026理-地球化学-山田-火2-秋
+
+2026年 11月 17日(火曜日)
+00:00
+レポート1
+「課題」の提出期限 · 2026理-気象学-佐藤-水1-秋''', now);
+      final cs = r.candidates;
+      expect(cs.map((c) => c.title).toList(),
+          ['第6週課題（環境統計基礎）', '小テスト3（地球化学）', 'レポート1（気象学）']);
+      expect(cs.every((c) => c.type == ImportType.task), isTrue);
+      expect((cs[1].date, cs[1].startMin), (DateTime(2026, 11, 15), 17 * 60));
+      // 0:00 締め切りは前日の終日
+      expect((cs[2].date, cs[2].startMin), (DateTime(2026, 11, 16), null));
+    });
+
+    test('ふつうの文章の Markdown リンクも、文字と URL に分けて読む', () {
+      final c = parseText('11/20 14:00 [研究室面談](https://zoom.us/j/123)', now)
+          .candidates
+          .single;
+      expect(c.title, '研究室面談');
+      expect(c.url, 'https://zoom.us/j/123');
+    });
+  });
+
   test('締め切りのそろえ方と、時間の欄に印を出すか', () {
     final d = DateTime(2026, 12, 1);
     expect(normalizeDeadline(d, 0), (DateTime(2026, 11, 30), null));
