@@ -137,8 +137,15 @@ final _lectureWords =
 
 /// URL の前に付きがちなラベル（「Zoom:」「URL：」など）
 final _linkLabelRe = RegExp(
-    r'(zoom|teams|meet|webex|url|リンク|会議URL|参加URL|参加用URL|ミーティングURL)\s*[:：]?\s*$',
+    r'(?:(?:zoom|teams|google\s*meet|meet|webex)\s*)?(?:url|リンク|会議URL|参加URL|参加用URL|ミーティングURL|zoom|teams|meet|webex)\s*[:：]?\s*$',
     caseSensitive: false);
+
+/// 所要時間（「約1時間」「1時間半」「90分程度」）。開始時刻だけのときに終了時刻を決める
+final _durationRe = RegExp(
+    r'[（(]?\s*(?:約|およそ|所要(?:時間)?\s*[:：]?\s*)?(?:(\d{1,2})\s*時間\s*(?:(\d{1,2})\s*分|(半))?|(\d{2,3})\s*分)\s*(?:間|程度|ほど|くらい|ぐらい)?\s*[）)]?');
+
+/// 文章の中の「面談日時」「説明会の日程」から、予定の名前（「面談」「説明会」）を拾う
+final _hintRe = RegExp(r'([^\s、。「」■□◆●【】]{1,10}?)の?(?:日時|日程)(?:が|は|に|を|について|の)');
 /// 挨拶などメモに入れなくてよい行
 final _greetingRe = RegExp(r'^(よろしく|宜しく|お疲れ|おつかれ|お世話|以上|ありがとう)');
 final _placeRe = RegExp(r'^\s*(?:場所|会場|教室|集合場所|集合|住所|所在地)\s*[:：]\s*(.+)$');
@@ -656,6 +663,11 @@ ParseResult parseText(String text, DateTime now,
         skipped++;
         if (urls.isEmpty) {
           final h = _asHeading(body);
+          // 見出しにならない文でも「面談日時が近づいて…」なら「面談」を名前の候補にする
+          final hint = h == null && heading == null
+              ? _hintRe.firstMatch(body)?.group(1)
+              : null;
+          if (hint != null && !_genericRe.hasMatch(hint)) heading = hint;
           if (h != null) {
             heading = h;
             if (RegExp(r'^(?:件名|subject)', caseSensitive: false)
@@ -670,7 +682,12 @@ ParseResult parseText(String text, DateTime now,
       if (urls.isNotEmpty && target.url.isEmpty) {
         target.url = urls.first;
         final restUrls = urls.skip(1).join(' ');
-        final label = body.replaceAll(_linkLabelRe, '').trim();
+        // 「■Zoom URL：」のような見出しだけならメモに残さない
+        final label = body
+            .replaceAll(_linkLabelRe, '')
+            .replaceAll(_trimHead, '')
+            .replaceAll(_trimTail, '')
+            .trim();
         final extra = [label, restUrls].where((x) => x.isNotEmpty).join(' ');
         if (extra.isNotEmpty) target.note = _addLine(target.note, extra);
         continue;
@@ -732,7 +749,21 @@ ParseResult parseText(String text, DateTime now,
     final t = _extractTime(rest);
     rest = t.rest;
     final start = t.start;
-    final end = t.end;
+    var end = t.end;
+    // 「10:00〜 約1時間」: 所要時間から終了時刻を決め、タイトルからは外す
+    if (start != null) {
+      final du = _durationRe.firstMatch(rest);
+      if (du != null) {
+        final mins = du.group(4) != null
+            ? int.parse(du.group(4)!)
+            : int.parse(du.group(1)!) * 60 +
+                (du.group(3) != null ? 30 : int.tryParse(du.group(2) ?? '') ?? 0);
+        if (mins > 0 && mins <= 24 * 60) {
+          end ??= start + mins;
+          rest = rest.replaceRange(du.start, du.end, ' ');
+        }
+      }
+    }
 
     final cleaned = _cleanTitle(rest);
     var title = cleaned.title;

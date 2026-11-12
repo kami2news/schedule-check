@@ -119,6 +119,33 @@ void main() {
     });
   });
 
+  group('取り込み: 面談の案内メール（所要時間・文中の名前・Zoom の見出し）', () {
+    test('「10:00〜 約1時間」は 10:00〜11:00、名前は文中の「面談日時」から', () {
+      final c = parseText('''面談日時が近づいてまいりました。
+下記詳細ご確認の上、記載のURLよりご参加お願い致します。
+
+■日時：2026/11/13 10:00〜　約1時間
+■担当アドバイザー：山田太郎
+■Zoom URL： https://example.zoom.us/j/1234567890
+※面談当日の無断欠席はご遠慮ください。''', now).candidates.single;
+      expect(c.title, '面談');
+      expect(c.type, ImportType.event);
+      expect((c.date, c.startMin, c.endMin), (DateTime(2026, 11, 13), 10 * 60, 11 * 60));
+      expect(c.url, 'https://example.zoom.us/j/1234567890');
+      expect(c.note, contains('山田太郎'));
+      expect(c.note.contains('Zoom'), isFalse);
+    });
+
+    test('所要時間のいろいろな書き方', () {
+      int? endOf(String t) => parseText(t, now).candidates.single.endMin;
+      expect(endOf('11/20 14:00 説明会（90分）'), 15 * 60 + 30);
+      expect(endOf('11/20 14:00から1時間半 説明会'), 15 * 60 + 30);
+      expect(endOf('11/20 9:30 所要時間：30分 健康診断'), 10 * 60);
+      // 終わりの時刻が書いてあればそちらを使う
+      expect(endOf('11/20 14:00〜14:45 説明会（約1時間）'), 14 * 60 + 45);
+    });
+  });
+
   group('取り込み: Moodle のタイムライン', () {
     const one = '''2026年 11月 15日(日曜日)
 23:59
