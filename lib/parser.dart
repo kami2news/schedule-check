@@ -162,6 +162,9 @@ List<String> _joinHeadingValues(List<String> lines) {
     if (label != null &&
         next.isNotEmpty &&
         !_headingOnlyRe.hasMatch(next) &&
+        // 次の行が「日程：〜」のように自分の見出しを持つなら、この行は段落の見出し（タイトル）
+        !RegExp(r'^[^\s:：]{1,10}[:：]').hasMatch(next) &&
+        !_labelRe.hasMatch(next) &&
         !_tagRe.hasMatch('【$label】')) {
       out.add('$label：$next');
       i++;
