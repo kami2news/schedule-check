@@ -451,11 +451,17 @@ final _mdLinkRe = RegExp(r'\[([^\]]+)\]\((https?://[^)\s]+)\)');
 /// 時刻だけの行（「23:59」）
 final _timeOnlyRe = RegExp(r'^\s*(\d{1,2})[:：](\d{2})\s*$');
 
+/// Moodle の画面をコピーすると入る、アイコンの代替テキストだけの行
+final _moodleIconRe = RegExp(
+    r'^(?:(?:活動|アクティビティ|コース|サイト|ユーザ|ユーザー|グループ|カテゴリ)\s*イベント|(?:Activity|Course|Site|User|Group|Category) event)$',
+    caseSensitive: false);
+
 /// Moodle のタイムライン（直近の課題・小テストの一覧）を読む。
 ///
 /// ```
 /// 2026年 11月 15日(日曜日)        ← 日付だけの行
 /// 23:59                           ← 時刻だけの行
+/// 活動イベント                    ← アイコンの代替テキスト（あれば飛ばす）
 /// 第6週課題 https://moodle…       ← 課題名（リンク）
 /// 「課題」の提出期限 · 2026理-環境統計基礎-大木真人-月3・4-秋
 /// ```
@@ -505,6 +511,13 @@ List<Candidate> _parseMoodle(List<String> lines, Set<int> consumed, DateTime tod
         break; // 時刻だけの行が続かなければ、この形ではない
       }
       if (time > 24 * 60) break;
+
+      // コピーすると混ざる、アイコンの代替テキスト（「活動イベント」など）は飛ばす
+      if (_moodleIconRe.hasMatch(lines[k].trim())) {
+        used.add(k);
+        k = nextLine(k + 1);
+        if (k == null) break;
+      }
 
       // 課題名の行
       final tl = lines[k].trim();

@@ -107,6 +107,23 @@ void main() {
       expect(c.note, contains('2026理-環境統計基礎'));
     });
 
+    test('画面からコピーした形（「活動イベント」の行が混ざる）', () {
+      final r = parseText('''2026年 11月 15日(日曜日)
+23:59
+活動イベント
+第6週課題
+「課題」の提出期限 · 2026理-環境統計基礎-大木真人-月3・4-秋
+23:59
+活動イベント
+小テスト2
+小テスト終了 · 2026理-地球化学-山田-火2-秋''', now);
+      expect(r.candidates.map((c) => c.title).toList(),
+          ['第6週課題（環境統計基礎）', '小テスト2（地球化学）']);
+      expect(r.candidates.every((c) => c.type == ImportType.task), isTrue);
+      expect(r.candidates.first.date, DateTime(2026, 11, 15));
+      expect(r.skipped, 0);
+    });
+
     test('同じ日に何件も続く形・日付が変わる形・時刻つきの締め切り', () {
       final r = parseText('''2026年 11月 15日(日曜日)
 23:59
