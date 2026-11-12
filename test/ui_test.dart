@@ -135,6 +135,44 @@ void main() {
     expect(store.weekendColors, isFalse);
   });
 
+  testWidgets('To Do: 入力中の内容を引き継いで詳しい入力画面を開き、予定に関連付けて保存できる',
+      (tester) async {
+    final store = await _storeWithSamples();
+    await pumpWide(tester, store);
+
+    await tester.enterText(
+        find.widgetWithText(TextField, 'タスクを追加'), 'プリントを印刷');
+    await tester.tap(find.byKey(const ValueKey('task-detail')));
+    await tester.pumpAndSettle();
+    // タイトルが引き継がれ、マイデイなので期限は今日
+    expect(find.text('タスクを追加'), findsWidgets);
+    expect(
+        find.descendant(
+            of: find.byType(Dialog),
+            matching: find.byWidgetPredicate(
+                (w) => w is TextField && w.controller?.text == 'プリントを印刷')),
+        findsOneWidget);
+    expect(find.text(fmtLongDate(dateOnly(DateTime.now()))), findsWidgets);
+
+    // 予定に関連付ける
+    await tester.tap(find.text('予定に関連付ける（持ち物・準備・報告など）'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('テスト授業').last);
+    await tester.pumpAndSettle();
+    expect(find.textContaining('関連する予定: テスト授業'), findsOneWidget);
+
+    // 重要にして保存
+    await tester.tap(
+        find.descendant(of: find.byType(Dialog), matching: find.text('重要')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('保存'));
+    await tester.pumpAndSettle();
+    final t = store.tasks.singleWhere((t) => t.title == 'プリントを印刷');
+    expect(t.important, isTrue);
+    expect(t.eventId, 'e1');
+    expect(t.due, dateOnly(DateTime.now()));
+  });
+
   testWidgets('取り込み: 貼り付けた文章から候補が出る（時限・締め切り）', (tester) async {
     final store = await _storeWithSamples();
     await pumpWide(tester, store);

@@ -124,13 +124,26 @@ Future<RecurScope?> _askScope(BuildContext context, {required bool delete}) {
 }
 
 /// タスクの追加（[task] が null）または編集
+/// タスクの追加（[task] が null）または編集。
+/// 追加のときは [title]・[due]・[important] で初期値を渡せる（To Do の入力欄からの続きなど）
 Future<void> openTaskEditor(BuildContext context,
-    {TaskItem? task, Event? forEvent, DateTime? occurrence}) {
+    {TaskItem? task,
+    Event? forEvent,
+    DateTime? occurrence,
+    String? title,
+    DateTime? due,
+    bool important = false}) {
   if (task == null && forEvent != null) {
     return _openEditor(
         context, TaskEditPage(forEvent: forEvent, occurrence: occurrence));
   }
-  return _openEditor(context, TaskEditPage(task: task));
+  return _openEditor(
+      context,
+      TaskEditPage(
+          task: task,
+          initialTitle: title,
+          initialDue: due,
+          initialImportant: important));
 }
 
 Future<DateTime?> _pickDate(BuildContext context, DateTime initial,
@@ -621,9 +634,21 @@ class _EventEditPageState extends State<EventEditPage> {
 // ---------------------------------------------------------------------------
 
 class TaskEditPage extends StatefulWidget {
-  const TaskEditPage({super.key, this.task, this.forEvent, this.occurrence});
+  const TaskEditPage(
+      {super.key,
+      this.task,
+      this.forEvent,
+      this.occurrence,
+      this.initialTitle,
+      this.initialDue,
+      this.initialImportant = false});
 
   final TaskItem? task;
+
+  /// 新しく追加するときの初期値
+  final String? initialTitle;
+  final DateTime? initialDue;
+  final bool initialImportant;
 
   /// 予定から「タスクを追加」したときの関連する予定（とその回）
   final Event? forEvent;
@@ -652,12 +677,12 @@ class _TaskEditPageState extends State<TaskEditPage> {
   void initState() {
     super.initState();
     final t = widget.task;
-    _title = TextEditingController(text: t?.title ?? '');
+    _title = TextEditingController(text: t?.title ?? widget.initialTitle ?? '');
     _note = TextEditingController(text: t?.note ?? '');
     _url = TextEditingController(text: t?.url ?? '');
-    _due = t?.due;
+    _due = t?.due ?? widget.initialDue;
     _dueMin = t?.dueMin;
-    _important = t?.important ?? false;
+    _important = t?.important ?? widget.initialImportant;
     _eventId = t?.eventId ?? widget.forEvent?.id;
     final fe = widget.forEvent;
     _eventDate = t?.eventDate ??
@@ -751,7 +776,30 @@ class _TaskEditPageState extends State<TaskEditPage> {
           final ev = _eventId == null
               ? null
               : StoreScope.of(context).events.where((e) => e.id == _eventId).firstOrNull;
-          if (ev == null) return SizedBox.shrink();
+          if (ev == null) {
+            // まだどの予定にも結びついていないとき: 予定を選んで関連付けられる
+            return Align(
+              alignment: Alignment.centerLeft,
+              child: Padding(
+                padding: EdgeInsets.only(bottom: 8),
+                child: TextButton.icon(
+                  onPressed: () async {
+                    final picked = await _pickEventFor(context, _due);
+                    if (picked == null) return;
+                    final (e, day) = picked;
+                    setState(() {
+                      _eventId = e.id;
+                      _eventDate = e.weekly ? day : null;
+                      // 期限が未設定なら、その予定の日を期限にする
+                      _due ??= day;
+                    });
+                  },
+                  icon: Icon(FluentIcons.calendar_link_24_regular, size: 18),
+                  label: Text('予定に関連付ける（持ち物・準備・報告など）'),
+                ),
+              ),
+            );
+          }
           return Padding(
             padding: EdgeInsets.only(bottom: 8),
             child: Container(
@@ -858,6 +906,91 @@ class _TaskEditPageState extends State<TaskEditPage> {
   }
 }
 
+
+/// タスクを結びつける予定を選ぶ（前後2週間の予定から）。選んだ予定とその回の日付を返す
+Future<(Event, DateTime)?> _pickEventFor(BuildContext context, DateTime? near) {
+  final store = StoreScope.read(context);
+  final today = dateOnly(DateTime.now());
+  final center = near == null ? today : dateOnly(near);
+  final from = addDays(center, -7);
+  final items = <(Event, DateTime)>[];
+  for (var i = 0; i <= 21; i++) {
+    final d = addDays(from, i);
+    for (final e in store.events) {
+      if (e.occursOn(d)) items.add((e, d));
+    }
+  }
+  items.sort((a, b) {
+    final c = a.$2.compareTo(b.$2);
+    return c != 0 ? c : (a.$1.startMin ?? -1).compareTo(b.$1.startMin ?? -1);
+  });
+  return showFlDialog<(Event, DateTime)>(
+    context,
+    maxWidth: 440,
+    child: Material(
+      color: Fl.bg1,
+      child: Builder(
+        builder: (ctx) => Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: EdgeInsets.fromLTRB(24, 20, 12, 8),
+              child: Row(children: [
+                Expanded(child: Text('関連付ける予定', style: FlText.subtitle1)),
+                IconButton(
+                  tooltip: '閉じる',
+                  icon: Icon(FluentIcons.dismiss_24_regular),
+                  onPressed: () => Navigator.of(ctx).pop(),
+                ),
+              ]),
+            ),
+            if (items.isEmpty)
+              Padding(
+                padding: EdgeInsets.fromLTRB(24, 8, 24, 24),
+                child: Text('前後2週間に予定がありません',
+                    style: FlText.body1.copyWith(color: Fl.fg3)),
+              )
+            else
+              Flexible(
+                child: ListView(
+                  shrinkWrap: true,
+                  padding: EdgeInsets.fromLTRB(12, 0, 12, 16),
+                  children: [
+                    for (final (e, d) in items)
+                      InkWell(
+                        borderRadius: BorderRadius.circular(Fl.r4),
+                        onTap: () => Navigator.of(ctx).pop((e, d)),
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          child: Row(children: [
+                            FlColorDot(color: store.colorOf(e)),
+                            SizedBox(width: 10),
+                            SizedBox(
+                              width: 76,
+                              child: Text(fmtDate(d),
+                                  style: FlText.caption1.copyWith(
+                                      color: d == today ? Fl.brandFg : Fl.fg2)),
+                            ),
+                            Expanded(
+                              child: Text(e.title,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: FlText.body1),
+                            ),
+                            Text(e.timeLabel,
+                                style: FlText.caption1.copyWith(color: Fl.fg3)),
+                          ]),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
 
 /// 繰り返しの選び方（よく使う形）
 enum _RepeatPreset { none, daily, weekdays, weekly, biweekly, monthlyDate, monthlyWeekday }

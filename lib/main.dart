@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:material_ui/material_ui.dart';
 import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 
+import 'models.dart';
 import 'notify/reminder_service.dart';
 import 'reminders.dart';
 import 'store.dart';
@@ -294,17 +295,36 @@ class _HomeShellState extends State<HomeShell> {
           Positioned(left: 6, bottom: 2, child: IgnorePointer(child: _VersionText())),
         ]),
       ),
-      floatingActionButton: _tab == 0
-          ? FloatingActionButton(
-              tooltip: '予定を追加',
-              elevation: 4,
-              backgroundColor: Fl.brand,
-              foregroundColor: Colors.white,
-              shape: CircleBorder(),
-              onPressed: () => openEventEditor(context, date: cal.selected),
-              child: Icon(FluentIcons.add_24_regular),
-            )
-          : null,
+      floatingActionButton: switch (_tab) {
+        0 => FloatingActionButton(
+            tooltip: '予定を追加',
+            elevation: 4,
+            backgroundColor: Fl.brand,
+            foregroundColor: Colors.white,
+            shape: CircleBorder(),
+            onPressed: () => openEventEditor(context, date: cal.selected),
+            child: Icon(FluentIcons.add_24_regular),
+          ),
+        // To Do でも、詳しい入力画面からタスクを追加できる
+        1 => FloatingActionButton(
+            tooltip: 'タスクを追加',
+            elevation: 4,
+            backgroundColor: Fl.brand,
+            foregroundColor: Colors.white,
+            shape: CircleBorder(),
+            onPressed: () {
+              // 今見ている一覧から消えないよう、To Do の入力欄と同じ初期値にする
+              final list = StoreScope.read(context).uiValue('todoList') ?? 'myDay';
+              openTaskEditor(context,
+                  due: list == 'myDay' || list == 'planned'
+                      ? dateOnly(DateTime.now())
+                      : null,
+                  important: list == 'important');
+            },
+            child: Icon(FluentIcons.add_24_regular),
+          ),
+        _ => null,
+      },
       bottomNavigationBar: FlBottomNav(
         items: _navItems,
         index: _tab,

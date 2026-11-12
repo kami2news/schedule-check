@@ -78,6 +78,20 @@ class _TodoPanelState extends State<TodoPanel> {
     _focus.requestFocus();
   }
 
+  /// 入力中の内容を引き継いで、詳しい入力画面（時刻・通知・メモ・リンク・関連する予定）を開く
+  void openDetailed() {
+    final today = dateOnly(DateTime.now());
+    var due = _quickDue;
+    if (due == null && (_list == TodoList.myDay || _list == TodoList.planned)) {
+      due = today;
+    }
+    final title = _quick.text.trim();
+    _quick.clear();
+    setState(() => _quickDue = null);
+    openTaskEditor(context,
+        title: title, due: due, important: _list == TodoList.important);
+  }
+
   Future<void> _pickQuickDue() async {
     final v = await showDatePicker(
       context: context,
@@ -154,6 +168,14 @@ class _TodoPanelState extends State<TodoPanel> {
                     color: _quickDue != null ? Fl.brandFg : Fl.fg2,
                   ),
                   onPressed: _pickQuickDue,
+                ),
+                // 時刻・通知・メモなども決めたいとき
+                IconButton(
+                  key: ValueKey('task-detail'),
+                  tooltip: '詳しく入力',
+                  icon: Icon(FluentIcons.window_new_24_regular,
+                      size: 18, color: Fl.fg2),
+                  onPressed: openDetailed,
                 ),
               ],
             ),
