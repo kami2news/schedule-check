@@ -177,7 +177,7 @@ final _durationRe = RegExp(
 final _hintRe = RegExp(r'([^\s、。「」■□◆●【】]{1,10}?)の?(?:日時|日程)(?:が|は|に|を|について|の)');
 /// 挨拶などメモに入れなくてよい行
 final _greetingRe = RegExp(r'^(よろしく|宜しく|お疲れ|おつかれ|お世話|以上|ありがとう)');
-final _placeRe = RegExp(r'^\s*(?:場所|会場|教室|集合場所|集合|住所|所在地)\s*[:：]\s*(.+)$');
+final _placeRe = RegExp(r'^\s*(?:場所|会場|教室|集合場所|集合|住所|所在地|劇場|映画館|劇場名|会場名|宿泊施設|宿泊先)\s*[:：]\s*(.+)$');
 
 /// お店・施設の名前の見出し（予約メールの「サロン名」「店舗名」など）。予定のタイトルに使い、場所にも入れる
 const _nameLabels =
@@ -220,11 +220,11 @@ final _weekdayRe = RegExp(r'[（(]\s*[月火水木金土日](?:曜日?)?\s*[)）
 
 /// 行頭の見出しラベル（「日時：」「【件名】」など）。group(1) がラベル名
 final _labelRe = RegExp(
-    r'^(?:[【\[〈<（(]\s*)?([^\s:：【】\[\]〈〉<>（）()]{1,6}(?:日時|日程)|時刻|開始時刻|時間帯|お届け時間|件名|トピック|タイトル|題名|内容|用件|日時|日程|日付|時間|開催日時?|実施日時?|期日|期限|提出期限|提出締切|締切|締め切り|〆切|イベント名?|科目名?|講義名?|授業名?|シフト|勤務)\s*(?:[】\]〉>）)]\s*[:：]?|[:：])\s*');
+    r'^(?:[【\[〈<（(]\s*)?([^\s:：【】\[\]〈〉<>（）()]{1,6}(?:日時|日程|期限|締切|締め切り)|時刻|開始時刻|時間帯|お届け時間|件名|トピック|タイトル|題名|内容|用件|日時|日程|日付|時間|開催日時?|実施日時?|期日|期限|提出期限|提出締切|締切|締め切り|〆切|イベント名?|科目名?|講義名?|授業名?|シフト|勤務)\s*(?:[】\]〉>）)]\s*[:：]?|[:：])\s*');
 
 /// タイトルとして使えるラベル行（「件名: 〜」「内容：〜」）
 final _titleLabelRe = RegExp(
-    r'^(?:[【\[〈<（(]\s*)?(?:件名|タイトル|題名|内容|用件|トピック|[Tt]opic|議題|会議名|ミーティング名|イベント名?|科目名?|講義名?|授業名?)\s*(?:[】\]〉>）)]\s*[:：]?|[:：])\s*(.+)$');
+    r'^(?:[【\[〈<（(]\s*)?(?:件名|タイトル|題名|内容|用件|トピック|[Tt]opic|議題|会議名|ミーティング名|作品名?|公演名|演目|イベント名?|科目名?|講義名?|授業名?)\s*(?:[】\]〉>）)]\s*[:：]?|[:：])\s*(.+)$');
 
 /// メモ向きの行（ミーティングID・パスコード・持ち物など）
 final _noteLineRe = RegExp(
@@ -785,8 +785,26 @@ ParseResult parseText(String text, DateTime now,
             target.endMin = e;
             target.endOffset = off;
           }
-          final restText = _cleanTitle(tt.rest).title;
-          if (restText.isNotEmpty) target.note = _addLine(target.note, line);
+          // 「集合：9:00 ○○大学 正門前」は残りを場所にする
+          final gather = RegExp(r'^\s*(?:集合(?:場所|時間|時刻)?|待ち合わせ)\s*[:：]?\s*');
+          final restText = _cleanTitle(tt.rest.replaceFirst(gather, '')).title;
+          if (gather.hasMatch(body) && restText.isNotEmpty && target.place.isEmpty) {
+            target.place = restText;
+          } else if (restText.isNotEmpty) {
+            target.note = _addLine(target.note, line);
+          }
+          continue;
+        }
+      }
+      // 「解散予定 16:00」「終了 17:00」: 終わりの時刻がまだなければ入れる
+      if (target.startMin != null &&
+          target.endMin == null &&
+          target.type != ImportType.task &&
+          RegExp(r'解散|終了|終わり|閉会').hasMatch(line)) {
+        final tt = _extractTime(body);
+        if (tt.start != null && tt.end == null && tt.start! > target.startMin!) {
+          target.endMin = tt.start;
+          target.note = _addLine(target.note, line);
           continue;
         }
       }

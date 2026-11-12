@@ -282,7 +282,7 @@ https://teams.microsoft.com/l/meetup-join/sample
 集合：9:00 ○○大学 正門前
 解散予定 16:00''');
       expect(c.title, '練習試合');
-      expect(c.startMin, 9 * 60);
+      expect((c.startMin, c.endMin), (9 * 60, 16 * 60));
       expect(c.place, contains('正門前'));
     });
   });
