@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 const weekdayNames = ['月', '火', '水', '木', '金', '土', '日'];
 

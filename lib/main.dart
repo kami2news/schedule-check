@@ -1,7 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 
 import 'notify/reminder_service.dart';
@@ -143,11 +142,8 @@ class _ScheduleAppState extends State<ScheduleApp> with WidgetsBindingObserver {
         themeAnimationDuration: Duration.zero,
         locale: Locale('ja'),
         supportedLocales: [Locale('ja'), Locale('en')],
-        localizationsDelegates: [
-          GlobalMaterialLocalizations.delegate,
-          GlobalWidgetsLocalizations.delegate,
-          GlobalCupertinoLocalizations.delegate,
-        ],
+        // Material・Cupertino・Widgets の日本語化をまとめて指定
+        localizationsDelegates: GlobalMaterialLocalizations.delegates,
         home: HomeShell(),
       ),
       ),

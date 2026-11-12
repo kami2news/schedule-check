@@ -11,6 +11,8 @@ dependencies:
     sdk: flutter
   flutter_localizations:
     sdk: flutter
+  # Material の部品（Flutter 本体から分離された公式パッケージ）
+  material_ui: ^1.11.0
   # Microsoft 公式の Fluent System Icons
   fluentui_system_icons: ^1.1.270
   shared_preferences: ^2.2.3
