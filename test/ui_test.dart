@@ -269,6 +269,8 @@ void main() {
               .descendant(
                   of: find.byType(Dialog), matching: find.byType(Scrollable))
               .first);
+      // 欄を画面の上端まで寄せて、下に出るエラー文も作られるようにする
+      await tester.ensureVisible(link);
       await tester.pumpAndSettle();
     }
 
