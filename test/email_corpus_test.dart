@@ -1,5 +1,4 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:schedule_check/models.dart';
 import 'package:schedule_check/parser.dart';
 import 'package:schedule_check/store.dart';
 
