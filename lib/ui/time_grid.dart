@@ -80,13 +80,17 @@ class TimeGrid extends StatefulWidget {
       {super.key,
       required this.controller,
       required this.days,
-      this.continuous = false});
+      this.continuous = false,
+      this.stride = 1});
 
   final CalendarController controller;
   final List<DateTime> days;
 
-  /// 日表示: 上下にスクロールすると、そのまま前後の日（[days] の日数ずつ）へ続く
+  /// 上下にスクロールすると、そのまま前後の日（週）へ続く
   final bool continuous;
+
+  /// 縦に1段進むごとにずれる日数（日表示は1、週表示は7）
+  final int stride;
 
   @override
   State<TimeGrid> createState() => _TimeGridState();
@@ -115,6 +119,8 @@ class _TimeGridState extends State<TimeGrid> {
   /// 1段に並べる日数（日表示の「3日」なら 3）
   int get _n => widget.days.length;
 
+  int get _stride => widget.stride;
+
   @override
   void initState() {
     super.initState();
@@ -132,10 +138,13 @@ class _TimeGridState extends State<TimeGrid> {
     final pos = _scroll.position;
     final center = pos.pixels + pos.viewportDimension / 2;
     final idx = (center / _dayH).floor();
-    final day = addDays(_anchor, idx - _span);
-    if (day != widget.controller.selected) {
-      _scrolledTo = day;
-      widget.controller.select(day);
+    final rowStart = addDays(_anchor, (idx - _span) * _stride);
+    final cur = widget.days.first;
+    if (rowStart != cur && rowStart != _scrolledTo) {
+      _scrolledTo = rowStart;
+      // 週表示では、選んでいた曜日のまま前後の週へ
+      final shift = (rowStart.difference(cur).inHours / 24).round();
+      widget.controller.select(addDays(widget.controller.selected, shift));
     }
   }
 
@@ -148,8 +157,8 @@ class _TimeGridState extends State<TimeGrid> {
     if (!countChanged && (day == old.days.first || day == _scrolledTo)) return;
     // 矢印・今日・ミニカレンダー・日数の変更などで日が変わった: その日の同じ時刻へ移る
     final diff = (day.difference(_anchor).inHours / 24).round();
-    var idx = diff + _span;
-    if (countChanged || idx < 1 || idx > 2 * _span - 1) {
+    var idx = diff ~/ _stride + _span;
+    if (countChanged || diff % _stride != 0 || idx < 1 || idx > 2 * _span - 1) {
       // 範囲の外に出たときや日数を変えたときは、その日を基準に並べ直す
       _anchor = day;
       idx = _span;
@@ -161,6 +170,32 @@ class _TimeGridState extends State<TimeGrid> {
       _scrolledTo = day;
       _scroll.jumpTo(idx * _dayH + tod);
     });
+  }
+
+  // ---- 狭い画面の週表示（横スクロール）: 端を越えて引っ張ったら前後の週へ ----
+  double _edgePull = 0;
+  bool _edgeDone = false;
+
+  bool _onHorizontalEdge(ScrollNotification n) {
+    if (n.metrics.axis != Axis.horizontal) return false;
+    if (n is ScrollStartNotification) {
+      _edgePull = 0;
+      _edgeDone = false;
+    } else if (n is OverscrollNotification) {
+      _edgePull += n.overscroll; // 端で止まる動き（Android・PC）
+    } else if (n is ScrollUpdateNotification) {
+      // 端を越えて伸びる動き（iPhone）
+      final m = n.metrics;
+      if (m.pixels < m.minScrollExtent) _edgePull = m.pixels - m.minScrollExtent;
+      if (m.pixels > m.maxScrollExtent) _edgePull = m.pixels - m.maxScrollExtent;
+    }
+    if (!_edgeDone && _edgePull.abs() > 72) {
+      _edgeDone = true;
+      final dir = _edgePull > 0 ? 1 : -1;
+      _hJumped = false;
+      WidgetsBinding.instance.addPostFrameCallback((_) => widget.controller.step(dir));
+    }
+    return false;
   }
 
   @override
@@ -655,7 +690,7 @@ class _TimeGridState extends State<TimeGrid> {
                     // 1段下がるごとに1日ずつずれる。各列はそのまま自分の翌日へ続く
                     final ds = [
                       for (var k = 0; k < _n; k++)
-                        addDays(_anchor, (i - _span) + k)
+                        addDays(_anchor, (i - _span) * _stride + k)
                     ];
                     return _slab(
                         context,
@@ -694,12 +729,15 @@ class _TimeGridState extends State<TimeGrid> {
           _hScroll.jumpTo(target);
         });
       }
-      return Scrollbar(
-        controller: _hScroll,
-        child: SingleChildScrollView(
+      return NotificationListener<ScrollNotification>(
+        onNotification: _onHorizontalEdge,
+        child: Scrollbar(
           controller: _hScroll,
-          scrollDirection: Axis.horizontal,
-          child: SizedBox(width: width, child: content),
+          child: SingleChildScrollView(
+            controller: _hScroll,
+            scrollDirection: Axis.horizontal,
+            child: SizedBox(width: width, child: content),
+          ),
         ),
       );
     });

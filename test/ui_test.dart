@@ -6,6 +6,7 @@ import 'package:schedule_check/store.dart';
 import 'package:schedule_check/ui/controller.dart';
 import 'package:schedule_check/ui/fluent.dart';
 import 'package:schedule_check/ui/fluent_extras.dart';
+import 'package:schedule_check/ui/swipe_nav.dart';
 import 'package:schedule_check/ui/time_grid.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -296,6 +297,57 @@ void main() {
     await tester.tap(find.byTooltip('前へ'));
     await tester.pumpAndSettle();
     expect(find.text(titleOf(today)), findsOneWidget);
+  });
+
+  testWidgets('スライドで前後へ: 日は横、週は縦スクロールでも、月は縦横どちらでも', (tester) async {
+    final store = await _storeWithSamples();
+    store.setUiValue('view', 'day');
+    tester.view.physicalSize = const Size(1400, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(ScheduleApp(store: store));
+    await tester.pumpAndSettle();
+    final today = dateOnly(DateTime.now());
+    String title(CalView v, DateTime d) =>
+        (CalendarController(view: v)..selected = d).title;
+    final grid =
+        find.descendant(of: find.byType(TimeGrid), matching: find.byType(ListView));
+
+    // 日: 左へ払うと次の日、右へ払うと戻る
+    await tester.fling(grid, const Offset(-300, 0), 1000);
+    await tester.pumpAndSettle();
+    expect(find.text(title(CalView.day, addDays(today, 1))), findsOneWidget);
+    await tester.fling(grid, const Offset(300, 0), 1000);
+    await tester.pumpAndSettle();
+    expect(find.text(title(CalView.day, today)), findsOneWidget);
+
+    // 週: 縦にスクロールして次の週が半分を超えたら次の週
+    await tester.tap(find.byTooltip('表示形式'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('週').last);
+    await tester.pumpAndSettle();
+    expect(find.text(title(CalView.week, today)), findsOneWidget);
+    await tester.drag(grid, const Offset(0, -24 * 56.0 - 40));
+    await tester.pumpAndSettle();
+    expect(find.text(title(CalView.week, addDays(today, 7))), findsOneWidget);
+    // 横に払うと前の週
+    await tester.fling(grid, const Offset(300, 0), 1000);
+    await tester.pumpAndSettle();
+    expect(find.text(title(CalView.week, today)), findsOneWidget);
+
+    // 月: 上へ払うと次の月、右へ払うと前の月
+    await tester.tap(find.byTooltip('表示形式'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('月').last);
+    await tester.pumpAndSettle();
+    final month = find.byType(SwipeNavigator);
+    final next = DateTime(today.year, today.month + 1, 1);
+    await tester.fling(month, const Offset(0, -300), 1000);
+    await tester.pumpAndSettle();
+    expect(find.text('${next.year}年${next.month}月'), findsWidgets);
+    await tester.fling(month, const Offset(300, 0), 1000);
+    await tester.pumpAndSettle();
+    expect(find.text('${today.year}年${today.month}月'), findsWidgets);
   });
 
   testWidgets('To Do のクイック追加でタスクが増える', (tester) async {

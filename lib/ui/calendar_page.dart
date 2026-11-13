@@ -8,6 +8,7 @@ import 'fluent.dart';
 import 'mini_month.dart';
 import 'settings_page.dart';
 import 'sidebar.dart';
+import 'swipe_nav.dart';
 import 'month_view.dart';
 import 'time_grid.dart';
 
@@ -240,6 +241,9 @@ class _CalendarPageState extends State<CalendarPage> {
               key: ValueKey('grid-week'),
               controller: c,
               days: [for (var i = 0; i < 7; i++) addDays(start, i)],
+              // 縦にスクロールすると、そのまま前後の週へ続く
+              continuous: true,
+              stride: 7,
             );
             break;
           case CalView.month:
@@ -273,7 +277,14 @@ class _CalendarPageState extends State<CalendarPage> {
                     : SizedBox(width: double.infinity),
               ),
             Divider(height: 1),
-            Expanded(child: body),
+            // 横のスライド（月表示は縦も）で前後へ移る
+            Expanded(
+              child: SwipeNavigator(
+                onStep: c.step,
+                vertical: c.view == CalView.month,
+                child: body,
+              ),
+            ),
           ],
         );
       },
