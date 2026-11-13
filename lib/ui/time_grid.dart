@@ -359,6 +359,22 @@ class _TimeGridState extends State<TimeGrid>
             width: _gutter,
             child: Stack(
               children: [
+                // 1日だけのときは、日付を時刻の欄の 0:00 に出す（予定の文字に重ならない）
+                if (dayLabel && _n == 1)
+                  Positioned(
+                    top: 4,
+                    left: 0,
+                    right: 6,
+                    child: Text(
+                      '${first.month}/${first.day}\n（${weekdayNames[first.weekday - 1]}）',
+                      textAlign: TextAlign.right,
+                      style: FlText.caption2.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: first == today
+                              ? Fl.brandFg
+                              : (weekendFg(first) ?? Fl.fg2)),
+                    ),
+                  ),
                 for (var h = 1; h < 24; h++)
                   Positioned(
                     top: h * _hourH - 8,
@@ -423,20 +439,29 @@ class _TimeGridState extends State<TimeGrid>
                           ),
                         ),
                       ),
-                    // 各列の 0:00 に日付を出す
-                    if (dayLabel)
+                    // 複数日のときは各列の 0:00 に日付の札を出す（予定の上に重なっても読めるよう面つき）。
+                    // 1日だけのときは時刻の欄に出す（左）
+                    if (dayLabel && _n > 1)
                       for (var i = 0; i < days.length; i++)
                         Positioned(
-                          top: 4,
-                          left: i * colW + 6,
+                          top: 2,
+                          left: i * colW + 4,
                           child: IgnorePointer(
-                            child: Text(
+                            child: Container(
+                              padding: EdgeInsets.symmetric(horizontal: 4),
+                              decoration: BoxDecoration(
+                                color: Fl.bg1,
+                                borderRadius: BorderRadius.circular(Fl.r2),
+                                border: Border.all(color: Fl.stroke2),
+                              ),
+                              child: Text(
                               fmtDate(days[i]),
                               style: FlText.caption2.copyWith(
                                   fontWeight: FontWeight.w600,
                                   color: days[i] == today
                                       ? Fl.brandFg
                                       : (weekendFg(days[i]) ?? Fl.fg2)),
+                              ),
                             ),
                           ),
                         ),
@@ -559,7 +584,7 @@ class _TimeGridState extends State<TimeGrid>
   }
 
   Widget _block(BuildContext context, Event e, DateTime day, double h, double w,
-      {BorderRadius? radius}) {
+      {BorderRadius? radius, bool continued = false}) {
     // 細い列では1文字ずつ折り返さないよう、タイトル1行だけを省略表示にする
     final narrow = w < 40;
     final lines = narrow ? 1 : math.max(1, ((h - 4) / 16).floor());
@@ -571,7 +596,17 @@ class _TimeGridState extends State<TimeGrid>
         accent: StoreScope.read(context).colorOf(e),
         showAs: e.showAs,
         radius: radius,
-        child: Column(
+        child: continued
+            // 続きの部分: すぐ上に題名があるので、日付の札の下に淡く1行だけ
+            ? Padding(
+                padding: EdgeInsets.only(top: _n > 1 ? 18 : 2),
+                child: Text('（続き）${e.title}',
+                    maxLines: 1,
+                    softWrap: false,
+                    overflow: TextOverflow.ellipsis,
+                    style: FlText.caption1.copyWith(color: Fl.fg3)),
+              )
+            : Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text.rich(
@@ -706,6 +741,8 @@ class _TimeGridState extends State<TimeGrid>
                 top: Radius.circular(p.slice.isStart ? Fl.r4 : 0),
                 bottom: Radius.circular(p.slice.isEnd ? Fl.r4 : 0),
               ),
+              // 前の日から続く部分。前後の日を縦に続けて並べるときは、題名を繰り返さない
+              continued: !p.slice.isStart && widget.continuous,
             ),
           ),
         // 締め切りの印は予定の上に重ねる
