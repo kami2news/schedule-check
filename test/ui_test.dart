@@ -191,6 +191,11 @@ void main() {
     expect(find.textContaining('実験レポート'), findsWidgets);
     // 3限 → 13:00、0:00 締め切り → 前日（12/4）の終日
     expect(find.textContaining('13:00'), findsWidgets);
+    // テストの既定はタッチの端末（部品が 44px 以上）なので、2件目は下にある
+    await tester.scrollUntilVisible(find.textContaining('12/4'), 200,
+        scrollable: find
+            .descendant(of: find.byType(Dialog), matching: find.byType(Scrollable))
+            .first);
     expect(find.textContaining('12/4'), findsWidgets);
   });
 
