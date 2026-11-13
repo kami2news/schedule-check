@@ -194,6 +194,10 @@ void main() {
     expect(find.textContaining('実験レポート'), findsWidgets);
     // 3限 → 13:00、0:00 締め切り → 前日（12/4）の終日
     expect(find.textContaining('13:00'), findsWidgets);
+    for (final w in tester.widgetList<Text>(find.byType(Text, skipOffstage: false))) {
+      // ignore: avoid_print
+      print('DBG ${w.data ?? w.textSpan?.toPlainText()}');
+    }
     expect(find.textContaining('12/4'), findsWidgets);
   });
 
