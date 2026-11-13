@@ -8,7 +8,6 @@ import 'fluent.dart';
 import 'mini_month.dart';
 import 'settings_page.dart';
 import 'sidebar.dart';
-import 'swipe_nav.dart';
 import 'month_view.dart';
 import 'time_grid.dart';
 
@@ -277,14 +276,8 @@ class _CalendarPageState extends State<CalendarPage> {
                     : SizedBox(width: double.infinity),
               ),
             Divider(height: 1),
-            // 横のスライド（月表示は縦も）で前後へ移る
-            Expanded(
-              child: SwipeNavigator(
-                onStep: c.step,
-                vertical: c.view == CalView.month,
-                child: body,
-              ),
-            ),
+            // スクロールは連続して流れ、スライドはページごとに切り替わる（各表示の中で処理）
+            Expanded(child: body),
           ],
         );
       },

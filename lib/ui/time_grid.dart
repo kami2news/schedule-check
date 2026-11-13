@@ -1,4 +1,8 @@
+import 'dart:async';
 import 'dart:math' as math;
+
+import 'package:flutter/gestures.dart';
+import 'package:flutter/services.dart';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:fluentui_system_icons/fluentui_system_icons.dart';
@@ -102,7 +106,8 @@ const int _span = 365;
 /// 1日ぶんの高さ
 const double _dayH = 24 * _hourH;
 
-class _TimeGridState extends State<TimeGrid> {
+class _TimeGridState extends State<TimeGrid>
+    with SingleTickerProviderStateMixin {
   late final ScrollController _scroll;
   final ScrollController _hScroll = ScrollController();
   bool _hJumped = false;
@@ -129,6 +134,126 @@ class _TimeGridState extends State<TimeGrid> {
       initialScrollOffset: (_isDay ? _span * _dayH : 0) + 7 * _hourH - 12,
     );
     if (_isDay) _scroll.addListener(_onDayScroll);
+    _anim = AnimationController.unbounded(vsync: this)
+      ..addListener(() => _pan.value = _anim.value);
+  }
+
+  // ---- 横の移動 ----
+  // スクロール（トラックパッド・Shift+ホイール）は指の動きのまま連続して流れ、
+  // スライド（指・マウスで払う）は1ページ（日表示は1日、週表示は1週）ずつ切り替わる。
+  // 前後に1ページぶんの列を余分に並べておき、[_pan]（列の数）だけずらして見せる。
+
+  /// 今ずらしている量（列の数。正なら先の日へ）
+  final ValueNotifier<double> _pan = ValueNotifier(0);
+  late final AnimationController _anim;
+  Timer? _idle;
+
+  /// 前後に余分に並べる列の数（= 1ページ）。0 なら横の移動なし（狭い画面の週表示）
+  int _extra = 0;
+
+  /// 1列の幅（最後に描いたときの値）
+  double _colW = 100;
+
+  /// 1ページぶん送った: 選択中の日を進め、並びもその分ずらす
+  void _commit(int dir) {
+    final next = addDays(widget.days.first, dir * _stride);
+    _scrolledTo = next;
+    _anchor = addDays(_anchor, dir * _stride);
+    widget.controller.step(dir);
+  }
+
+  /// [d] 列ぶん動かす。1ページを超えたら送る（連続スクロール）
+  void _move(double d) {
+    if (_extra == 0) return;
+    var p = _pan.value + d;
+    if (p >= _extra) {
+      _commit(1);
+      p -= _extra;
+    } else if (p <= -_extra) {
+      _commit(-1);
+      p += _extra;
+    }
+    _pan.value = p.clamp(-_extra + 0.001, _extra - 0.001);
+  }
+
+  /// [dir] のページへ（0 なら元の位置へ）動かして止める
+  void _settleTo(int dir) {
+    _idle?.cancel();
+    final target = (dir * _extra).toDouble();
+    _anim.value = _pan.value;
+    _anim
+        .animateTo(target,
+            duration: const Duration(milliseconds: 220), curve: Curves.easeOutCubic)
+        .then((_) {
+      if (dir != 0) {
+        _commit(dir);
+        _pan.value = 0;
+      }
+    });
+  }
+
+  /// スライドを離したとき: 少し（2割）でも動かすか、払えば次のページへ
+  void _release(double velocity) {
+    final p = _pan.value;
+    var dir = 0;
+    if (velocity.abs() > 300) {
+      dir = velocity < 0 ? 1 : -1;
+    } else if (p.abs() > 0.2 * _extra) {
+      dir = p > 0 ? 1 : -1;
+    }
+    _settleTo(dir);
+  }
+
+  /// トラックパッドの横スクロール・Shift + ホイール: そのまま連続して流す。
+  /// 止まったら近いほうのページにそろえる
+  void _onSignal(PointerSignalEvent e) {
+    if (e is! PointerScrollEvent || _extra == 0) return;
+    final d = e.scrollDelta;
+    final double dx;
+    if (d.dx.abs() > d.dy.abs()) {
+      dx = d.dx;
+    } else if (HardwareKeyboard.instance.isShiftPressed && d.dy != 0) {
+      dx = d.dy;
+    } else {
+      return;
+    }
+    GestureBinding.instance.pointerSignalResolver.register(e, (_) {
+      _anim.stop();
+      _move(dx / _colW);
+      _idle?.cancel();
+      _idle = Timer(const Duration(milliseconds: 180), () {
+        final p = _pan.value;
+        _settleTo(p.abs() >= _extra / 2 ? (p > 0 ? 1 : -1) : 0);
+      });
+    });
+  }
+
+  /// 横にずらせる帯。表示する [_n] 列の前後に [_extra] 列ずつ並べ、[_pan] だけずらして見せる。
+  /// [build] には (1列の幅, 並べる日) を渡す
+  Widget _panned(
+      DateTime first, Widget Function(double colW, List<DateTime> ds) build) {
+    return LayoutBuilder(builder: (context, cs) {
+      final colW = cs.maxWidth / _n;
+      final x = _extra;
+      final ds = [for (var k = -x; k < _n + x; k++) addDays(first, k)];
+      if (x == 0) return build(colW, ds);
+      _colW = colW;
+      final w = colW * ds.length;
+      return ClipRect(
+        child: OverflowBox(
+          alignment: Alignment.topLeft,
+          fit: OverflowBoxFit.deferToChild,
+          minWidth: w,
+          maxWidth: w,
+          child: ValueListenableBuilder<double>(
+            valueListenable: _pan,
+            builder: (context, p, child) => Transform.translate(
+                offset: Offset(-(x + p) * colW, 0), child: child),
+            child: build(colW, ds),
+          ),
+        ),
+      );
+    });
   }
 
   /// 日表示: 画面の真ん中がどの日にあるかで、選択中の日を切り替える
@@ -203,13 +328,19 @@ class _TimeGridState extends State<TimeGrid> {
     _scroll.removeListener(_onDayScroll);
     _scroll.dispose();
     _hScroll.dispose();
+    _idle?.cancel();
+    _anim.dispose();
+    _pan.dispose();
     super.dispose();
   }
 
-  /// 0:00〜24:00 の時間の欄（時刻の目盛り・罫線・予定）。[days] を横に並べる。
-  /// [dayLabel] が true なら、0:00 の位置に日付を出す（日表示で日をまたいで並べるとき）
-  Widget _slab(BuildContext context, List<DateTime> days, List<List<Event>> events,
-      List<List<TaskItem>> tasks, DateTime today, {bool dayLabel = false}) {
+  /// 0:00〜24:00 の時間の欄（時刻の目盛り・罫線・予定）。[first] から [_n] 日を横に並べる
+  /// （横に動かせるときは前後の日も）。
+  /// [dayLabel] が true なら、0:00 の位置に日付を出す（前後の日を縦に続けて並べるとき）
+  Widget _slab(BuildContext context, DateTime first, DateTime today,
+      {bool dayLabel = false}) {
+    final store = StoreScope.of(context);
+    final c = widget.controller;
     return SizedBox(
       height: _dayH,
       child: Row(
@@ -218,20 +349,6 @@ class _TimeGridState extends State<TimeGrid> {
             width: _gutter,
             child: Stack(
               children: [
-                if (dayLabel && days.length == 1)
-                  Positioned(
-                    top: 4,
-                    left: 0,
-                    right: 6,
-                    child: Text(
-                      '${days.first.month}/${days.first.day}\n(${weekdayNames[days.first.weekday - 1]})',
-                      textAlign: TextAlign.right,
-                      style: FlText.caption2.copyWith(fontWeight: FontWeight.w600,
-                          color: days.first == today
-                              ? Fl.brandFg
-                              : (weekendFg(days.first) ?? Fl.fg2)),
-                    ),
-                  ),
                 for (var h = 1; h < 24; h++)
                   Positioned(
                     top: h * _hourH - 8,
@@ -247,12 +364,13 @@ class _TimeGridState extends State<TimeGrid> {
             ),
           ),
           Expanded(
-            child: LayoutBuilder(
-              builder: (context, cs) {
-                final colW = cs.maxWidth / days.length;
-                return Stack(
+            child: _panned(first, (colW, days) {
+              return SizedBox(
+                width: colW * days.length,
+                height: _dayH,
+                child: Stack(
                   children: [
-                    // 日の変わり目（日表示で続けて並べるときは濃い線）
+                    // 日の変わり目（前後の日を続けて並べるときは濃い線）
                     if (dayLabel)
                       Positioned(
                         top: 0,
@@ -260,21 +378,6 @@ class _TimeGridState extends State<TimeGrid> {
                         right: 0,
                         child: Container(height: 2, color: Fl.stroke1),
                       ),
-                    // 複数日を続けて並べるときは、各列の 0:00 に日付を出す
-                    if (dayLabel && days.length > 1)
-                      for (var i = 0; i < days.length; i++)
-                        Positioned(
-                          top: 4,
-                          left: i * colW + 6,
-                          child: Text(
-                            '${days[i].month}/${days[i].day}(${weekdayNames[days[i].weekday - 1]})',
-                            style: FlText.caption2.copyWith(
-                                fontWeight: FontWeight.w600,
-                                color: days[i] == today
-                                    ? Fl.brandFg
-                                    : (weekendFg(days[i]) ?? Fl.fg2)),
-                          ),
-                        ),
                     for (var h = 1; h < 24; h++)
                       Positioned(
                         top: h * _hourH,
@@ -304,16 +407,33 @@ class _TimeGridState extends State<TimeGrid> {
                             context,
                             days[i],
                             colW,
-                            events[i].where((e) => !e.allDay).toList(),
+                            c.eventsOn(store, days[i]).where((e) => !e.allDay).toList(),
                             days[i] == today,
-                            tasks[i].where((t) => t.hasTimeMark).toList(),
+                            c.tasksOn(store, days[i]).where((t) => t.hasTimeMark).toList(),
                           ),
                         ),
                       ),
+                    // 各列の 0:00 に日付を出す
+                    if (dayLabel)
+                      for (var i = 0; i < days.length; i++)
+                        Positioned(
+                          top: 4,
+                          left: i * colW + 6,
+                          child: IgnorePointer(
+                            child: Text(
+                              '${days[i].month}/${days[i].day}(${weekdayNames[days[i].weekday - 1]})',
+                              style: FlText.caption2.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                  color: days[i] == today
+                                      ? Fl.brandFg
+                                      : (weekendFg(days[i]) ?? Fl.fg2)),
+                            ),
+                          ),
+                        ),
                   ],
-                );
-              },
-            ),
+                ),
+              );
+            }),
           ),
         ],
       ),
@@ -629,90 +749,120 @@ class _TimeGridState extends State<TimeGrid> {
     final days = widget.days;
     final today = dateOnly(DateTime.now());
 
-    final events = [for (final d in days) c.eventsOn(store, d)];
-    final tasks = [for (final d in days) c.tasksOn(store, d)];
-    var maxAll = 0;
-    for (var i = 0; i < days.length; i++) {
-      final n = events[i].where((e) => e.allDay).length + tasks[i].length;
-      if (n > maxAll) maxAll = n;
-    }
-
-    final content = Column(
-      children: [
-        Row(
-          children: [
-            SizedBox(width: _gutter),
-            for (final d in days)
-              Expanded(child: _dayHeader(context, d, d == today)),
-          ],
-        ),
-        if (maxAll > 0)
-          Container(
-            padding: EdgeInsets.only(bottom: 2),
-            decoration: BoxDecoration(
-              border: Border(top: BorderSide(color: Fl.stroke2)),
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SizedBox(
-                  width: _gutter,
-                  child: Padding(
-                    padding: EdgeInsets.only(top: 4, right: 6),
-                    child: Text('終日',
-                        textAlign: TextAlign.right,
-                        style: FlText.caption2.copyWith(color: Fl.fg3)),
-                  ),
+    Widget content(int extra) {
+      _extra = extra;
+      final events = [for (final d in days) c.eventsOn(store, d)];
+      final tasks = [for (final d in days) c.tasksOn(store, d)];
+      var maxAll = 0;
+      for (var i = 0; i < days.length; i++) {
+        final n = events[i].where((e) => e.allDay).length + tasks[i].length;
+        if (n > maxAll) maxAll = n;
+      }
+      return Column(
+        children: [
+          Row(
+            children: [
+              SizedBox(width: _gutter),
+              Expanded(
+                child: _panned(
+                  days.first,
+                  (colW, ds) => Row(children: [
+                    for (final d in ds)
+                      SizedBox(width: colW, child: _dayHeader(context, d, d == today)),
+                  ]),
                 ),
-                for (var i = 0; i < days.length; i++)
-                  Expanded(
-                    child: Column(
-                      children: [
-                        for (final e in events[i].where((e) => e.allDay))
-                          _allDayEventChip(context, e,
-                              e.sliceOn(days[i])?.startDay ?? days[i]),
-                        for (final t in tasks[i]) _allDayTaskChip(context, t),
-                      ],
+              ),
+            ],
+          ),
+          if (maxAll > 0)
+            Container(
+              padding: EdgeInsets.only(bottom: 2),
+              decoration: BoxDecoration(
+                border: Border(top: BorderSide(color: Fl.stroke2)),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(
+                    width: _gutter,
+                    child: Padding(
+                      padding: EdgeInsets.only(top: 4, right: 6),
+                      child: Text('終日',
+                          textAlign: TextAlign.right,
+                          style: FlText.caption2.copyWith(color: Fl.fg3)),
                     ),
                   ),
-              ],
+                  Expanded(
+                    child: _panned(days.first, (colW, ds) {
+                      return Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          for (final d in ds)
+                            SizedBox(
+                              width: colW,
+                              child: Column(
+                                children: [
+                                  // 前後の日の分は、見えている日の段数までにそろえる（高さが変わらないように）
+                                  ...[
+                                    for (final e in c
+                                        .eventsOn(store, d)
+                                        .where((e) => e.allDay))
+                                      _allDayEventChip(
+                                          context, e, e.sliceOn(d)?.startDay ?? d),
+                                    for (final t in c.tasksOn(store, d))
+                                      _allDayTaskChip(context, t),
+                                  ].take(maxAll),
+                                ],
+                              ),
+                            ),
+                        ],
+                      );
+                    }),
+                  ),
+                ],
+              ),
             ),
+          Divider(height: 1),
+          Expanded(
+            child: _isDay
+                // 前後の日（週）を縦に続けて並べ、スクロールだけで日をまたげるようにする
+                ? ListView.builder(
+                    controller: _scroll,
+                    itemExtent: _dayH,
+                    itemCount: 2 * _span + 1,
+                    // 1段下がるごとに stride 日ずつずれる。各列はそのまま自分の翌日へ続く
+                    itemBuilder: (context, i) => _slab(
+                        context, addDays(_anchor, (i - _span) * _stride), today,
+                        dayLabel: true),
+                  )
+                : SingleChildScrollView(
+                    controller: _scroll,
+                    child: _slab(context, days.first, today),
+                  ),
           ),
-        Divider(height: 1),
-        Expanded(
-          child: _isDay
-              // 日表示: 前後の日を縦に続けて並べ、スクロールだけで日をまたげるようにする
-              ? ListView.builder(
-                  controller: _scroll,
-                  itemExtent: _dayH,
-                  itemCount: 2 * _span + 1,
-                  itemBuilder: (context, i) {
-                    // 1段下がるごとに1日ずつずれる。各列はそのまま自分の翌日へ続く
-                    final ds = [
-                      for (var k = 0; k < _n; k++)
-                        addDays(_anchor, (i - _span) * _stride + k)
-                    ];
-                    return _slab(
-                        context,
-                        ds,
-                        [for (final d in ds) c.eventsOn(store, d)],
-                        [for (final d in ds) c.tasksOn(store, d)],
-                        today,
-                        dayLabel: true);
-                  },
-                )
-              : SingleChildScrollView(
-                  controller: _scroll,
-                  child: _slab(context, days, events, tasks, today),
-                ),
-        ),
-      ],
-    );
+        ],
+      );
+    }
 
-    // 狭い画面の週表示: 1日あたりの最小幅を確保して横スクロールにする
     return LayoutBuilder(builder: (context, cs) {
       final perDay = (cs.maxWidth - _gutter) / days.length;
-      if (days.length == 1 || perDay >= _minDayWidth) return content;
+      if (days.length == 1 || perDay >= _minDayWidth) {
+        // 横: スライドは1ページずつ切り替え、トラックパッドの横スクロールは連続して流れる
+        return Listener(
+          onPointerSignal: _onSignal,
+          child: GestureDetector(
+            onHorizontalDragStart: (_) {
+              _anim.stop();
+              _idle?.cancel();
+            },
+            onHorizontalDragUpdate: (d) => _move(-d.delta.dx / _colW),
+            onHorizontalDragEnd: (d) => _release(d.primaryVelocity ?? 0),
+            child: content(_stride),
+          ),
+        );
+      }
+      // 狭い画面の週表示: 1日あたりの最小幅を確保して横スクロールにする
+      // （端を越えて引っ張ると前後の週へ）
       // 段の数が変わったら、横スクロールの位置も選択中の日に合わせ直す
       if (_hDays != days.length) {
         _hDays = days.length;
@@ -736,7 +886,7 @@ class _TimeGridState extends State<TimeGrid> {
           child: SingleChildScrollView(
             controller: _hScroll,
             scrollDirection: Axis.horizontal,
-            child: SizedBox(width: width, child: content),
+            child: SizedBox(width: width, child: content(0)),
           ),
         ),
       );

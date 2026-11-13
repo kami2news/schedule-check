@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:schedule_check/main.dart';
@@ -6,7 +7,7 @@ import 'package:schedule_check/store.dart';
 import 'package:schedule_check/ui/controller.dart';
 import 'package:schedule_check/ui/fluent.dart';
 import 'package:schedule_check/ui/fluent_extras.dart';
-import 'package:schedule_check/ui/swipe_nav.dart';
+import 'package:schedule_check/ui/month_view.dart';
 import 'package:schedule_check/ui/time_grid.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -299,7 +300,7 @@ void main() {
     expect(find.text(titleOf(today)), findsOneWidget);
   });
 
-  testWidgets('スライドで前後へ: 日は横、週は縦スクロールでも、月は縦横どちらでも', (tester) async {
+  testWidgets('スクロールは連続、スライドは切り替え（日・週・月）', (tester) async {
     final store = await _storeWithSamples();
     store.setUiValue('view', 'day');
     tester.view.physicalSize = const Size(1400, 900);
@@ -312,6 +313,12 @@ void main() {
         (CalendarController(view: v)..selected = d).title;
     final grid =
         find.descendant(of: find.byType(TimeGrid), matching: find.byType(ListView));
+    final mouse = TestPointer(1, PointerDeviceKind.mouse);
+    Future<void> scroll(Finder f, Offset d) async {
+      await tester.sendEventToBinding(mouse.hover(tester.getCenter(f)));
+      await tester.sendEventToBinding(mouse.scroll(d));
+      await tester.pump(const Duration(milliseconds: 16));
+    }
 
     // 日: 左へ払うと次の日、右へ払うと戻る
     await tester.fling(grid, const Offset(-300, 0), 1000);
@@ -320,6 +327,21 @@ void main() {
     await tester.fling(grid, const Offset(300, 0), 1000);
     await tester.pumpAndSettle();
     expect(find.text(title(CalView.day, today)), findsOneWidget);
+
+    // 日: 横スクロールは連続。少しだけなら元の日に戻り、半分を超えたら次の日にそろう
+    final colW = tester.getSize(find.byType(TimeGrid)).width - 48;
+    await scroll(grid, Offset(colW * 0.3, 0));
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pumpAndSettle();
+    expect(find.text(title(CalView.day, today)), findsOneWidget);
+    for (var i = 0; i < 4; i++) {
+      await scroll(grid, Offset(colW * 0.15, 0));
+    }
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pumpAndSettle();
+    expect(find.text(title(CalView.day, addDays(today, 1))), findsOneWidget);
+    await tester.tap(find.text('今日'));
+    await tester.pumpAndSettle();
 
     // 週: 縦にスクロールして次の週が半分を超えたら次の週
     await tester.tap(find.byTooltip('表示形式'));
@@ -340,7 +362,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('月').last);
     await tester.pumpAndSettle();
-    final month = find.byType(SwipeNavigator);
+    final month = find.byType(MonthView);
     final next = DateTime(today.year, today.month + 1, 1);
     await tester.fling(month, const Offset(0, -300), 1000);
     await tester.pumpAndSettle();
@@ -348,6 +370,13 @@ void main() {
     await tester.fling(month, const Offset(300, 0), 1000);
     await tester.pumpAndSettle();
     expect(find.text('${today.year}年${today.month}月'), findsWidgets);
+
+    // 月: ホイールは週ごとに連続して流れる。3週ぶん下げると真ん中が次の月になる
+    final list = find.descendant(of: month, matching: find.byType(ListView));
+    final rowH = tester.getSize(list).height / 6;
+    await scroll(list, Offset(0, rowH * 3));
+    await tester.pumpAndSettle();
+    expect(find.text('${next.year}年${next.month}月'), findsWidgets);
   });
 
   testWidgets('To Do のクイック追加でタスクが増える', (tester) async {
