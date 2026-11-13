@@ -69,7 +69,7 @@ void main() {
     await tester.tap(find.byTooltip('表示形式'));
     await tester.pumpAndSettle();
     await tester.tap(find.descendant(
-      of: find.byType(PopupMenuItem<CalView>),
+      of: find.byType(PopupMenuItem<String>),
       matching: find.text('月'),
     ));
     await tester.pumpAndSettle();
@@ -423,7 +423,7 @@ void main() {
     await tester.tap(find.byTooltip('表示形式'));
     await tester.pumpAndSettle();
     await tester.tap(find.descendant(
-      of: find.byType(PopupMenuItem<CalView>),
+      of: find.byType(PopupMenuItem<String>),
       matching: find.text('週'),
     ));
     await tester.pumpAndSettle();
