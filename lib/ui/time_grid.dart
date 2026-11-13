@@ -357,7 +357,14 @@ class _TimeGridState extends State<TimeGrid> {
     );
   }
 
-  Widget _block(BuildContext context, Event e, DateTime day, double h, double w) {
+  /// 予定の枠の高さ。次の日へ続く予定は 24:00 まで隙間なく伸ばす
+  double _blockH(_Placed p) {
+    final full = (p.end - p.start) / 60 * _hourH;
+    return math.max(p.slice.isEnd ? full - 2 : full, 20.0);
+  }
+
+  Widget _block(BuildContext context, Event e, DateTime day, double h, double w,
+      {BorderRadius? radius}) {
     // 細い列では1文字ずつ折り返さないよう、タイトル1行だけを省略表示にする
     final narrow = w < 40;
     final lines = narrow ? 1 : math.max(1, ((h - 4) / 16).floor());
@@ -368,6 +375,7 @@ class _TimeGridState extends State<TimeGrid> {
       child: FlAccentBox(
         accent: StoreScope.read(context).colorOf(e),
         showAs: e.showAs,
+        radius: radius,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -490,14 +498,19 @@ class _TimeGridState extends State<TimeGrid> {
             top: p.start / 60 * _hourH,
             left: p.col * (colW / p.cols) + 1,
             width: colW / p.cols - 3,
-            height: math.max((p.end - p.start) / 60 * _hourH - 2, 20.0),
+            height: _blockH(p),
             child: _block(
               context,
               p.event,
               // 続きの日を押しても、その回（開始日）のプレビューを開く
               p.slice.startDay,
-              math.max((p.end - p.start) / 60 * _hourH - 2, 20.0),
+              _blockH(p),
               colW / p.cols - 3,
+              // 日をまたぐ予定は、つながる側（日の変わり目）を角ばらせて切れ目なく見せる
+              radius: BorderRadius.vertical(
+                top: Radius.circular(p.slice.isStart ? Fl.r4 : 0),
+                bottom: Radius.circular(p.slice.isEnd ? Fl.r4 : 0),
+              ),
             ),
           ),
         // 締め切りの印は予定の上に重ねる

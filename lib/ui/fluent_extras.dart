@@ -19,7 +19,11 @@ class FlAccentBox extends StatelessWidget {
     this.bar = 4,
     this.padding = const EdgeInsets.fromLTRB(5, 2, 4, 2),
     this.showAs = ShowAs.busy,
+    this.radius,
   });
+
+  /// 角の丸み（日をまたぐ予定の続きでは、つながる側を角ばらせる）。省略時は4px
+  final BorderRadius? radius;
 
   final Color accent;
   final Widget child;
@@ -34,8 +38,9 @@ class FlAccentBox extends StatelessWidget {
   Widget build(BuildContext context) {
     final free = showAs == ShowAs.free;
     final fill = free ? Fl.bg1 : Fl.tint(accent);
+    final r = radius ?? BorderRadius.circular(Fl.r4);
     return ClipRRect(
-      borderRadius: BorderRadius.circular(Fl.r4),
+      borderRadius: r,
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: fill,
@@ -44,7 +49,7 @@ class FlAccentBox extends StatelessWidget {
               : (showAs == ShowAs.tentative
                   ? Border.all(color: accent.withValues(alpha: 0.35))
                   : null),
-          borderRadius: BorderRadius.circular(Fl.r4),
+          borderRadius: r,
         ),
         child: Stack(
           children: [
