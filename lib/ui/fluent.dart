@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform;
 import 'package:material_ui/material_ui.dart';
 import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 
+import '../km1/km1_icons_b.dart';
 import '../km1/km1_theme.dart';
 
 export '../km1/km1_icons_b.dart';

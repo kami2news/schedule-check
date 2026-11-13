@@ -617,10 +617,8 @@ abstract final class Km1Theme {
       fontFamilyFallback: Km1Text.fontFamilyFallback,
       // 画面の切り替え: iOS・macOS は端からのスワイプで戻れる Cupertino の動き、ほかは Flutter の既定。
       // Page transitions: Cupertino (edge-swipe back) on iOS and macOS; Flutter defaults elsewhere.
-      pageTransitionsTheme: const PageTransitionsTheme(builders: {
-        TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
-        TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
-      }),
+      // このアプリでの変更: material_ui は Cupertino の画面遷移を含まないため、ここでは指定しない
+      // （アプリは lib/ui/fluent.dart の buildFluentTheme を使う）
       // Material のスプラッシュは使わず、状態は色の変化で示す。 / No ink splash; states are shown by color.
       splashFactory: NoSplash.splashFactory,
       highlightColor: Colors.transparent,
