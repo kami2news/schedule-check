@@ -179,6 +179,9 @@ void main() {
   testWidgets('取り込み: 貼り付けた文章から候補が出る（時限・締め切り）', (tester) async {
     final store = await _storeWithSamples();
     await pumpWide(tester, store);
+    // テストの既定はタッチの端末（部品が 44px 以上）なので、候補が全部見えるよう縦に長くする
+    tester.view.physicalSize = const Size(1400, 1600);
+    await tester.pumpAndSettle();
 
     await tester.tap(find.text('メールなどから取り込む'));
     await tester.pumpAndSettle();
@@ -191,14 +194,6 @@ void main() {
     expect(find.textContaining('実験レポート'), findsWidgets);
     // 3限 → 13:00、0:00 締め切り → 前日（12/4）の終日
     expect(find.textContaining('13:00'), findsWidgets);
-    // テストの既定はタッチの端末（部品が 44px 以上）なので、2件目は下にある
-    await tester.scrollUntilVisible(find.textContaining('12/4'), 200,
-        // 候補の一覧（入力欄の中のスクロールではなく、候補「13:00」を含むもの）
-        scrollable: find
-            .ancestor(
-                of: find.textContaining('13:00').first,
-                matching: find.byType(Scrollable))
-            .first);
     expect(find.textContaining('12/4'), findsWidgets);
   });
 
