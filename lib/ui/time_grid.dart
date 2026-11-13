@@ -132,7 +132,7 @@ class _TimeGridState extends State<TimeGrid> {
     final pos = _scroll.position;
     final center = pos.pixels + pos.viewportDimension / 2;
     final idx = (center / _dayH).floor();
-    final day = addDays(_anchor, (idx - _span) * _n);
+    final day = addDays(_anchor, idx - _span);
     if (day != widget.controller.selected) {
       _scrolledTo = day;
       widget.controller.select(day);
@@ -148,9 +148,9 @@ class _TimeGridState extends State<TimeGrid> {
     if (!countChanged && (day == old.days.first || day == _scrolledTo)) return;
     // 矢印・今日・ミニカレンダー・日数の変更などで日が変わった: その日の同じ時刻へ移る
     final diff = (day.difference(_anchor).inHours / 24).round();
-    var idx = diff ~/ _n + _span;
-    if (countChanged || diff % _n != 0 || idx < 1 || idx > 2 * _span - 1) {
-      // 段の区切りと合わないときは、その日を基準に並べ直す
+    var idx = diff + _span;
+    if (countChanged || idx < 1 || idx > 2 * _span - 1) {
+      // 範囲の外に出たときや日数を変えたときは、その日を基準に並べ直す
       _anchor = day;
       idx = _span;
       setState(() {});
@@ -652,9 +652,10 @@ class _TimeGridState extends State<TimeGrid> {
                   itemExtent: _dayH,
                   itemCount: 2 * _span + 1,
                   itemBuilder: (context, i) {
+                    // 1段下がるごとに1日ずつずれる。各列はそのまま自分の翌日へ続く
                     final ds = [
                       for (var k = 0; k < _n; k++)
-                        addDays(_anchor, (i - _span) * _n + k)
+                        addDays(_anchor, (i - _span) + k)
                     ];
                     return _slab(
                         context,

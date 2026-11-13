@@ -86,7 +86,8 @@ class CalendarController extends ChangeNotifier {
   void step(int dir) {
     switch (view) {
       case CalView.day:
-        selected = addDays(selected, dir * dayCount);
+        // 複数日を並べていても、1日ずつずらす
+        selected = addDays(selected, dir);
         notifyListeners();
         break;
       case CalView.week:
