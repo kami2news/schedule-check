@@ -286,4 +286,78 @@ https://teams.microsoft.com/l/meetup-join/sample
       expect(c.place, contains('正門前'));
     });
   });
+
+  // 2026-11-13 の動作検証レポート（A01〜A08）の入力
+  group('検証レポートの指摘', () {
+    test('A01: 23:59 締切は終日のタスク（仕様）。終日にしたことを補足で示す', () {
+      for (final t in ['12/11 QAレポート提出 23:59', '12/10 23:59 QAレポート提出']) {
+        final c = one(t);
+        expect(c.type, ImportType.task);
+        expect(c.startMin, isNull);
+        expect(c.hint, contains('23:59 締切'));
+      }
+      // 23:59 以外の時刻は残す
+      expect(one('12/11 17:00 QAレポート提出').startMin, 17 * 60);
+    });
+
+    test('A02: 逆転した時刻は注意を付け、チェックを外す', () {
+      final c = one('2026/11/22 14:00-13:00 QA逆転');
+      expect(c.warning, contains('14:00-13:00'));
+      expect(c.selected, isFalse);
+      // 夜→朝は日またぎとして正しく読む（注意なし）
+      final n = one('2026/11/21 23:00-01:00 QA夜勤');
+      expect((n.endMin, n.endOffset, n.warning), (60, 1, null));
+    });
+
+    test('A03: 全角の日付・時刻も半角と同じに読む', () {
+      final c = one('１１月２８日 １０：００〜１１：００ QA全角');
+      expect((c.date, c.startMin, c.endMin), (DateTime(2026, 11, 28), 10 * 60, 11 * 60));
+      expect(c.title, 'QA全角');
+    });
+
+    test('A04: 読めない時刻は終日にせず、注意を付けてタイトルから外す', () {
+      final cs = parse('11/24 25:00-26:00 QA不正時\n11/25 12:60-13:70 QA不正分');
+      expect(cs.length, 2);
+      for (final c in cs) {
+        expect(c.warning, contains('読み取れませんでした'));
+        expect(c.selected, isFalse);
+        expect(c.title.contains(':'), isFalse);
+      }
+      expect(cs[0].title, 'QA不正時');
+    });
+
+    test('A05: ありえない日付は前の予定のメモに入れず、読めなかった行として返す', () {
+      final r = parseText('''2026/11/21 23:00-01:00 QA夜勤
+2026/02/30 10:00-11:00 QA不正日
+2026/13/01 10:00-11:00 QA不正月''', now);
+      expect(r.candidates.single.note, isEmpty);
+      expect(r.unreadable.length, 2);
+      expect(r.unreadable.first, contains('QA不正日'));
+    });
+
+    test('A06: 同じ文章の中の重複は2件目に注意を付けて外す。時間の重なりも知らせる', () {
+      final cs = parse('''12/12 10:00-11:00 QA同一
+12/12 10:00-11:00 QA同一
+12/12 10:30-11:30 QA重複時間''');
+      expect(cs.length, 3);
+      expect(cs[0].selected, isTrue);
+      expect(cs[1].selected, isFalse);
+      expect(cs[1].warning, contains('同じ予定'));
+      expect(cs[2].hint, contains('時間が重なって'));
+    });
+
+    test('A07: 12/4〜12/6 は3日間の終日予定', () {
+      final c = one('12/4〜12/6 QA旅行');
+      expect((c.date, c.startMin, c.endOffset), (DateTime(2026, 12, 4), null, 2));
+      expect(c.title, 'QA旅行');
+    });
+
+    test('A08: 1行に2件あれば2つの候補に分ける', () {
+      final cs = parse('12/2 10:00-11:00 QA複数A、12/3 13:00-14:00 QA複数B');
+      expect(cs.map((c) => (c.date, c.startMin, c.title)).toList(), [
+        (DateTime(2026, 12, 2), 10 * 60, 'QA複数A'),
+        (DateTime(2026, 12, 3), 13 * 60, 'QA複数B'),
+      ]);
+    });
+  });
 }

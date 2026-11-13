@@ -25,6 +25,7 @@ class _ImportPageState extends State<ImportPage> {
   /// 毎週の予定への変更・中止を「この回以降」にも反映する候補
   final Set<Candidate> _following = {};
   int _skipped = 0;
+  List<String> _unreadable = const [];
   bool _parsed = false;
 
   @override
@@ -43,11 +44,13 @@ class _ImportPageState extends State<ImportPage> {
     for (final c in r.candidates) {
       final m = reconcile(c, store.events, store.tasks);
       _matches[c] = m;
-      c.selected = m.defaultSelected;
+      // 読み取りに注意があるものは、確かめてからチェックしてもらう
+      c.selected = m.defaultSelected && c.warning == null;
     }
     setState(() {
       _cands = r.candidates;
       _skipped = r.skipped;
+      _unreadable = r.unreadable;
       _parsed = true;
     });
   }
@@ -183,7 +186,7 @@ class _ImportPageState extends State<ImportPage> {
               date: c.date,
               startMin: s,
               endMin: s == null ? null : (c.endMin ?? defaultEnd(s)),
-              endOffset: s == null ? 0 : c.endOffset,
+              endOffset: c.endOffset,
               place: place,
               url: url,
               note: note,
@@ -249,8 +252,25 @@ class _ImportPageState extends State<ImportPage> {
               }),
               onChanged: () => _rematch(c),
             ),
-          if (_skipped > 0)
-            EmptyNote('日付が見つからず読み飛ばした行: $_skipped'),
+          if (_unreadable.isNotEmpty)
+            Padding(
+              padding: EdgeInsets.only(top: 8),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(FluentIcons.warning_16_regular, size: 16, color: Fl.warning),
+                  SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      '日付として読み取れなかった行（ありえない日付など）:\n${_unreadable.join('\n')}',
+                      style: FlText.caption1.copyWith(color: Fl.warning),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          if (_skipped - _unreadable.length > 0)
+            EmptyNote('日付が見つからず読み飛ばした行: ${_skipped - _unreadable.length}'),
           if (_cands.isNotEmpty) ...[
             SizedBox(height: 12),
             FilledButton(
@@ -398,6 +418,21 @@ class _CandidateTileState extends State<_CandidateTile> {
                   onFollowingChanged: widget.onFollowingChanged,
                 ),
               ),
+            if (c.warning != null)
+              Padding(
+                padding: EdgeInsets.fromLTRB(8, 0, 0, 6),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(FluentIcons.warning_16_regular, size: 16, color: Fl.warning),
+                    SizedBox(width: 6),
+                    Expanded(
+                      child: Text(c.warning!,
+                          style: FlText.caption1.copyWith(color: Fl.warning)),
+                    ),
+                  ],
+                ),
+              ),
             Row(
               children: [
                 Checkbox(
@@ -463,7 +498,10 @@ class _CandidateTileState extends State<_CandidateTile> {
                   TextButton.icon(
                     onPressed: _pickDate,
                     icon: Icon(FluentIcons.calendar_ltr_24_regular, size: 18),
-                    label: Text(fmtDate(c.date)),
+                    // 数日にわたる終日の予定は終わりの日も見せる
+                    label: Text(c.startMin == null && c.endOffset > 0 && !isTask
+                        ? '${fmtDate(c.date)}〜${fmtDate(addDays(c.date, c.endOffset))}'
+                        : fmtDate(c.date)),
                   ),
                   TextButton.icon(
                     onPressed: _pickStart,
@@ -536,6 +574,18 @@ class _CandidateTileState extends State<_CandidateTile> {
                   icon: Icon(FluentIcons.add_24_regular, size: 16),
                   label: Text('リンク・メモを追加'),
                 ),
+              ),
+            if (c.hint != null)
+              Padding(
+                padding: EdgeInsets.only(left: 12, top: 4),
+                child: Row(children: [
+                  Icon(FluentIcons.info_16_regular, size: 14, color: Fl.fg3),
+                  SizedBox(width: 4),
+                  Expanded(
+                    child: Text(c.hint!,
+                        style: FlText.caption1.copyWith(color: Fl.fg2)),
+                  ),
+                ]),
               ),
             Padding(
               padding: EdgeInsets.only(left: 12, top: 4),

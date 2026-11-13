@@ -72,6 +72,12 @@ class Candidate {
   final String source;
   bool selected = true;
 
+  /// 読み取りに自信がないときの注意（この候補は最初はチェックしない）
+  String? warning;
+
+  /// 補足（「23:59 締切 → 終日として登録」など）
+  String? hint;
+
   /// 同じ連絡から作った予定とタスクを結びつける番号（勤務と終了報告など）
   int? linkGroup;
 
@@ -80,8 +86,11 @@ class Candidate {
 }
 
 class ParseResult {
-  ParseResult(this.candidates, this.skipped);
+  ParseResult(this.candidates, this.skipped, [this.unreadable = const []]);
   final List<Candidate> candidates;
+
+  /// 日付らしいが読み取れなかった行（「2026/02/30」など）。前の予定のメモには入れない
+  final List<String> unreadable;
 
   /// 日付が見つからず読み飛ばした行の数
   final int skipped;
@@ -299,6 +308,27 @@ String? _asHeading(String line) {
 }
 
 /// 補足行から時刻を拾う（日付の行に時刻がなかったとき用）
+/// 直前の _extractTime で「14:00-13:00」のような逆転した範囲を見つけたら、その文字列
+String? _reversedRange;
+
+/// 日付の形をしているが、ありえない日付（「2026/02/30」「13/45」）を見つける
+final _dateLikeRe = RegExp(
+    r'\d{4}\s*[/\-.年]\s*\d{1,2}\s*[/\-.月]\s*\d{1,2}|(?<![\d:/])\d{1,2}/\d{1,2}(?![\d:/])|\d{1,2}\s*月\s*\d{1,2}\s*日');
+
+/// 時刻の形をしているもの（読み取れなかった「25:00」「12:60」を見つける）
+final _timeLikeRe = RegExp(r'(?<![\d/])\d{1,2}:\d{2}(?!\d)');
+
+/// 全角の数字・コロン・スラッシュを半角に
+String _halfWidth(String s) => s
+    .replaceAllMapped(RegExp('[０-９]'),
+        (m) => String.fromCharCode(m.group(0)!.codeUnitAt(0) - 0xFEE0))
+    .replaceAll('：', ':')
+    .replaceAll('／', '/');
+
+/// 「12/2 10:00 A、12/3 13:00 B」のように1行に複数の日付があれば分ける
+final _multiSplitRe = RegExp(
+    r'[、，,；;]\s*(?=(?:\d{4}\s*[/\-.年]\s*)?\d{1,2}\s*(?:/|月)\s*\d{1,2})');
+
 ({int? start, int? end, String rest}) _extractTime(String src) {
   final s = _plainTimeWords(src);
   // 「新横浜 08:12発 → 京都 10:07着」
@@ -319,6 +349,7 @@ String? _asHeading(String line) {
         // 「22:00〜5:00」のように夜に始まり朝までに終わるなら、翌日に終わる予定。
         // 24:00 を足した値で返す（受け取る側で「翌日」に直す）。それ以外は終了時刻なし
         b = a >= 12 * 60 && b <= 12 * 60 ? b + 24 * 60 : null;
+        if (b == null) _reversedRange = r.group(0);
       }
       return (start: a, end: b, rest: s.replaceRange(r.start, r.end, ' '));
     }
@@ -686,8 +717,10 @@ ParseResult parseText(String text, DateTime now,
   // Markdown のリンク「[文字](URL)」は「文字 URL」に直してから読む
   final lines = _joinHeadingValues([
     for (final l in text.split(RegExp(r'\r?\n')))
-      l.replaceAllMapped(_mdLinkRe, (m) => '${m.group(1)} ${m.group(2)}'),
+      ..._halfWidth(l.replaceAllMapped(_mdLinkRe, (m) => '${m.group(1)} ${m.group(2)}'))
+          .split(_multiSplitRe),
   ]);
+  final unreadable = <String>[];
   final consumed = <int>{};
   out.addAll(_parseWorkNotices(lines, consumed, cals, text));
   // Moodle のタイムライン（課題の提出期限など）
@@ -720,6 +753,12 @@ ParseResult parseText(String text, DateTime now,
     final body = line.replaceAll(urlPattern, ' ').trim();
 
     final d = _extractDate(body, today);
+    // 日付の形なのに読めない行（ありえない日付）は、前の予定のメモに入れず知らせる
+    if (d == null && _dateLikeRe.hasMatch(body)) {
+      unreadable.add(line);
+      skipped++;
+      continue;
+    }
     if (d == null && open == null && afterBlank != null) {
       final prev = afterBlank;
       if (urls.isNotEmpty && prev.url.isEmpty && isMeetingLink(urls.first)) {
@@ -874,10 +913,15 @@ ParseResult parseText(String text, DateTime now,
       }
       break;
     }
+    _reversedRange = null;
     final t = _extractTime(rest);
     rest = t.rest;
     var start = t.start;
     var end = t.end;
+    String? warning;
+    if (_reversedRange != null) {
+      warning = '終了が開始より前になっています（$_reversedRange）。時刻を確かめてください';
+    }
     // 「11/18(水) 10-15」のような時だけの範囲
     if (start == null) {
       final bh = _bareHoursRe.firstMatch(rest);
@@ -905,6 +949,15 @@ ParseResult parseText(String text, DateTime now,
       }
     }
 
+    // 「25:00」「12:60」のように読めない時刻: 終日にせず、注意を付けてタイトルからも外す
+    if (start == null) {
+      final bad = _timeLikeRe.allMatches(rest).map((m) => m.group(0)!).toList();
+      if (bad.isNotEmpty) {
+        warning = '時刻（${bad.join('、')}）を読み取れませんでした。時刻を指定してください';
+        rest = rest
+            .replaceAll(RegExp(r'\d{1,2}:\d{2}\s*(?:[-〜~～–ー]\s*\d{1,2}:\d{2})?'), ' ');
+      }
+    }
     final cleaned = _cleanTitle(rest);
     var title = cleaned.title;
     var weak = title.isEmpty || _genericRe.hasMatch(title);
@@ -994,6 +1047,10 @@ ParseResult parseText(String text, DateTime now,
       url: urls.isEmpty ? '' : urls.first,
       note: urls.length > 1 ? urls.skip(1).join('\n') : '',
     );
+    if (warning != null) {
+      c.warning = warning;
+      c.selected = false;
+    }
     out.add(c);
     open = c;
     needsTitle = weak ? c : null;
@@ -1002,11 +1059,43 @@ ParseResult parseText(String text, DateTime now,
   // 締め切りは終日が基本（0:00 は前日、23:59 はその日の終日。ほかの時刻は残す）
   for (final c in out) {
     if (c.type != ImportType.task || c.linkGroup != null) continue;
+    final before = c.startMin;
     final (d, m) = normalizeDeadline(c.date, c.startMin);
+    if (before != null && m == null) {
+      c.hint = before <= 0
+          ? '0:00 締切 → 前日（${fmtDate(d)}）の終日として登録'
+          : '${fmtMin(math.min(before, 23 * 60 + 59))} 締切 → 終日として登録';
+    }
     c.date = d;
     c.startMin = m;
   }
-  return ParseResult(out, skipped);
+  // 同じ文章の中の重複と、候補どうしの時間の重なり
+  final seen = <String, Candidate>{};
+  for (final c in out) {
+    final key = '${c.type.name}|${c.title.trim()}|${c.date}|${c.startMin}|${c.endMin}';
+    if (seen.containsKey(key)) {
+      c.warning ??= 'この文章の中に同じ予定がもう1つあります';
+      c.selected = false;
+      continue;
+    }
+    seen[key] = c;
+  }
+  final timed = [
+    for (final c in out)
+      if (c.type != ImportType.task && c.startMin != null && c.warning == null) c
+  ];
+  for (var i = 0; i < timed.length; i++) {
+    for (var j = 0; j < timed.length; j++) {
+      if (i == j) continue;
+      final a = timed[i], b = timed[j];
+      if (a.date != b.date) continue;
+      final ae = a.endMin ?? a.startMin! + 60, be = b.endMin ?? b.startMin! + 60;
+      if (a.startMin! < be && b.startMin! < ae) {
+        a.hint ??= '取り込む候補「${b.title}」と時間が重なっています';
+      }
+    }
+  }
+  return ParseResult(out, skipped, unreadable);
 }
 
 String _addLine(String base, String line) =>
