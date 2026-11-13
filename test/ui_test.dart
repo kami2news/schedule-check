@@ -223,6 +223,40 @@ void main() {
     expect(find.text('解析する'), findsOneWidget);
   });
 
+  testWidgets('日表示: 下へスクロールして次の日が半分を超えたら、次の日になる', (tester) async {
+    final store = await _storeWithSamples();
+    store.setUiValue('view', 'day');
+    tester.view.physicalSize = const Size(390, 800);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(ScheduleApp(store: store));
+    await tester.pumpAndSettle();
+
+    final today = dateOnly(DateTime.now());
+    String title(DateTime d) => '${d.month}/${d.day}（${weekdayNames[d.weekday - 1]}）';
+    final y = today.year == DateTime.now().year;
+    expect(find.textContaining(title(today)), findsWidgets);
+    expect(y, isTrue);
+
+    // 1日ぶん（24時間 × 56px）より少し多く引っ張ると、次の日に切り替わる
+    final grid = find.byType(ListView).first;
+    await tester.drag(grid, const Offset(0, -24 * 56.0 - 40));
+    await tester.pumpAndSettle();
+    final next = addDays(today, 1);
+    expect(find.textContaining(title(next)), findsWidgets);
+
+    // 半分に届かない程度に戻しても、まだ次の日
+    await tester.drag(grid, const Offset(0, 100));
+    await tester.pumpAndSettle();
+    expect(find.textContaining(title(next)), findsWidgets);
+
+    // 「今日」で戻る
+    await tester.tap(find.text('今日'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining(title(today)), findsWidgets);
+    expect(find.textContaining('テスト授業'), findsOneWidget);
+  });
+
   testWidgets('To Do のクイック追加でタスクが増える', (tester) async {
     final store = await _storeWithSamples();
     tester.view.physicalSize = const Size(1400, 900);

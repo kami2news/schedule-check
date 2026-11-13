@@ -85,17 +85,174 @@ class TimeGrid extends StatefulWidget {
   State<TimeGrid> createState() => _TimeGridState();
 }
 
+/// 日表示で、前後に続けて並べておく日数（この範囲ならスクロールだけで日をまたげる）
+const int _span = 365;
+
+/// 1日ぶんの高さ
+const double _dayH = 24 * _hourH;
+
 class _TimeGridState extends State<TimeGrid> {
-  final ScrollController _scroll =
-      ScrollController(initialScrollOffset: 7 * _hourH - 12);
+  late final ScrollController _scroll;
   final ScrollController _hScroll = ScrollController();
   bool _hJumped = false;
 
+  /// 日表示のときの基準日（スクロール位置 0 が「基準日 - _span 日」の 0:00）
+  late DateTime _anchor;
+
+  /// スクロールで選んだ日（外から日付が変わったのか、スクロールで変わったのかを見分ける）
+  DateTime? _scrolledTo;
+
+  bool get _isDay => widget.days.length == 1;
+
+  @override
+  void initState() {
+    super.initState();
+    _anchor = widget.days.first;
+    _scroll = ScrollController(
+      initialScrollOffset: (_isDay ? _span * _dayH : 0) + 7 * _hourH - 12,
+    );
+    if (_isDay) _scroll.addListener(_onDayScroll);
+  }
+
+  /// 日表示: 画面の真ん中がどの日にあるかで、選択中の日を切り替える
+  /// （下へ引っ張って次の日が半分を超えたら、次の日になる）
+  void _onDayScroll() {
+    if (!_scroll.hasClients) return;
+    final pos = _scroll.position;
+    final center = pos.pixels + pos.viewportDimension / 2;
+    final idx = (center / _dayH).floor();
+    final day = addDays(_anchor, idx - _span);
+    if (day != widget.controller.selected) {
+      _scrolledTo = day;
+      widget.controller.select(day);
+    }
+  }
+
+  @override
+  void didUpdateWidget(TimeGrid old) {
+    super.didUpdateWidget(old);
+    if (!_isDay) return;
+    final day = widget.days.first;
+    if (day == old.days.first || day == _scrolledTo) return;
+    // 矢印・今日・ミニカレンダーなどで日が変わった: その日の同じ時刻へ移る
+    var idx = day.difference(_anchor).inHours ~/ 24 + _span;
+    if (idx < 1 || idx > 2 * _span - 1) {
+      _anchor = day;
+      idx = _span;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_scroll.hasClients) return;
+      final tod = _scroll.offset % _dayH;
+      _scrolledTo = day;
+      _scroll.jumpTo(idx * _dayH + tod);
+    });
+  }
+
   @override
   void dispose() {
+    _scroll.removeListener(_onDayScroll);
     _scroll.dispose();
     _hScroll.dispose();
     super.dispose();
+  }
+
+  /// 0:00〜24:00 の時間の欄（時刻の目盛り・罫線・予定）。[days] を横に並べる。
+  /// [dayLabel] が true なら、0:00 の位置に日付を出す（日表示で日をまたいで並べるとき）
+  Widget _slab(BuildContext context, List<DateTime> days, List<List<Event>> events,
+      List<List<TaskItem>> tasks, DateTime today, {bool dayLabel = false}) {
+    return SizedBox(
+      height: _dayH,
+      child: Row(
+        children: [
+          SizedBox(
+            width: _gutter,
+            child: Stack(
+              children: [
+                if (dayLabel)
+                  Positioned(
+                    top: 4,
+                    left: 0,
+                    right: 6,
+                    child: Text(
+                      '${days.first.month}/${days.first.day}\n(${weekdayNames[days.first.weekday - 1]})',
+                      textAlign: TextAlign.right,
+                      style: FlText.caption2.copyWith(fontWeight: FontWeight.w600,
+                          color: days.first == today
+                              ? Fl.brandFg
+                              : (weekendFg(days.first) ?? Fl.fg2)),
+                    ),
+                  ),
+                for (var h = 1; h < 24; h++)
+                  Positioned(
+                    top: h * _hourH - 8,
+                    left: 0,
+                    right: 6,
+                    child: Text(
+                      '$h:00',
+                      textAlign: TextAlign.right,
+                      style: FlText.caption2.copyWith(color: Fl.fg3),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: LayoutBuilder(
+              builder: (context, cs) {
+                final colW = cs.maxWidth / days.length;
+                return Stack(
+                  children: [
+                    // 日の変わり目（日表示で続けて並べるときは濃い線）
+                    if (dayLabel)
+                      Positioned(
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        child: Container(height: 2, color: Fl.stroke1),
+                      ),
+                    for (var h = 1; h < 24; h++)
+                      Positioned(
+                        top: h * _hourH,
+                        left: 0,
+                        right: 0,
+                        child: Container(height: 1, color: Fl.stroke2),
+                      ),
+                    // 30分の補助線（より淡く）
+                    for (var h = 0; h < 24; h++)
+                      Positioned(
+                        top: h * _hourH + _hourH / 2,
+                        left: 0,
+                        right: 0,
+                        child: Container(height: 1, color: Fl.stroke3),
+                      ),
+                    for (var i = 0; i < days.length; i++)
+                      Positioned(
+                        left: i * colW,
+                        width: colW,
+                        top: 0,
+                        bottom: 0,
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            border: Border(left: BorderSide(color: Fl.stroke2)),
+                          ),
+                          child: _dayColumn(
+                            context,
+                            days[i],
+                            colW,
+                            events[i].where((e) => !e.allDay).toList(),
+                            days[i] == today,
+                            tasks[i].where((t) => t.hasTimeMark).toList(),
+                          ),
+                        ),
+                      ),
+                  ],
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _dayHeader(BuildContext context, DateTime d, bool isToday) {
@@ -445,83 +602,23 @@ class _TimeGridState extends State<TimeGrid> {
           ),
         Divider(height: 1),
         Expanded(
-          child: SingleChildScrollView(
-            controller: _scroll,
-            child: SizedBox(
-              height: 24 * _hourH,
-              child: Row(
-                children: [
-                  SizedBox(
-                    width: _gutter,
-                    child: Stack(
-                      children: [
-                        for (var h = 1; h < 24; h++)
-                          Positioned(
-                            top: h * _hourH - 8,
-                            left: 0,
-                            right: 6,
-                            child: Text(
-                              '$h:00',
-                              textAlign: TextAlign.right,
-                              style: FlText.caption2.copyWith(color: Fl.fg3),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                  Expanded(
-                    child: LayoutBuilder(
-                      builder: (context, cs) {
-                        final colW = cs.maxWidth / days.length;
-                        return Stack(
-                          children: [
-                            for (var h = 1; h < 24; h++)
-                              Positioned(
-                                top: h * _hourH,
-                                left: 0,
-                                right: 0,
-                                child: Container(height: 1, color: Fl.stroke2),
-                              ),
-                            // 30分の補助線（より淡く）
-                            for (var h = 0; h < 24; h++)
-                              Positioned(
-                                top: h * _hourH + _hourH / 2,
-                                left: 0,
-                                right: 0,
-                                child: Container(height: 1, color: Fl.stroke3),
-                              ),
-                            for (var i = 0; i < days.length; i++)
-                              Positioned(
-                                left: i * colW,
-                                width: colW,
-                                top: 0,
-                                bottom: 0,
-                                child: DecoratedBox(
-                                  decoration: BoxDecoration(
-                                    border: Border(
-                                        left: BorderSide(color: Fl.stroke2)),
-                                  ),
-                                  child: _dayColumn(
-                                    context,
-                                    days[i],
-                                    colW,
-                                    events[i]
-                                        .where((e) => !e.allDay)
-                                        .toList(),
-                                    days[i] == today,
-                                    tasks[i].where((t) => t.hasTimeMark).toList(),
-                                  ),
-                                ),
-                              ),
-                          ],
-                        );
-                      },
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
+          child: _isDay
+              // 日表示: 前後の日を縦に続けて並べ、スクロールだけで日をまたげるようにする
+              ? ListView.builder(
+                  controller: _scroll,
+                  itemExtent: _dayH,
+                  itemCount: 2 * _span + 1,
+                  itemBuilder: (context, i) {
+                    final d = addDays(_anchor, i - _span);
+                    return _slab(context, [d], [c.eventsOn(store, d)],
+                        [c.tasksOn(store, d)], today,
+                        dayLabel: true);
+                  },
+                )
+              : SingleChildScrollView(
+                  controller: _scroll,
+                  child: _slab(context, days, events, tasks, today),
+                ),
         ),
       ],
     );
