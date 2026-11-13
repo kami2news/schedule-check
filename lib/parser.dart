@@ -322,7 +322,8 @@ final _timeLikeRe = RegExp(r'(?<![\d/])\d{1,2}:\d{2}(?!\d)');
 String _halfWidth(String s) => s
     .replaceAllMapped(RegExp('[０-９]'),
         (m) => String.fromCharCode(m.group(0)!.codeUnitAt(0) - 0xFEE0))
-    .replaceAll('：', ':')
+    // 「１０：００」の「：」だけ半角に（「日程：11/25」の見出しの「：」はそのまま）
+    .replaceAllMapped(RegExp(r'(?<=\d)\s*：\s*(?=\d)'), (_) => ':')
     .replaceAll('／', '/');
 
 /// 「12/2 10:00 A、12/3 13:00 B」のように1行に複数の日付があれば分ける
