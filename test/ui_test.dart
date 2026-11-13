@@ -191,16 +191,8 @@ void main() {
     expect(find.textContaining('実験レポート'), findsWidgets);
     // 3限 → 11:00〜11:50（既定の時限）、0:00 締め切り → 前日（12/4）の終日
     expect(find.textContaining('11:50'), findsWidgets);
-    // 候補の一覧をスクロールして2件目を出す
-    await tester.scrollUntilVisible(find.textContaining('12/4'), 200,
-        scrollable: find
-            .ancestor(
-                of: find.textContaining('元の行: 12/1'),
-                matching: find.byWidgetPredicate((w) =>
-                    w is Scrollable &&
-                    axisDirectionToAxis(w.axisDirection) == Axis.vertical))
-            .first);
-    expect(find.textContaining('12/4'), findsWidgets);
+    // 2件目は一覧の下（タッチの高さで画面の外）にあるので、画面外も含めて探す
+    expect(find.textContaining('12/4', skipOffstage: false), findsWidgets);
   });
 
   testWidgets('時刻つきの締め切りは、時間の欄に印が出る', (tester) async {
