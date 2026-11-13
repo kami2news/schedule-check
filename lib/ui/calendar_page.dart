@@ -95,7 +95,10 @@ class _CalendarPageState extends State<CalendarPage> {
       case CalView.day:
         if (c.dayCount > 1) {
           final b = addDays(s, c.dayCount - 1);
-          return '$y${s.month}/${s.day} – ${b.month}/${b.day}';
+          // 狭い画面に収まるよう短く（同じ月なら「11/13–15」）
+          return s.month == b.month
+              ? '$y${s.month}/${s.day}–${b.day}'
+              : '$y${s.month}/${s.day}–${b.month}/${b.day}';
         }
         return '$y${s.month}/${s.day}（${weekdayNames[s.weekday - 1]}）';
       case CalView.week:
