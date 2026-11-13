@@ -229,7 +229,8 @@ class _CalendarPageState extends State<CalendarPage> {
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(Fl.r4)),
               ),
-              icon: FlIcon(FluentIcons.add_24_regular, size: 20),
+              // 紺の塗りの上なので白で描く（淡い面は付けない）
+              icon: FlIcon(FluentIcons.add_24_regular, size: 20, color: Colors.white),
               onPressed: () => openEventEditor(context, date: c.selected),
             ),
           ],
