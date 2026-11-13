@@ -23,7 +23,7 @@ void main() {
     expect(q.first['t'], '提出');
     expect(q.first['at'], DateTime(2026, 11, 12, 16).toUtc().millisecondsSinceEpoch);
     expect(q[1]['at'], DateTime(2026, 11, 16, 8, 30).toUtc().millisecondsSinceEpoch);
-    expect(q[1]['b'], '今日 09:00–10:30');
+    expect(q[1]['b'], '今日 11/16（月） 9:00〜10:30');
     expect(buildPushQueue([weekly], [], now, max: 2).length, 2);
   });
 

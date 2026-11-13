@@ -21,8 +21,9 @@ DateTime startOfWeek(DateTime d) {
 String fmtLongDate(DateTime d) =>
     '${d.year}年${d.month}月${d.day}日（${weekdayNames[d.weekday - 1]}）';
 
+/// KM1 の日付の書き方「11/12（木）」
 String fmtDate(DateTime d) =>
-    '${d.month}/${d.day}(${weekdayNames[d.weekday - 1]})';
+    '${d.month}/${d.day}（${weekdayNames[d.weekday - 1]}）';
 
 /// 締め切りの日時のそろえ方:
 /// - 0:00（24:00）締め切りは「前日いっぱい」なので、前日の終日にする
@@ -37,8 +38,8 @@ String fmtDate(DateTime d) =>
   return (d, min);
 }
 
-String fmtMin(int m) =>
-    '${(m ~/ 60).toString().padLeft(2, '0')}:${(m % 60).toString().padLeft(2, '0')}';
+/// KM1 の時刻の書き方「9:00」（24時間制、時の先頭に 0 を付けない）
+String fmtMin(int m) => '${m ~/ 60}:${(m % 60).toString().padLeft(2, '0')}';
 
 /// Outlook の「マイカレンダー」に相当する、色と名前を持つカレンダー
 class CalendarDef {
@@ -304,7 +305,7 @@ class Event {
     }
     if (endMin == null) return fmtMin(startMin!);
     final next = switch (endOffset) { 0 => '', 1 => '翌', _ => '$endOffset日後 ' };
-    return '${fmtMin(startMin!)}–$next${fmtMin(endMin!)}';
+    return '${fmtMin(startMin!)}〜$next${fmtMin(endMin!)}';
   }
 
   /// [day] にかかっている部分（日をまたぐ予定は、続きの日にも出る）。かかっていなければ null

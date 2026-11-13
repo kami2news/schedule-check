@@ -109,7 +109,7 @@ class CalendarController extends ChangeNotifier {
           final tail = s.year != b.year
               ? '${b.year}年${b.month}月${b.day}日'
               : (s.month == b.month ? '${b.day}日' : '${b.month}月${b.day}日');
-          return '${s.year}年${s.month}月${s.day}日 – $tail';
+          return '${s.year}年${s.month}月${s.day}日〜$tail';
         }
         return '${s.year}年${s.month}月${s.day}日（${weekdayNames[s.weekday - 1]}）';
       case CalView.week:
@@ -117,7 +117,7 @@ class CalendarController extends ChangeNotifier {
         final b = addDays(a, 6);
         final head = '${a.year}年${a.month}月${a.day}日';
         final tail = a.month == b.month ? '${b.day}日' : '${b.month}月${b.day}日';
-        return '$head – $tail';
+        return '$head〜$tail';
       case CalView.month:
         return '${s.year}年${s.month}月';
     }

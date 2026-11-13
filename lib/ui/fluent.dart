@@ -298,12 +298,12 @@ ThemeData buildFluentTheme() {
     materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
     // Fluent の入場モーション（短いフェード + わずかな上方向スライド）
     pageTransitionsTheme: PageTransitionsTheme(builders: {
-      TargetPlatform.android: FadeUpwardsPageTransitionsBuilder(),
-      TargetPlatform.iOS: FadeUpwardsPageTransitionsBuilder(),
-      TargetPlatform.macOS: FadeUpwardsPageTransitionsBuilder(),
-      TargetPlatform.windows: FadeUpwardsPageTransitionsBuilder(),
-      TargetPlatform.linux: FadeUpwardsPageTransitionsBuilder(),
-      TargetPlatform.fuchsia: FadeUpwardsPageTransitionsBuilder(),
+      TargetPlatform.android: _Km1PageTransitions(),
+      TargetPlatform.iOS: _Km1PageTransitions(),
+      TargetPlatform.macOS: _Km1PageTransitions(),
+      TargetPlatform.windows: _Km1PageTransitions(),
+      TargetPlatform.linux: _Km1PageTransitions(),
+      TargetPlatform.fuchsia: _Km1PageTransitions(),
     }),
     splashFactory: NoSplash.splashFactory,
     splashColor: Colors.transparent,
@@ -1126,6 +1126,49 @@ class FlToggleGroup<T> extends StatelessWidget {
 
 /// 編集ダイアログ（またはモバイルの全画面）の枠。
 /// ヘッダー（タイトル + 閉じる）/ 本文 / フッター（主ボタンが左）の構成。
+/// KM1 のボタンの並び（デジタル庁の配置）。
+/// - PC: 右端にプライマリ、その左に「キャンセル」（文字だけのボタン）。[leading]（削除など）は左端
+/// - スマホ（画面の幅 480px 未満）: 縦に積み、プライマリを一番上に
+class FlActions extends StatelessWidget {
+  const FlActions({
+    super.key,
+    required this.primary,
+    this.onCancel,
+    this.leading,
+  });
+
+  final Widget primary;
+
+  /// 「キャンセル」を押したとき。null ならキャンセルを出さない
+  final VoidCallback? onCancel;
+  final Widget? leading;
+
+  @override
+  Widget build(BuildContext context) {
+    final cancel = onCancel == null
+        ? null
+        : TextButton(onPressed: onCancel, child: Text('キャンセル'));
+    if (MediaQuery.sizeOf(context).width < 480) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          primary,
+          if (cancel != null) ...[SizedBox(height: 8), cancel],
+          if (leading != null) ...[SizedBox(height: 8), leading!],
+        ],
+      );
+    }
+    return Row(
+      children: [
+        if (leading != null) leading!,
+        Spacer(),
+        if (cancel != null) ...[cancel, SizedBox(width: 8)],
+        primary,
+      ],
+    );
+  }
+}
+
 class FlEditorFrame extends StatelessWidget {
   const FlEditorFrame({
     super.key,
@@ -1194,29 +1237,47 @@ class FlEditorFrame extends StatelessWidget {
                         ],
                       ),
                     ),
-                  Row(
-                children: [
-                  FilledButton(onPressed: onSave, child: Text('保存')),
-                  SizedBox(width: 8),
-                  OutlinedButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: Text('キャンセル'),
+                  FlActions(
+                    primary: FilledButton(onPressed: onSave, child: Text('保存')),
+                    onCancel: () => Navigator.of(context).pop(),
+                    leading: onDelete == null
+                        ? null
+                        : TextButton.icon(
+                            onPressed: onDelete,
+                            style: TextButton.styleFrom(foregroundColor: Fl.danger),
+                            icon: Icon(FluentIcons.delete_24_regular, size: 18),
+                            label: Text('削除'),
+                          ),
                   ),
-                  Spacer(),
-                  if (onDelete != null)
-                    TextButton.icon(
-                      onPressed: onDelete,
-                      style: TextButton.styleFrom(foregroundColor: Fl.danger),
-                      icon: Icon(FluentIcons.delete_24_regular, size: 18),
-                      label: Text('削除'),
-                    ),
-                ],
-              ),
                 ],
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+
+/// KM1 の画面の出入り: 短いフェード + 下から 8px（動かしてよいのは 8px まで）。
+/// OS の「動きを減らす」設定では動かさない
+class _Km1PageTransitions extends PageTransitionsBuilder {
+  const _Km1PageTransitions();
+
+  @override
+  Widget buildTransitions<T>(PageRoute<T> route, BuildContext context,
+      Animation<double> animation, Animation<double> secondaryAnimation, Widget child) {
+    if (MediaQuery.disableAnimationsOf(context)) return child;
+    final a = CurvedAnimation(
+        parent: animation, curve: Curves.decelerate, reverseCurve: Curves.easeIn);
+    return FadeTransition(
+      opacity: a,
+      child: AnimatedBuilder(
+        animation: a,
+        builder: (context, child) =>
+            Transform.translate(offset: Offset(0, 8 * (1 - a.value)), child: child),
+        child: child,
       ),
     );
   }

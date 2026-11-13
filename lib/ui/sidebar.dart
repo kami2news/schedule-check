@@ -334,16 +334,9 @@ class _CalendarEditorState extends State<_CalendarEditor> {
               ],
             ),
             SizedBox(height: 24),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                FilledButton(onPressed: _save, child: Text('保存')),
-                SizedBox(width: 8),
-                OutlinedButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: Text('キャンセル'),
-                ),
-              ],
+            FlActions(
+              primary: FilledButton(onPressed: _save, child: Text('保存')),
+              onCancel: () => Navigator.of(context).pop(),
             ),
           ],
         ),

@@ -180,10 +180,17 @@ class _TimeGridState extends State<TimeGrid>
   void _settleTo(int dir) {
     _idle?.cancel();
     final target = (dir * _extra).toDouble();
+    // OS の「動きを減らす」設定では、動かさずにすぐ切り替える
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _anim.stop();
+      if (dir != 0) _commit(dir);
+      _pan.value = 0;
+      return;
+    }
     _anim.value = _pan.value;
     _anim
         .animateTo(target,
-            duration: const Duration(milliseconds: 220), curve: Curves.easeOutCubic)
+            duration: const Duration(milliseconds: 200), curve: Curves.decelerate)
         .then((_) {
       if (dir != 0) {
         _commit(dir);
@@ -422,7 +429,7 @@ class _TimeGridState extends State<TimeGrid>
                           left: i * colW + 6,
                           child: IgnorePointer(
                             child: Text(
-                              '${days[i].month}/${days[i].day}(${weekdayNames[days[i].weekday - 1]})',
+                              fmtDate(days[i]),
                               style: FlText.caption2.copyWith(
                                   fontWeight: FontWeight.w600,
                                   color: days[i] == today

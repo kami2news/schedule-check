@@ -234,5 +234,5 @@ String describeCandidateTime(Candidate c) {
   if (c.startMin == null) return c.type == ImportType.task ? d : '$d 終日';
   if (c.type == ImportType.task) return '$d ${fmtMin(c.startMin!)}';
   final e = c.endMin ?? defaultEnd(c.startMin!);
-  return '$d ${fmtMin(c.startMin!)}–${c.endOffset > 0 ? '翌' : ''}${fmtMin(math.min(e, 24 * 60 - 1))}';
+  return '$d ${fmtMin(c.startMin!)}〜${c.endOffset > 0 ? '翌' : ''}${fmtMin(math.min(e, 24 * 60 - 1))}';
 }

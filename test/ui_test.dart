@@ -40,7 +40,7 @@ void main() {
     expect(startOfWeek(DateTime(2026, 11, 10)), DateTime(2026, 11, 8));
     final c = CalendarController(view: CalView.week);
     c.select(DateTime(2026, 11, 10));
-    expect(c.title, '2026年11月8日 – 14日');
+    expect(c.title, '2026年11月8日〜14日');
     c.step(1);
     expect(c.selected, DateTime(2026, 11, 17));
   });

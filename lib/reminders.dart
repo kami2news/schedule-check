@@ -56,9 +56,9 @@ String _eventBody(Event e, DateTime day, DateTime now) {
   final today = dateOnly(now);
   final d = dateOnly(day);
   final when = d == today
-      ? '今日'
+      ? '今日 ${fmtDate(d)}'
       : d == addDays(today, 1)
-          ? '明日'
+          ? '明日 ${fmtDate(d)}'
           : fmtDate(d);
   parts.add('$when ${e.timeLabel}');
   if (e.place.isNotEmpty) parts.add(e.place);
@@ -99,7 +99,11 @@ List<ReminderItem> remindersBetween(
     if (!inRange(at)) continue;
     final d = dateOnly(t.due!);
     final today = dateOnly(at);
-    final day = d == today ? '今日' : d == addDays(today, 1) ? '明日' : fmtDate(d);
+    final day = d == today
+        ? '今日 ${fmtDate(d)}'
+        : d == addDays(today, 1)
+            ? '明日 ${fmtDate(d)}'
+            : fmtDate(d);
     out.add(ReminderItem(
       key: 't:${t.id}@${t.due!.toIso8601String().substring(0, 10)}-${t.dueMin}',
       at: at,

@@ -85,9 +85,9 @@ class _MonthViewState extends State<MonthView> {
       animate = false;
     }
     final target = row * _rowH;
-    if (animate) {
+    if (animate && !MediaQuery.disableAnimationsOf(context)) {
       sc.animateTo(target,
-          duration: const Duration(milliseconds: 280), curve: Curves.easeOutCubic);
+          duration: const Duration(milliseconds: 200), curve: Curves.decelerate);
     } else {
       sc.jumpTo(target);
     }

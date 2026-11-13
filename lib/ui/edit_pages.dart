@@ -1267,23 +1267,16 @@ class _PeriodSettingsState extends State<_PeriodSettings> {
               label: Text('時限を追加'),
             ),
             SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                FilledButton(
-                  onPressed: () {
-                    if (_list.any((p) => p.$2 <= p.$1)) return;
-                    StoreScope.read(context).setPeriods(_list);
-                    Navigator.of(context).pop();
-                  },
-                  child: Text('保存'),
-                ),
-                SizedBox(width: 8),
-                OutlinedButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: Text('キャンセル'),
-                ),
-              ],
+            FlActions(
+              primary: FilledButton(
+                onPressed: () {
+                  if (_list.any((p) => p.$2 <= p.$1)) return;
+                  StoreScope.read(context).setPeriods(_list);
+                  Navigator.of(context).pop();
+                },
+                child: Text('保存'),
+              ),
+              onCancel: () => Navigator.of(context).pop(),
             ),
           ],
         ),

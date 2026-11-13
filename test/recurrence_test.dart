@@ -204,7 +204,7 @@ void main() {
       expect(b.startDay, DateTime(2026, 11, 13));
       expect(night.sliceOn(DateTime(2026, 11, 15)), isNull);
       expect(night.sliceOn(DateTime(2026, 11, 12)), isNull);
-      expect(night.timeLabel, '22:00–翌05:00');
+      expect(night.timeLabel, '22:00〜翌5:00');
     });
 
     test('ちょうど 0:00 に終わる予定は翌日に出さない', () {

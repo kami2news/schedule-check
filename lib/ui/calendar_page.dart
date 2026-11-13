@@ -3,6 +3,7 @@ import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 
 import '../models.dart';
 import 'controller.dart';
+import 'edit_pages.dart';
 import 'finder_pages.dart';
 import 'fluent.dart';
 import 'mini_month.dart';
@@ -90,21 +91,21 @@ class _CalendarPageState extends State<CalendarPage> {
   /// 狭い画面では年を省いた短い見出しにする（今年以外は年も付ける）
   String _compactTitle(CalendarController c) {
     final s = c.selected;
-    final y = s.year == DateTime.now().year ? '' : '${s.year}年';
+    final y = s.year == DateTime.now().year ? '' : '${s.year}/';
     switch (c.view) {
       case CalView.day:
         if (c.dayCount > 1) {
           final b = addDays(s, c.dayCount - 1);
-          // 狭い画面に収まるよう短く（同じ月なら「11/13–15」）
+          // 狭い画面に収まるよう短く（同じ月なら「11/13〜15」）
           return s.month == b.month
-              ? '$y${s.month}/${s.day}–${b.day}'
-              : '$y${s.month}/${s.day}–${b.month}/${b.day}';
+              ? '$y${s.month}/${s.day}〜${b.day}'
+              : '$y${s.month}/${s.day}〜${b.month}/${b.day}';
         }
         return '$y${s.month}/${s.day}（${weekdayNames[s.weekday - 1]}）';
       case CalView.week:
         final a = startOfWeek(s);
         final b = addDays(a, 6);
-        return '$y${a.month}/${a.day} – ${b.month}/${b.day}';
+        return '$y${a.month}/${a.day}〜${b.month}/${b.day}';
       case CalView.month:
         return '${s.year}年${s.month}月';
     }
@@ -213,6 +214,15 @@ class _CalendarPageState extends State<CalendarPage> {
                   ),
               ],
             ),
+          // 主な追加の操作（KM1: 狭い画面では見出し行の右のボタン。FAB は使わない）
+          if (compact) ...[
+            SizedBox(width: 4),
+            IconButton.filled(
+              tooltip: '予定を追加',
+              icon: Icon(FluentIcons.add_24_regular, size: 20),
+              onPressed: () => openEventEditor(context, date: c.selected),
+            ),
+          ],
         ],
       ),
     );

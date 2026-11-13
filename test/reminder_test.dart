@@ -11,9 +11,9 @@ void main() {
     expect(reminderLabel(15, allDay: false), '15分前');
     expect(reminderLabel(120, allDay: false), '2時間前');
     expect(reminderLabel(1440, allDay: false), '1日前');
-    expect(reminderLabel(-540, allDay: true), '当日 09:00');
+    expect(reminderLabel(-540, allDay: true), '当日 9:00');
     expect(reminderLabel(360, allDay: true), '前日 18:00');
-    expect(reminderLabel(2340, allDay: true), '2日前 09:00');
+    expect(reminderLabel(2340, allDay: true), '2日前 9:00');
   });
 
   test('予定の通知は開始の◯分前、範囲内のものだけ', () {
@@ -28,7 +28,7 @@ void main() {
     final hit = remindersBetween([e], [], DateTime(2026, 11, 12, 12, 40),
         DateTime(2026, 11, 12, 12, 45));
     expect(hit.single.at, DateTime(2026, 11, 12, 12, 45));
-    expect(hit.single.body, '今日 13:00–14:00・理学部');
+    expect(hit.single.body, '今日 11/12（木） 13:00〜14:00・理学部');
     expect(hit.single.date, DateTime(2026, 11, 12));
     // 境界: from ちょうどは含まない（前回出したもの）
     expect(
@@ -66,7 +66,7 @@ void main() {
             [e], [], DateTime(2026, 11, 19, 17), DateTime(2026, 11, 19, 19))
         .single;
     expect(h.at, DateTime(2026, 11, 19, 18));
-    expect(h.body, '明日 終日');
+    expect(h.body, '明日 11/20（金） 終日');
   });
 
   test('タスクは期限の◯分前。完了済みは鳴らない', () {
@@ -86,7 +86,7 @@ void main() {
     final h = remindersBetween(
         [], [t, done], DateTime(2026, 11, 13, 15), DateTime(2026, 11, 13, 16));
     expect(h.single.title, 'レポート提出');
-    expect(h.single.body, '期限 今日 17:00');
+    expect(h.single.body, '期限 今日 11/13（金） 17:00');
   });
 
   test('最初から付ける通知（既定）は種類ごとに保存される', () async {

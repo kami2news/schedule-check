@@ -284,7 +284,7 @@ Future<T?> showFlDialog<T>(
   );
 }
 
-/// 確認ダイアログ。主ボタン（実行）が左、キャンセルが右。
+/// 確認ダイアログ。ボタンの並びは [FlActions]（PC は主ボタンが右）。
 Future<bool> showFlConfirm(
   BuildContext context, {
   required String title,
@@ -307,19 +307,12 @@ Future<bool> showFlConfirm(
               SizedBox(height: 8),
               Text(message, style: FlText.body1.copyWith(color: Fl.fg2)),
               SizedBox(height: 24),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  FilledButton(
-                    onPressed: () => Navigator.of(ctx).pop(true),
-                    child: Text(confirmLabel),
-                  ),
-                  SizedBox(width: 8),
-                  OutlinedButton(
-                    onPressed: () => Navigator.of(ctx).pop(false),
-                    child: Text('キャンセル'),
-                  ),
-                ],
+              FlActions(
+                primary: FilledButton(
+                  onPressed: () => Navigator.of(ctx).pop(true),
+                  child: Text(confirmLabel),
+                ),
+                onCancel: () => Navigator.of(ctx).pop(false),
               ),
             ],
           ),
@@ -343,8 +336,7 @@ Future<int?> showFlTimeList(BuildContext context, int initialMin,
   final index = values.indexOf(initialMin);
   final scroll = ScrollController(
       initialScrollOffset: (index * rowH - 3 * rowH).clamp(0.0, 1e9).toDouble());
-  String fmt(int m) =>
-      '${(m ~/ 60).toString().padLeft(2, '0')}:${(m % 60).toString().padLeft(2, '0')}';
+  String fmt(int m) => fmtMin(m);
   return showFlDialog<int>(
     context,
     maxWidth: 200,
@@ -513,22 +505,15 @@ Future<T?> showFlChoice<T>(
                   ),
                 ),
               SizedBox(height: 20),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  FilledButton(
-                    style: danger
-                        ? FilledButton.styleFrom(backgroundColor: Fl.danger)
-                        : null,
-                    onPressed: () => Navigator.of(ctx).pop(selected),
-                    child: Text(confirmLabel),
-                  ),
-                  SizedBox(width: 8),
-                  OutlinedButton(
-                    onPressed: () => Navigator.of(ctx).pop(),
-                    child: Text('キャンセル'),
-                  ),
-                ],
+              FlActions(
+                primary: FilledButton(
+                  style: danger
+                      ? FilledButton.styleFrom(backgroundColor: Fl.danger)
+                      : null,
+                  onPressed: () => Navigator.of(ctx).pop(selected),
+                  child: Text(confirmLabel),
+                ),
+                onCancel: () => Navigator.of(ctx).pop(),
               ),
             ],
           ),
