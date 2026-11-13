@@ -28,30 +28,43 @@ class CalendarPage extends StatefulWidget {
 class _CalendarPageState extends State<CalendarPage> {
   bool _showMini = false;
 
-  /// Outlook と同じ「週 ▾」形式の表示切り替えメニュー
+  /// Outlook と同じ「週 ▾」形式の表示切り替えメニュー。日表示は 1〜7 日を選べる
   Widget _viewMenu(CalendarController c) {
-    return PopupMenuButton<CalView>(
+    Widget item(String label, bool on) => Row(
+          children: [
+            SizedBox(
+              width: 20,
+              child: on ? Icon(FluentIcons.checkmark_24_regular, size: 16) : null,
+            ),
+            SizedBox(width: 8),
+            Text(label),
+          ],
+        );
+    final current = c.view == CalView.day ? 'd${c.dayCount}' : c.view.name;
+    return PopupMenuButton<String>(
       tooltip: '表示形式',
       position: PopupMenuPosition.under,
-      initialValue: c.view,
-      onSelected: c.setView,
+      initialValue: current,
+      onSelected: (v) {
+        if (v.startsWith('d')) {
+          c.setDayCount(int.parse(v.substring(1)));
+        } else {
+          c.setView(CalView.values.byName(v));
+        }
+      },
       itemBuilder: (context) => [
-        for (final v in CalView.values)
-          PopupMenuItem<CalView>(
-            value: v,
+        for (var n = 1; n <= 7; n++)
+          PopupMenuItem<String>(
+            value: 'd$n',
             height: 36,
-            child: Row(
-              children: [
-                SizedBox(
-                  width: 20,
-                  child: v == c.view
-                      ? Icon(FluentIcons.checkmark_24_regular, size: 16)
-                      : null,
-                ),
-                SizedBox(width: 8),
-                Text(v.label),
-              ],
-            ),
+            child: item(n == 1 ? '日' : '$n日', current == 'd$n'),
+          ),
+        PopupMenuDivider(height: 8),
+        for (final v in [CalView.week, CalView.month])
+          PopupMenuItem<String>(
+            value: v.name,
+            height: 36,
+            child: item(v.label, current == v.name),
           ),
       ],
       child: Container(
@@ -65,7 +78,7 @@ class _CalendarPageState extends State<CalendarPage> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(c.view.label, style: FlText.body1Strong),
+            Text(c.viewLabel, style: FlText.body1Strong),
             SizedBox(width: 6),
             Icon(FluentIcons.chevron_down_24_regular, size: 14),
           ],
@@ -80,6 +93,10 @@ class _CalendarPageState extends State<CalendarPage> {
     final y = s.year == DateTime.now().year ? '' : '${s.year}年';
     switch (c.view) {
       case CalView.day:
+        if (c.dayCount > 1) {
+          final b = addDays(s, c.dayCount - 1);
+          return '$y${s.month}/${s.day} – ${b.month}/${b.day}';
+        }
         return '$y${s.month}/${s.day}（${weekdayNames[s.weekday - 1]}）';
       case CalView.week:
         final a = startOfWeek(s);
@@ -210,7 +227,8 @@ class _CalendarPageState extends State<CalendarPage> {
             body = TimeGrid(
               key: ValueKey('grid-day'),
               controller: c,
-              days: [c.selected],
+              days: c.dayViewDays,
+              continuous: true,
             );
             break;
           case CalView.week:

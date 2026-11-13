@@ -189,11 +189,17 @@ class _HomeShellState extends State<HomeShell> {
               ? CalView.week
               : CalView.day),
     );
+    _cal!.dayCount = (int.tryParse(store.uiValue('dayCount') ?? '') ?? 1).clamp(1, 7);
     var lastView = _cal!.view;
+    var lastCount = _cal!.dayCount;
     _cal!.addListener(() {
       if (_cal!.view != lastView) {
         lastView = _cal!.view;
         store.setUiValue('view', lastView.name);
+      }
+      if (_cal!.dayCount != lastCount) {
+        lastCount = _cal!.dayCount;
+        store.setUiValue('dayCount', '$lastCount');
       }
     });
     _tab = (int.tryParse(store.uiValue('tab') ?? '') ?? 0).clamp(0, 2);

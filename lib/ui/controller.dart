@@ -28,6 +28,23 @@ class CalendarController extends ChangeNotifier {
   DateTime selected;
   CalView view;
 
+  /// 日表示で並べる日数（1〜7。2なら「2日」表示）
+  int dayCount = 1;
+
+  void setDayCount(int n) {
+    dayCount = n.clamp(1, 7);
+    view = CalView.day;
+    notifyListeners();
+  }
+
+  /// 表示形式の名前（日表示は日数つき: 「日」「3日」）
+  String get viewLabel =>
+      view == CalView.day && dayCount > 1 ? '$dayCount日' : view.label;
+
+  /// 日表示で並べる日
+  List<DateTime> get dayViewDays =>
+      [for (var i = 0; i < dayCount; i++) addDays(selected, i)];
+
   /// 非表示にする予定の種類（Outlook の「マイカレンダー」のチェックに相当）
   final Set<String> hidden = {};
 
@@ -69,7 +86,7 @@ class CalendarController extends ChangeNotifier {
   void step(int dir) {
     switch (view) {
       case CalView.day:
-        selected = addDays(selected, dir);
+        selected = addDays(selected, dir * dayCount);
         notifyListeners();
         break;
       case CalView.week:
@@ -86,6 +103,13 @@ class CalendarController extends ChangeNotifier {
     final s = selected;
     switch (view) {
       case CalView.day:
+        if (dayCount > 1) {
+          final b = addDays(s, dayCount - 1);
+          final tail = s.year != b.year
+              ? '${b.year}年${b.month}月${b.day}日'
+              : (s.month == b.month ? '${b.day}日' : '${b.month}月${b.day}日');
+          return '${s.year}年${s.month}月${s.day}日 – $tail';
+        }
         return '${s.year}年${s.month}月${s.day}日（${weekdayNames[s.weekday - 1]}）';
       case CalView.week:
         final a = startOfWeek(s);

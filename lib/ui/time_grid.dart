@@ -76,10 +76,17 @@ List<_Placed> _layoutDay(List<Event> events, DateTime day) {
 
 /// Outlook 風の時間グリッド（日・週表示）
 class TimeGrid extends StatefulWidget {
-  const TimeGrid({super.key, required this.controller, required this.days});
+  const TimeGrid(
+      {super.key,
+      required this.controller,
+      required this.days,
+      this.continuous = false});
 
   final CalendarController controller;
   final List<DateTime> days;
+
+  /// 日表示: 上下にスクロールすると、そのまま前後の日（[days] の日数ずつ）へ続く
+  final bool continuous;
 
   @override
   State<TimeGrid> createState() => _TimeGridState();
@@ -95,6 +102,7 @@ class _TimeGridState extends State<TimeGrid> {
   late final ScrollController _scroll;
   final ScrollController _hScroll = ScrollController();
   bool _hJumped = false;
+  int _hDays = 0;
 
   /// 日表示のときの基準日（スクロール位置 0 が「基準日 - _span 日」の 0:00）
   late DateTime _anchor;
@@ -102,7 +110,10 @@ class _TimeGridState extends State<TimeGrid> {
   /// スクロールで選んだ日（外から日付が変わったのか、スクロールで変わったのかを見分ける）
   DateTime? _scrolledTo;
 
-  bool get _isDay => widget.days.length == 1;
+  bool get _isDay => widget.continuous;
+
+  /// 1段に並べる日数（日表示の「3日」なら 3）
+  int get _n => widget.days.length;
 
   @override
   void initState() {
@@ -121,7 +132,7 @@ class _TimeGridState extends State<TimeGrid> {
     final pos = _scroll.position;
     final center = pos.pixels + pos.viewportDimension / 2;
     final idx = (center / _dayH).floor();
-    final day = addDays(_anchor, idx - _span);
+    final day = addDays(_anchor, (idx - _span) * _n);
     if (day != widget.controller.selected) {
       _scrolledTo = day;
       widget.controller.select(day);
@@ -133,12 +144,16 @@ class _TimeGridState extends State<TimeGrid> {
     super.didUpdateWidget(old);
     if (!_isDay) return;
     final day = widget.days.first;
-    if (day == old.days.first || day == _scrolledTo) return;
-    // 矢印・今日・ミニカレンダーなどで日が変わった: その日の同じ時刻へ移る
-    var idx = day.difference(_anchor).inHours ~/ 24 + _span;
-    if (idx < 1 || idx > 2 * _span - 1) {
+    final countChanged = old.days.length != _n;
+    if (!countChanged && (day == old.days.first || day == _scrolledTo)) return;
+    // 矢印・今日・ミニカレンダー・日数の変更などで日が変わった: その日の同じ時刻へ移る
+    final diff = (day.difference(_anchor).inHours / 24).round();
+    var idx = diff ~/ _n + _span;
+    if (countChanged || diff % _n != 0 || idx < 1 || idx > 2 * _span - 1) {
+      // 段の区切りと合わないときは、その日を基準に並べ直す
       _anchor = day;
       idx = _span;
+      setState(() {});
     }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_scroll.hasClients) return;
@@ -168,7 +183,7 @@ class _TimeGridState extends State<TimeGrid> {
             width: _gutter,
             child: Stack(
               children: [
-                if (dayLabel)
+                if (dayLabel && days.length == 1)
                   Positioned(
                     top: 4,
                     left: 0,
@@ -210,6 +225,21 @@ class _TimeGridState extends State<TimeGrid> {
                         right: 0,
                         child: Container(height: 2, color: Fl.stroke1),
                       ),
+                    // 複数日を続けて並べるときは、各列の 0:00 に日付を出す
+                    if (dayLabel && days.length > 1)
+                      for (var i = 0; i < days.length; i++)
+                        Positioned(
+                          top: 4,
+                          left: i * colW + 6,
+                          child: Text(
+                            '${days[i].month}/${days[i].day}(${weekdayNames[days[i].weekday - 1]})',
+                            style: FlText.caption2.copyWith(
+                                fontWeight: FontWeight.w600,
+                                color: days[i] == today
+                                    ? Fl.brandFg
+                                    : (weekendFg(days[i]) ?? Fl.fg2)),
+                          ),
+                        ),
                     for (var h = 1; h < 24; h++)
                       Positioned(
                         top: h * _hourH,
@@ -622,9 +652,16 @@ class _TimeGridState extends State<TimeGrid> {
                   itemExtent: _dayH,
                   itemCount: 2 * _span + 1,
                   itemBuilder: (context, i) {
-                    final d = addDays(_anchor, i - _span);
-                    return _slab(context, [d], [c.eventsOn(store, d)],
-                        [c.tasksOn(store, d)], today,
+                    final ds = [
+                      for (var k = 0; k < _n; k++)
+                        addDays(_anchor, (i - _span) * _n + k)
+                    ];
+                    return _slab(
+                        context,
+                        ds,
+                        [for (final d in ds) c.eventsOn(store, d)],
+                        [for (final d in ds) c.tasksOn(store, d)],
+                        today,
                         dayLabel: true);
                   },
                 )
@@ -640,6 +677,11 @@ class _TimeGridState extends State<TimeGrid> {
     return LayoutBuilder(builder: (context, cs) {
       final perDay = (cs.maxWidth - _gutter) / days.length;
       if (days.length == 1 || perDay >= _minDayWidth) return content;
+      // 段の数が変わったら、横スクロールの位置も選択中の日に合わせ直す
+      if (_hDays != days.length) {
+        _hDays = days.length;
+        _hJumped = false;
+      }
       final width = _gutter + _minDayWidth * days.length;
       if (!_hJumped) {
         _hJumped = true;

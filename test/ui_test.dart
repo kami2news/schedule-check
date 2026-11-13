@@ -257,6 +257,39 @@ void main() {
     expect(find.textContaining('テスト授業'), findsOneWidget);
   });
 
+  testWidgets('日表示の日数: 3日を選ぶと3日並び、スクロールで次の3日へ続く', (tester) async {
+    final store = await _storeWithSamples();
+    tester.view.physicalSize = const Size(1400, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(ScheduleApp(store: store));
+    await tester.pumpAndSettle();
+
+    String titleOf(DateTime d) => (CalendarController(view: CalView.day)
+          ..dayCount = 3
+          ..selected = d)
+        .title;
+
+    await tester.tap(find.text('週').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('3日').last);
+    await tester.pumpAndSettle();
+    final today = dateOnly(DateTime.now());
+    expect(find.text('3日'), findsOneWidget);
+    expect(find.text(titleOf(today)), findsOneWidget);
+    expect(store.uiValue('dayCount'), '3');
+
+    // 次の段（3日後から）が半分を超えるまで下へ
+    await tester.drag(find.byType(ListView).first, const Offset(0, -24 * 56.0 - 40));
+    await tester.pumpAndSettle();
+    expect(find.text(titleOf(addDays(today, 3))), findsOneWidget);
+
+    // 矢印も3日ずつ
+    await tester.tap(find.byTooltip('前へ'));
+    await tester.pumpAndSettle();
+    expect(find.text(titleOf(today)), findsOneWidget);
+  });
+
   testWidgets('To Do のクイック追加でタスクが増える', (tester) async {
     final store = await _storeWithSamples();
     tester.view.physicalSize = const Size(1400, 900);
