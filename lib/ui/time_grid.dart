@@ -239,12 +239,13 @@ class _TimeGridState extends State<TimeGrid>
       if (x == 0) return build(colW, ds);
       _colW = colW;
       final w = colW * ds.length;
-      return ClipRect(
-        child: OverflowBox(
-          alignment: Alignment.topLeft,
-          fit: OverflowBoxFit.deferToChild,
-          minWidth: w,
-          maxWidth: w,
+      // 横だけ制約を外して全列を並べ、はみ出た分は切り取る（高さは中身に合わせる）
+      return UnconstrainedBox(
+        alignment: Alignment.topLeft,
+        constrainedAxis: Axis.vertical,
+        clipBehavior: Clip.hardEdge,
+        child: SizedBox(
+          width: w,
           child: ValueListenableBuilder<double>(
             valueListenable: _pan,
             builder: (context, p, child) => Transform.translate(
