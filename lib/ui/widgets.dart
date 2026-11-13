@@ -91,7 +91,7 @@ class FlLinkButton extends StatelessWidget {
     return FilledButton.icon(
       // 形式が正しくない間は押せない
       onPressed: valid ? () => openLink(context, url) : null,
-      icon: Icon(linkIcon(url), size: 18),
+      icon: FlIcon(linkIcon(url), size: 18),
       label: Text(isMeetingLink(url) ? '$labelに参加' : 'リンクを開く'),
     );
   }

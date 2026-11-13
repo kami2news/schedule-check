@@ -39,7 +39,7 @@ Future<void> showFlDialogOrPage(
                     Expanded(child: Text(title, style: FlText.subtitle1)),
                     IconButton(
                       tooltip: '閉じる',
-                      icon: Icon(FluentIcons.dismiss_24_regular),
+                      icon: FlIcon(FluentIcons.dismiss_24_regular),
                       onPressed: () => Navigator.of(ctx).pop(),
                     ),
                   ],
@@ -184,7 +184,7 @@ Widget _linkField(
             controller: c,
             hint: hint,
             onChanged: (_) => onChanged(),
-            leading: Icon(
+            leading: FlIcon(
                 url.isEmpty ? FluentIcons.link_24_regular : linkIcon(url),
                 size: 16,
                 color: Fl.fg3),
@@ -421,7 +421,7 @@ class _EventEditPageState extends State<EventEditPage> {
           Padding(
             padding: EdgeInsets.only(bottom: 12),
             child: Row(children: [
-              Icon(FluentIcons.arrow_repeat_all_24_regular,
+              FlIcon(FluentIcons.arrow_repeat_all_24_regular,
                   size: 16, color: Fl.fg3),
               SizedBox(width: 6),
               Expanded(
@@ -610,7 +610,7 @@ class _EventEditPageState extends State<EventEditPage> {
           label: '場所（任意）',
           child: FlTextField(
             controller: _place,
-            leading: Icon(FluentIcons.location_24_regular,
+            leading: FlIcon(FluentIcons.location_24_regular,
                 size: 16, color: Fl.fg3),
           ),
         ),
@@ -794,7 +794,7 @@ class _TaskEditPageState extends State<TaskEditPage> {
                       _due ??= day;
                     });
                   },
-                  icon: Icon(FluentIcons.calendar_link_24_regular, size: 18),
+                  icon: FlIcon(FluentIcons.calendar_link_24_regular, size: 18),
                   label: Text('予定に関連付ける（持ち物・準備・報告など）'),
                 ),
               ),
@@ -823,7 +823,7 @@ class _TaskEditPageState extends State<TaskEditPage> {
                     ),
                     IconButton(
                       tooltip: '関連付けを外す',
-                      icon: Icon(FluentIcons.dismiss_24_regular, size: 14),
+                      icon: FlIcon(FluentIcons.dismiss_24_regular, size: 14),
                       onPressed: () => setState(() {
                         _eventId = null;
                         _eventDate = null;
@@ -940,7 +940,7 @@ Future<(Event, DateTime)?> _pickEventFor(BuildContext context, DateTime? near) {
                 Expanded(child: Text('関連付ける予定', style: FlText.subtitle1)),
                 IconButton(
                   tooltip: '閉じる',
-                  icon: Icon(FluentIcons.dismiss_24_regular),
+                  icon: FlIcon(FluentIcons.dismiss_24_regular),
                   onPressed: () => Navigator.of(ctx).pop(),
                 ),
               ]),
@@ -1065,7 +1065,7 @@ class _RepeatEditor extends StatelessWidget {
             items: _RepeatPreset.values,
             value: preset,
             labelOf: _label,
-            leadingOf: (_) => Icon(FluentIcons.arrow_repeat_all_24_regular,
+            leadingOf: (_) => FlIcon(FluentIcons.arrow_repeat_all_24_regular,
                 size: 16, color: Fl.fg3),
             onChanged: (p) => onChanged(_make(p)),
           ),
@@ -1113,8 +1113,9 @@ class _DayChip extends StatelessWidget {
       customBorder: CircleBorder(),
       onTap: onTap,
       child: Container(
-        width: 34,
-        height: 34,
+        // KM1 のチップ: PC 32px、タッチ 44px
+        width: Fl.touch ? 44 : 32,
+        height: Fl.touch ? 44 : 32,
         alignment: Alignment.center,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
@@ -1177,7 +1178,7 @@ class _PeriodPicker extends StatelessWidget {
           ),
           IconButton(
             tooltip: '時限の時刻を設定',
-            icon: Icon(FluentIcons.settings_24_regular, size: 18, color: Fl.fg2),
+            icon: FlIcon(FluentIcons.settings_24_regular, size: 18, color: Fl.fg2),
             onPressed: () => showPeriodSettings(context),
           ),
         ],
@@ -1249,7 +1250,7 @@ class _PeriodSettingsState extends State<_PeriodSettings> {
                     ),
                     IconButton(
                       tooltip: 'この時限を削除',
-                      icon: Icon(FluentIcons.dismiss_24_regular, size: 16),
+                      icon: FlIcon(FluentIcons.dismiss_24_regular, size: 16),
                       onPressed: _list.length <= 1
                           ? null
                           : () => setState(() => _list.removeAt(i)),
@@ -1263,7 +1264,7 @@ class _PeriodSettingsState extends State<_PeriodSettings> {
                 final s = last.$2 + 10;
                 _list.add((s, s + (last.$2 - last.$1)));
               }),
-              icon: Icon(FluentIcons.add_24_regular, size: 16),
+              icon: FlIcon(FluentIcons.add_24_regular, size: 16),
               label: Text('時限を追加'),
             ),
             SizedBox(height: 16),
@@ -1355,7 +1356,7 @@ class _ReminderFieldState extends State<ReminderField> {
             items: items,
             value: cur,
             labelOf: (v) => reminderLabel(v == none ? null : v, allDay: widget.allDay),
-            leadingOf: (v) => Icon(
+            leadingOf: (v) => FlIcon(
                 v == none ? FluentIcons.alert_off_24_regular : FluentIcons.alert_24_regular,
                 size: 16,
                 color: Fl.fg2),

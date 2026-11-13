@@ -57,7 +57,7 @@ class _ScheduleAppState extends State<ScheduleApp> with WidgetsBindingObserver {
     _messengerKey.currentState?.showSnackBar(SnackBar(
       duration: Duration(seconds: 12),
       content: Row(children: [
-        Icon(FluentIcons.alert_24_regular, size: 18, color: Fl.brandFg),
+        FlIcon(FluentIcons.alert_24_regular, size: 18, color: Fl.brandFg),
         SizedBox(width: 10),
         Expanded(
           child: Text('${r.title}\n${r.body}', maxLines: 3, overflow: TextOverflow.ellipsis),
@@ -334,7 +334,7 @@ class _TopSearchBox extends StatelessWidget {
           borderRadius: BorderRadius.circular(Fl.r4),
         ),
         child: Row(children: [
-          Icon(FluentIcons.search_24_regular,
+          FlIcon(FluentIcons.search_24_regular,
               size: 16, color: Fl.isDark ? Fl.fg2 : Fl.brand),
           SizedBox(width: 8),
           Text('検索',

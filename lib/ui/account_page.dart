@@ -36,7 +36,7 @@ class FlAvatar extends StatelessWidget {
         border: Border.all(color: Fl.stroke2),
       ),
       child: n.isEmpty
-          ? Icon(FluentIcons.person_24_regular,
+          ? FlIcon(FluentIcons.person_24_regular,
               size: size * 0.6, color: Fl.fg2)
           : Text(
               n.characters.first.toUpperCase(),
@@ -67,7 +67,7 @@ class FlAccountButton extends StatelessWidget {
         child: Padding(
           padding: EdgeInsets.all(6),
           child: u == null
-              ? Icon(FluentIcons.person_circle_24_regular,
+              ? FlIcon(FluentIcons.person_circle_24_regular,
                   size: 24, color: onDark ? Colors.white : Fl.fg2)
               : FlAvatar(name: u.displayName ?? u.email, size: 26),
         ),
@@ -182,7 +182,7 @@ class _AccountPageState extends State<AccountPage> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
+          FlIcon(
               error
                   ? FluentIcons.error_circle_16_filled
                   : FluentIcons.checkmark_circle_16_filled,
@@ -208,7 +208,7 @@ class _AccountPageState extends State<AccountPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(children: [
-            Icon(FluentIcons.cloud_off_24_regular, size: 20, color: Fl.fg2),
+            FlIcon(FluentIcons.cloud_off_24_regular, size: 20, color: Fl.fg2),
             SizedBox(width: 8),
             Expanded(
               child: Text(failed ? 'クラウドに接続できません' : 'クラウドに接続しています…',
@@ -271,7 +271,7 @@ class _AccountPageState extends State<AccountPage> {
           controller: _email,
           hint: 'name@example.com',
           leading:
-              Icon(FluentIcons.mail_24_regular, size: 16, color: Fl.fg3),
+              FlIcon(FluentIcons.mail_24_regular, size: 16, color: Fl.fg3),
         ),
       ),
       FlField(
@@ -280,7 +280,7 @@ class _AccountPageState extends State<AccountPage> {
           controller: _password,
           obscure: true,
           onSubmitted: (_) => _submitEmail(acc),
-          leading: Icon(FluentIcons.lock_closed_24_regular,
+          leading: FlIcon(FluentIcons.lock_closed_24_regular,
               size: 16, color: Fl.fg3),
         ),
       ),
@@ -333,10 +333,10 @@ class _AccountPageState extends State<AccountPage> {
 
   Widget _providerButton(String label, IconData icon, VoidCallback onTap) {
     return SizedBox(
-      height: 40,
+      height: Fl.touch ? Km1Size.controlLgTouch : Km1Size.controlLg,
       child: OutlinedButton.icon(
         onPressed: _busy ? null : onTap,
-        icon: Icon(icon, size: 18),
+        icon: FlIcon(icon, size: 18),
         label: Text(label),
       ),
     );
@@ -383,7 +383,7 @@ class _AccountPageState extends State<AccountPage> {
           border: Border.all(color: Fl.stroke2),
         ),
         child: Row(children: [
-          Icon(stateIcon,
+          FlIcon(stateIcon,
               size: 20,
               color: state == SyncState.synced ? Fl.success : Fl.fg2),
           SizedBox(width: 10),
@@ -412,7 +412,7 @@ class _AccountPageState extends State<AccountPage> {
         children: [
           OutlinedButton.icon(
             onPressed: _busy ? null : () => _run(acc.signOut),
-            icon: Icon(FluentIcons.sign_out_24_regular, size: 18),
+            icon: FlIcon(FluentIcons.sign_out_24_regular, size: 18),
             label: Text('ログアウト'),
           ),
         ],
@@ -446,7 +446,7 @@ class _AccountPageState extends State<AccountPage> {
                   );
                   if (ok) await _run(acc.deleteAccount);
                 },
-          icon: Icon(FluentIcons.delete_24_regular, size: 18),
+          icon: FlIcon(FluentIcons.delete_24_regular, size: 18),
           label: Text('アカウントを削除'),
         ),
       ),
@@ -532,7 +532,7 @@ class _PushSectionState extends State<PushSection> {
                 onPressed: _busy
                     ? null
                     : () => _run(p.enableHere, 'この端末で通知を受け取ります。「テスト通知」で届くか確認できます'),
-                icon: Icon(FluentIcons.alert_on_24_regular, size: 18),
+                icon: FlIcon(FluentIcons.alert_on_24_regular, size: 18),
                 label: Text('この端末で受け取る'),
               )
             ),
@@ -543,7 +543,7 @@ class _PushSectionState extends State<PushSection> {
                   onPressed: _busy
                       ? null
                       : () => _run(p.sendTest, 'テスト通知を頼みました。数秒で届きます'),
-                  icon: Icon(FluentIcons.send_24_regular, size: 18),
+                  icon: FlIcon(FluentIcons.send_24_regular, size: 18),
                   label: Text('テスト通知'),
                 ),
                 TextButton(
@@ -562,7 +562,7 @@ class _PushSectionState extends State<PushSection> {
                 style: FlText.caption1.copyWith(color: Fl.fg3)),
             SizedBox(height: 8),
             Row(children: [
-              Icon(
+              FlIcon(
                 p.status == PushStatus.on
                     ? FluentIcons.alert_on_24_regular
                     : FluentIcons.alert_24_regular,

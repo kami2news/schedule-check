@@ -216,19 +216,19 @@ class FlDropdown<T> extends StatelessWidget {
           for (final v in items)
             PopupMenuItem<T>(
               value: v,
-              height: 36,
+              height: Fl.target,
               child: Row(
                 children: [
                   Expanded(child: _row(v, strong: v == value)),
                   if (v == value)
-                    Icon(FluentIcons.checkmark_24_regular,
+                    FlIcon(FluentIcons.checkmark_24_regular,
                         size: 16, color: Fl.brandFg),
                 ],
               ),
             ),
         ],
         child: Container(
-          height: 32,
+          height: Fl.target,
           padding: EdgeInsets.only(left: 10, right: 8),
           decoration: BoxDecoration(
             color: Fl.bg1,
@@ -238,7 +238,7 @@ class FlDropdown<T> extends StatelessWidget {
           child: Row(
             children: [
               Expanded(child: _row(value)),
-              Icon(FluentIcons.chevron_down_24_regular, size: 14, color: Fl.fg2),
+              FlIcon(FluentIcons.chevron_down_24_regular, size: 14, color: Fl.fg2),
             ],
           ),
         ),
@@ -407,13 +407,13 @@ class FlThemeButton extends StatelessWidget {
         for (final m in FlThemeMode.values)
           PopupMenuItem<FlThemeMode>(
             value: m,
-            height: 36,
+            height: Fl.target,
             child: Row(
               children: [
                 SizedBox(
                   width: 20,
                   child: m.name == current
-                      ? Icon(FluentIcons.checkmark_24_regular, size: 16)
+                      ? FlIcon(FluentIcons.checkmark_24_regular, size: 16)
                       : null,
                 ),
                 SizedBox(width: 8),
@@ -432,7 +432,7 @@ class FlThemeButton extends StatelessWidget {
       ],
       child: Padding(
         padding: EdgeInsets.all(8),
-        child: Icon(
+        child: FlIcon(
           Fl.isDark
               ? FluentIcons.weather_moon_24_regular
               : FluentIcons.weather_sunny_24_regular,

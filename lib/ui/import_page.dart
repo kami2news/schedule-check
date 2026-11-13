@@ -234,7 +234,7 @@ class _ImportPageState extends State<ImportPage> {
         SizedBox(height: 12),
         FilledButton.icon(
           onPressed: _parse,
-          icon: Icon(FluentIcons.sparkle_24_regular, size: 18),
+          icon: FlIcon(FluentIcons.sparkle_24_regular, size: 18),
           label: Text('解析する'),
         ),
         if (_parsed) ...[
@@ -258,7 +258,7 @@ class _ImportPageState extends State<ImportPage> {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(FluentIcons.warning_16_regular, size: 16, color: Fl.warning),
+                  FlIcon(FluentIcons.warning_16_regular, size: 16, color: Fl.warning),
                   SizedBox(width: 6),
                   Expanded(
                     child: Text(
@@ -385,7 +385,7 @@ class _CandidateTileState extends State<_CandidateTile> {
         children: [
           Padding(
             padding: EdgeInsets.only(top: 8, right: 8),
-            child: Icon(icon, size: 16, color: Fl.fg3),
+            child: FlIcon(icon, size: 16, color: Fl.fg3),
           ),
           Expanded(child: field),
         ],
@@ -424,7 +424,7 @@ class _CandidateTileState extends State<_CandidateTile> {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(FluentIcons.warning_16_regular, size: 16, color: Fl.warning),
+                    FlIcon(FluentIcons.warning_16_regular, size: 16, color: Fl.warning),
                     SizedBox(width: 6),
                     Expanded(
                       child: Text(c.warning!,
@@ -473,7 +473,7 @@ class _CandidateTileState extends State<_CandidateTile> {
                             ? 'タスク（締切）'
                             : store.calendarOf(k).name,
                         leadingOf: (k) => k == taskKey
-                            ? Icon(FluentIcons.task_list_ltr_24_regular,
+                            ? FlIcon(FluentIcons.task_list_ltr_24_regular,
                                 size: 14, color: Fl.fg2)
                             : FlColorDot(color: store.calendarOf(k).color),
                         onChanged: (k) {
@@ -497,7 +497,7 @@ class _CandidateTileState extends State<_CandidateTile> {
                         style: FlText.caption1.copyWith(color: Fl.fg3)),
                   TextButton.icon(
                     onPressed: _pickDate,
-                    icon: Icon(FluentIcons.calendar_ltr_24_regular, size: 18),
+                    icon: FlIcon(FluentIcons.calendar_ltr_24_regular, size: 18),
                     // 数日にわたる終日の予定は終わりの日も見せる
                     label: Text(c.startMin == null && c.endOffset > 0 && !isTask
                         ? '${fmtDate(c.date)}〜${fmtDate(addDays(c.date, c.endOffset))}'
@@ -505,7 +505,7 @@ class _CandidateTileState extends State<_CandidateTile> {
                   ),
                   TextButton.icon(
                     onPressed: _pickStart,
-                    icon: Icon(FluentIcons.clock_24_regular, size: 18),
+                    icon: FlIcon(FluentIcons.clock_24_regular, size: 18),
                     label: Text(c.startMin == null
                         ? (isTask ? '時刻なし' : '終日')
                         : fmtMin(c.startMin!)),
@@ -520,7 +520,7 @@ class _CandidateTileState extends State<_CandidateTile> {
                     IconButton(
                       visualDensity: VisualDensity.compact,
                       tooltip: '時刻を消す',
-                      icon: Icon(FluentIcons.dismiss_24_regular, size: 16),
+                      icon: FlIcon(FluentIcons.dismiss_24_regular, size: 16),
                       onPressed: () {
                         c.startMin = null;
                         c.endMin = null;
@@ -571,7 +571,7 @@ class _CandidateTileState extends State<_CandidateTile> {
                 padding: EdgeInsets.only(left: 4),
                 child: TextButton.icon(
                   onPressed: () => setState(() => _showDetails = true),
-                  icon: Icon(FluentIcons.add_24_regular, size: 16),
+                  icon: FlIcon(FluentIcons.add_24_regular, size: 16),
                   label: Text('リンク・メモを追加'),
                 ),
               ),
@@ -579,7 +579,7 @@ class _CandidateTileState extends State<_CandidateTile> {
               Padding(
                 padding: EdgeInsets.only(left: 12, top: 4),
                 child: Row(children: [
-                  Icon(FluentIcons.info_16_regular, size: 14, color: Fl.fg3),
+                  FlIcon(FluentIcons.info_16_regular, size: 14, color: Fl.fg3),
                   SizedBox(width: 4),
                   Expanded(
                     child: Text(c.hint!,
@@ -660,7 +660,7 @@ class _MatchBanner extends StatelessWidget {
         children: [
           Padding(
             padding: EdgeInsets.only(top: 2),
-            child: Icon(icon, size: 16, color: color),
+            child: FlIcon(icon, size: 16, color: color),
           ),
           SizedBox(width: 8),
           Expanded(

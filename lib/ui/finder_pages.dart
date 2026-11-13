@@ -57,7 +57,7 @@ class _SearchPageState extends State<_SearchPage> {
             controller: _q,
             autofocus: true,
             hint: '予定・タスク・場所・メモを検索',
-            leading: Icon(FluentIcons.search_24_regular, size: 16, color: Fl.fg3),
+            leading: FlIcon(FluentIcons.search_24_regular, size: 16, color: Fl.fg3),
             onChanged: (_) => setState(() {}),
           ),
         ),
@@ -357,7 +357,7 @@ class _FreeTimePageState extends State<_FreeTimePage> {
                       ScaffoldMessenger.maybeOf(context)?.showSnackBar(SnackBar(
                           content: Text('${copyTarget.length}件の候補をコピーしました')));
                     },
-              icon: Icon(FluentIcons.copy_24_regular, size: 18),
+              icon: FlIcon(FluentIcons.copy_24_regular, size: 18),
               label: Text(chosen.isEmpty ? 'すべてコピー' : '選んだ${chosen.length}件をコピー'),
             ),
           ]),

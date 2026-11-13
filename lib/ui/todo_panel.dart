@@ -127,7 +127,7 @@ class _TodoPanelState extends State<TodoPanel> {
           padding: EdgeInsets.fromLTRB(16, 14, 16, 4),
           child: Row(
             children: [
-              Icon(FluentIcons.task_list_ltr_24_filled,
+              FlIcon(FluentIcons.task_list_ltr_24_filled,
                   size: 22, color: Fl.brandFg),
               SizedBox(width: 8),
               Text('To Do', style: FlText.subtitle1),
@@ -152,7 +152,7 @@ class _TodoPanelState extends State<TodoPanel> {
             focusNode: _focus,
             hint: 'タスクを追加',
             onSubmitted: (_) => _add(),
-            leading: Icon(FluentIcons.add_24_regular,
+            leading: FlIcon(FluentIcons.add_24_regular,
                 size: 18, color: Fl.brandFg),
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
@@ -162,7 +162,7 @@ class _TodoPanelState extends State<TodoPanel> {
                       style: FlText.caption1.copyWith(color: Fl.brandFg)),
                 IconButton(
                   tooltip: '期限',
-                  icon: Icon(
+                  icon: FlIcon(
                     FluentIcons.calendar_ltr_24_regular,
                     size: 18,
                     color: _quickDue != null ? Fl.brandFg : Fl.fg2,
@@ -173,7 +173,7 @@ class _TodoPanelState extends State<TodoPanel> {
                 IconButton(
                   key: ValueKey('task-detail'),
                   tooltip: '詳しく入力',
-                  icon: Icon(FluentIcons.window_new_24_regular,
+                  icon: FlIcon(FluentIcons.window_new_24_regular,
                       size: 18, color: Fl.fg2),
                   onPressed: openDetailed,
                 ),
@@ -190,7 +190,7 @@ class _TodoPanelState extends State<TodoPanel> {
                   padding: EdgeInsets.fromLTRB(24, 40, 24, 24),
                   child: Column(
                     children: [
-                      Icon(FluentIcons.checkmark_circle_48_regular,
+                      FlIcon(FluentIcons.checkmark_circle_48_regular,
                           size: 48, color: Fl.stroke1),
                       SizedBox(height: 12),
                       Text(
@@ -211,7 +211,7 @@ class _TodoPanelState extends State<TodoPanel> {
                     padding: EdgeInsets.fromLTRB(12, 12, 12, 8),
                     child: Row(
                       children: [
-                        Icon(
+                        FlIcon(
                           _showDone
                               ? FluentIcons.chevron_down_24_regular
                               : FluentIcons.chevron_right_24_regular,
@@ -296,12 +296,12 @@ class _TaskRow extends StatelessWidget {
                                 ),
                               if (t.note.isNotEmpty) ...[
                                 SizedBox(width: 8),
-                                Icon(FluentIcons.note_16_regular,
+                                FlIcon(FluentIcons.note_16_regular,
                                     size: 14, color: Fl.fg3),
                               ],
                               if (t.reminder != null && !t.done) ...[
                                 SizedBox(width: 8),
-                                Icon(FluentIcons.alert_16_regular,
+                                FlIcon(FluentIcons.alert_16_regular,
                                     size: 14, color: Fl.fg3),
                               ],
                             ],
@@ -310,7 +310,7 @@ class _TaskRow extends StatelessWidget {
                         if (linked != null)
                           Row(
                             children: [
-                              Icon(FluentIcons.calendar_ltr_16_regular,
+                              FlIcon(FluentIcons.calendar_ltr_16_regular,
                                   size: 12, color: Fl.fg3),
                               SizedBox(width: 4),
                               Flexible(
@@ -331,12 +331,12 @@ class _TaskRow extends StatelessWidget {
                       tooltip: isMeetingLink(t.url)
                           ? '${linkLabel(t.url)}に参加'
                           : 'リンクを開く',
-                      icon: Icon(linkIcon(t.url), size: 20, color: Fl.brandFg),
+                      icon: FlIcon(linkIcon(t.url), size: 20, color: Fl.brandFg),
                       onPressed: () => openLink(context, t.url),
                     ),
                   IconButton(
                     tooltip: '重要',
-                    icon: Icon(
+                    icon: FlIcon(
                       t.important
                           ? FluentIcons.star_24_filled
                           : FluentIcons.star_24_regular,

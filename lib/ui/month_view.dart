@@ -358,7 +358,7 @@ class _MonthViewState extends State<MonthView> {
           width: double.infinity,
           child: Row(
             children: [
-              Icon(
+              FlIcon(
                 t.done
                     ? FluentIcons.checkmark_circle_16_filled
                     : FluentIcons.circle_16_regular,

@@ -38,12 +38,12 @@ class MiniMonth extends StatelessWidget {
               ),
               IconButton(
                 tooltip: '前の月',
-                icon: Icon(FluentIcons.chevron_left_24_regular),
+                icon: FlIcon(FluentIcons.chevron_left_24_regular),
                 onPressed: () => controller.shiftMonth(-1),
               ),
               IconButton(
                 tooltip: '次の月',
-                icon: Icon(FluentIcons.chevron_right_24_regular),
+                icon: FlIcon(FluentIcons.chevron_right_24_regular),
                 onPressed: () => controller.shiftMonth(1),
               ),
             ],
@@ -109,7 +109,7 @@ class MiniMonth extends StatelessWidget {
     return InkWell(
       onTap: () => controller.select(day),
       child: Container(
-        height: 34,
+        height: Fl.touch ? 44 : 34,
         color: inSelWeek ? Fl.brandTint : null,
         alignment: Alignment.center,
         child: Column(

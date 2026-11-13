@@ -59,7 +59,7 @@ class _EventPeek extends StatelessWidget {
             children: [
               Padding(
                 padding: EdgeInsets.only(top: 2),
-                child: Icon(icon, size: 16, color: Fl.fg3),
+                child: FlIcon(icon, size: 16, color: Fl.fg3),
               ),
               SizedBox(width: 10),
               Expanded(child: child),
@@ -88,7 +88,7 @@ class _EventPeek extends StatelessWidget {
                 ),
                 IconButton(
                   tooltip: '編集',
-                  icon: Icon(FluentIcons.edit_24_regular, size: 20),
+                  icon: FlIcon(FluentIcons.edit_24_regular, size: 20),
                   onPressed: () {
                     // プレビューを閉じてから、同じ回の編集画面を開く
                     final nav = Navigator.of(context);
@@ -98,7 +98,7 @@ class _EventPeek extends StatelessWidget {
                 ),
                 IconButton(
                   tooltip: '削除',
-                  icon: Icon(FluentIcons.delete_24_regular,
+                  icon: FlIcon(FluentIcons.delete_24_regular,
                       size: 20, color: Fl.danger),
                   onPressed: () async {
                     final ok = await deleteEventInteractive(
@@ -108,7 +108,7 @@ class _EventPeek extends StatelessWidget {
                 ),
                 IconButton(
                   tooltip: '閉じる',
-                  icon: Icon(FluentIcons.dismiss_24_regular, size: 20),
+                  icon: FlIcon(FluentIcons.dismiss_24_regular, size: 20),
                   onPressed: () => Navigator.of(context).pop(),
                 ),
               ],
@@ -220,7 +220,7 @@ class _EventPeek extends StatelessWidget {
                     child: TextButton.icon(
                       onPressed: () => openTaskEditor(context,
                           forEvent: e, occurrence: e.weekly ? day : null),
-                      icon: Icon(FluentIcons.add_24_regular, size: 16),
+                      icon: FlIcon(FluentIcons.add_24_regular, size: 16),
                       label: Text('タスクを追加（持ち物・準備など）'),
                     ),
                   ),

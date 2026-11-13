@@ -67,7 +67,7 @@ class SettingsPage extends StatelessWidget {
           ),
           child: Row(
             children: [
-              Icon(
+              FlIcon(
                 acc.signedIn
                     ? FluentIcons.cloud_checkmark_24_regular
                     : FluentIcons.phone_laptop_24_regular,
@@ -104,7 +104,7 @@ class SettingsPage extends StatelessWidget {
             value: FlThemeMode.values.firstWhere((m) => m.name == store.themeMode,
                 orElse: () => FlThemeMode.system),
             labelOf: (m) => m.label,
-            leadingOf: (m) => Icon(
+            leadingOf: (m) => FlIcon(
                 switch (m) {
                   FlThemeMode.system => FluentIcons.desktop_24_regular,
                   FlThemeMode.light => FluentIcons.weather_sunny_24_regular,
@@ -146,7 +146,7 @@ class SettingsPage extends StatelessWidget {
           alignment: Alignment.centerLeft,
           child: OutlinedButton.icon(
             onPressed: () => showPeriodSettings(context),
-            icon: Icon(FluentIcons.clock_24_regular, size: 18),
+            icon: FlIcon(FluentIcons.clock_24_regular, size: 18),
             label: Text('時限の時刻を編集'),
           ),
         ),

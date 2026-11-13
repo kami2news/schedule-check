@@ -33,7 +33,7 @@ class CalendarSidebar extends StatelessWidget {
               child: FilledButton.icon(
                 onPressed: () =>
                     openEventEditor(context, date: controller.selected),
-                icon: Icon(FluentIcons.calendar_add_24_regular, size: 18),
+                icon: FlIcon(FluentIcons.calendar_add_24_regular, size: 18),
                 label: Text('新しい予定'),
               ),
             ),
@@ -92,7 +92,7 @@ class CalendarList extends StatelessWidget {
                     child: Text('マイカレンダー', style: FlText.body1Strong)),
                 IconButton(
                   tooltip: 'カレンダーを追加',
-                  icon: Icon(FluentIcons.add_24_regular, size: 18),
+                  icon: FlIcon(FluentIcons.add_24_regular, size: 18),
                   onPressed: () => showCalendarEditor(context),
                 ),
               ],
@@ -130,7 +130,7 @@ class _CalendarRowBase extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       child: SizedBox(
-        height: 36,
+        height: Fl.target,
         child: Padding(
           padding: EdgeInsets.only(left: 20, right: 8),
           child: Row(
@@ -167,7 +167,7 @@ class _CalendarRow extends StatelessWidget {
       trailing: PopupMenuButton<String>(
         tooltip: 'その他のオプション',
         position: PopupMenuPosition.under,
-        icon: Icon(FluentIcons.more_horizontal_24_regular,
+        icon: FlIcon(FluentIcons.more_horizontal_24_regular,
             size: 16, color: Fl.fg3),
         onSelected: (v) {
           if (v == 'edit') showCalendarEditor(context, cal: cal);
@@ -176,18 +176,18 @@ class _CalendarRow extends StatelessWidget {
         itemBuilder: (_) => [
           PopupMenuItem(
             value: 'edit',
-            height: 36,
+            height: Fl.target,
             child: Row(children: [
-              Icon(FluentIcons.edit_24_regular, size: 16),
+              FlIcon(FluentIcons.edit_24_regular, size: 16),
               SizedBox(width: 10),
               Text('名前と色を変更'),
             ]),
           ),
           PopupMenuItem(
             value: 'delete',
-            height: 36,
+            height: Fl.target,
             child: Row(children: [
-              Icon(FluentIcons.delete_24_regular, size: 16, color: Fl.danger),
+              FlIcon(FluentIcons.delete_24_regular, size: 16, color: Fl.danger),
               SizedBox(width: 10),
               Text('削除', style: FlText.body1.copyWith(color: Fl.danger)),
             ]),
@@ -316,8 +316,8 @@ class _CalendarEditorState extends State<_CalendarEditor> {
                     customBorder: CircleBorder(),
                     onTap: () => setState(() => _color = c),
                     child: Container(
-                      width: 30,
-                      height: 30,
+                      width: Fl.touch ? 44 : 32,
+                      height: Fl.touch ? 44 : 32,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         color: Color(c),
@@ -326,7 +326,7 @@ class _CalendarEditorState extends State<_CalendarEditor> {
                             : null,
                       ),
                       child: c == _color
-                          ? Icon(FluentIcons.checkmark_12_filled,
+                          ? FlIcon(FluentIcons.checkmark_12_filled,
                               size: 14, color: Colors.white)
                           : null,
                     ),
@@ -361,7 +361,7 @@ class _SideAction extends StatelessWidget {
         padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         child: Row(
           children: [
-            Icon(icon, size: 20, color: Fl.fg2),
+            FlIcon(icon, size: 20, color: Fl.fg2),
             SizedBox(width: 12),
             Expanded(child: Text(label, style: FlText.body1)),
           ],

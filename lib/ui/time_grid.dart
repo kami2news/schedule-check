@@ -16,7 +16,9 @@ import 'fluent.dart';
 import 'fluent_extras.dart';
 import 'widgets.dart';
 
-const double _hourH = 56;
+/// 1時間の高さ（KM1 の TimeGrid: スマホ 64px、PC 56px）
+double get timeGridHourHeight => Fl.touch ? 64 : 56;
+double get _hourH => timeGridHourHeight;
 const double _gutter = 48;
 
 /// 週表示で1日の列に最低限必要な幅（これより狭い画面では横スクロール）
@@ -104,7 +106,7 @@ class TimeGrid extends StatefulWidget {
 const int _span = 365;
 
 /// 1日ぶんの高さ
-const double _dayH = 24 * _hourH;
+double get _dayH => 24 * _hourH;
 
 class _TimeGridState extends State<TimeGrid>
     with SingleTickerProviderStateMixin {
@@ -523,7 +525,7 @@ class _TimeGridState extends State<TimeGrid>
             children: [
               GestureDetector(
                 onTap: () => StoreScope.read(context).toggleTask(t.id),
-                child: Icon(
+                child: FlIcon(
                   t.done
                       ? FluentIcons.checkmark_circle_16_filled
                       : FluentIcons.circle_16_regular,
@@ -579,7 +581,7 @@ class _TimeGridState extends State<TimeGrid>
                     alignment: PlaceholderAlignment.middle,
                     child: Padding(
                       padding: EdgeInsets.only(right: 3),
-                      child: Icon(linkIcon(e.url, small: true),
+                      child: FlIcon(linkIcon(e.url, small: true),
                           size: 12,
                           color: StoreScope.read(context).colorOf(e)),
                     ),
@@ -640,7 +642,7 @@ class _TimeGridState extends State<TimeGrid>
               ),
             ),
             child: Row(mainAxisSize: MainAxisSize.min, children: [
-              Icon(
+              FlIcon(
                   t.done
                       ? FluentIcons.checkmark_circle_16_filled
                       : FluentIcons.flag_16_regular,

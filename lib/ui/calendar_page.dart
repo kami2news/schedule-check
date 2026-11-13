@@ -35,7 +35,7 @@ class _CalendarPageState extends State<CalendarPage> {
           children: [
             SizedBox(
               width: 20,
-              child: on ? Icon(FluentIcons.checkmark_24_regular, size: 16) : null,
+              child: on ? FlIcon(FluentIcons.checkmark_24_regular, size: 16) : null,
             ),
             SizedBox(width: 8),
             Text(label),
@@ -57,19 +57,19 @@ class _CalendarPageState extends State<CalendarPage> {
         for (var n = 1; n <= 7; n++)
           PopupMenuItem<String>(
             value: 'd$n',
-            height: 36,
+            height: Fl.target,
             child: item(n == 1 ? '日' : '$n日', current == 'd$n'),
           ),
         PopupMenuDivider(height: 8),
         for (final v in [CalView.week, CalView.month])
           PopupMenuItem<String>(
             value: v.name,
-            height: 36,
+            height: Fl.target,
             child: item(v.label, current == v.name),
           ),
       ],
       child: Container(
-        height: 32,
+        height: Fl.target,
         padding: EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(
           color: Fl.bg1,
@@ -81,7 +81,7 @@ class _CalendarPageState extends State<CalendarPage> {
           children: [
             Text(c.viewLabel, style: FlText.body1Strong),
             SizedBox(width: 6),
-            Icon(FluentIcons.chevron_down_24_regular, size: 14),
+            FlIcon(FluentIcons.chevron_down_24_regular, size: 14),
           ],
         ),
       ),
@@ -117,19 +117,19 @@ class _CalendarPageState extends State<CalendarPage> {
         ? OutlinedButton(onPressed: c.goToday, child: Text('今日'))
         : OutlinedButton.icon(
             onPressed: c.goToday,
-            icon: Icon(FluentIcons.calendar_ltr_24_regular, size: 16),
+            icon: FlIcon(FluentIcons.calendar_ltr_24_regular, size: 16),
             label: Text('今日'),
           );
 
     final arrows = [
       IconButton(
         tooltip: '前へ',
-        icon: Icon(FluentIcons.chevron_left_24_regular),
+        icon: FlIcon(FluentIcons.chevron_left_24_regular),
         onPressed: () => c.step(-1),
       ),
       IconButton(
         tooltip: '次へ',
-        icon: Icon(FluentIcons.chevron_right_24_regular),
+        icon: FlIcon(FluentIcons.chevron_right_24_regular),
         onPressed: () => c.step(1),
       ),
     ];
@@ -150,7 +150,7 @@ class _CalendarPageState extends State<CalendarPage> {
                         style: titleStyle, overflow: TextOverflow.ellipsis),
                   ),
                   SizedBox(width: 4),
-                  Icon(
+                  FlIcon(
                     _showMini
                         ? FluentIcons.chevron_up_24_regular
                         : FluentIcons.chevron_down_24_regular,
@@ -190,7 +190,7 @@ class _CalendarPageState extends State<CalendarPage> {
             PopupMenuButton<String>(
               tooltip: 'その他',
               position: PopupMenuPosition.under,
-              icon: Icon(FluentIcons.more_vertical_24_regular, size: 20),
+              icon: FlIcon(FluentIcons.more_vertical_24_regular, size: 20),
               onSelected: (v) {
                 switch (v) {
                   case 'search':
@@ -209,9 +209,9 @@ class _CalendarPageState extends State<CalendarPage> {
                 ])
                   PopupMenuItem<String>(
                     value: v,
-                    height: 36,
+                    height: Fl.target,
                     child: Row(children: [
-                      Icon(icon, size: 16),
+                      FlIcon(icon, size: 16),
                       SizedBox(width: 10),
                       Text(label),
                     ]),
@@ -229,7 +229,7 @@ class _CalendarPageState extends State<CalendarPage> {
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(Fl.r4)),
               ),
-              icon: Icon(FluentIcons.add_24_regular, size: 20),
+              icon: FlIcon(FluentIcons.add_24_regular, size: 20),
               onPressed: () => openEventEditor(context, date: c.selected),
             ),
           ],

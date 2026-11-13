@@ -63,4 +63,4 @@ cd server && npm ci && npm test   # 通知サーバー
 ## デザイン
 
 標準は Microsoft Fluent 2 です。トークンと、このアプリでのアレンジは [DESIGN.md](DESIGN.md) にまとめています。
-フォントは Segoe UI 互換の [Selawik](https://github.com/microsoft/Selawik)（SIL OFL）、アイコンは [Fluent System Icons](https://pub.dev/packages/fluentui_system_icons) です。
+デザインは自分用のデザイン標準 KM1（Fluent 2 準拠）に従います。書体は [Noto Sans JP](https://fonts.google.com/noto/specimen/Noto+Sans+JP)（SIL OFL。英数字だけを切り出して同梱）、アイコンは KM1 のアイコン（`lib/km1/`。KM1 にない記号だけ [Fluent System Icons](https://pub.dev/packages/fluentui_system_icons)）です。

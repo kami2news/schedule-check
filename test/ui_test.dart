@@ -244,7 +244,7 @@ void main() {
     // 1日ぶん（24時間 × 56px）より少し多く引っ張ると、次の日に切り替わる
     final grid =
         find.descendant(of: find.byType(TimeGrid), matching: find.byType(ListView));
-    await tester.drag(grid, const Offset(0, -24 * 56.0 - 40));
+    await tester.drag(grid, Offset(0, -24 * timeGridHourHeight - 40));
     await tester.pumpAndSettle();
     final next = addDays(today, 1);
     expect(find.textContaining(title(next)), findsWidgets);
@@ -286,7 +286,7 @@ void main() {
     // 次の日が半分を超えるまで下へ: 1日ずれる
     await tester.drag(
         find.descendant(of: find.byType(TimeGrid), matching: find.byType(ListView)),
-        const Offset(0, -24 * 56.0 - 40));
+        Offset(0, -24 * timeGridHourHeight - 40));
     await tester.pumpAndSettle();
     expect(find.text(titleOf(addDays(today, 1))), findsOneWidget);
 
@@ -349,7 +349,7 @@ void main() {
     await tester.tap(find.text('週').last);
     await tester.pumpAndSettle();
     expect(find.text(title(CalView.week, today)), findsOneWidget);
-    await tester.drag(grid, const Offset(0, -24 * 56.0 - 40));
+    await tester.drag(grid, Offset(0, -24 * timeGridHourHeight - 40));
     await tester.pumpAndSettle();
     expect(find.text(title(CalView.week, addDays(today, 7))), findsOneWidget);
     // 横に払うと前の週
