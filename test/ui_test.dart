@@ -179,9 +179,6 @@ void main() {
   testWidgets('取り込み: 貼り付けた文章から候補が出る（時限・締め切り）', (tester) async {
     final store = await _storeWithSamples();
     await pumpWide(tester, store);
-    // テストの既定はタッチの端末（部品が 44px 以上）なので、候補が全部見えるよう縦に長くする
-    tester.view.physicalSize = const Size(1400, 1600);
-    await tester.pumpAndSettle();
 
     await tester.tap(find.text('メールなどから取り込む'));
     await tester.pumpAndSettle();
@@ -192,12 +189,15 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.textContaining('環境化学'), findsWidgets);
     expect(find.textContaining('実験レポート'), findsWidgets);
-    // 3限 → 13:00、0:00 締め切り → 前日（12/4）の終日
-    expect(find.textContaining('13:00'), findsWidgets);
-    for (final w in tester.widgetList<Text>(find.byType(Text, skipOffstage: false))) {
-      // ignore: avoid_print
-      print('DBG ${w.data ?? w.textSpan?.toPlainText()}');
-    }
+    // 3限 → 11:00〜11:50（既定の時限）、0:00 締め切り → 前日（12/4）の終日
+    expect(find.textContaining('11:50'), findsWidgets);
+    // 候補の一覧をスクロールして2件目を出す
+    await tester.scrollUntilVisible(find.textContaining('12/4'), 200,
+        scrollable: find
+            .ancestor(
+                of: find.textContaining('元の行: 12/1'),
+                matching: find.byType(Scrollable))
+            .first);
     expect(find.textContaining('12/4'), findsWidgets);
   });
 
