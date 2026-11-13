@@ -258,12 +258,19 @@ class _MonthViewState extends State<MonthView> {
         ),
         child: LayoutBuilder(
           builder: (context, cs) {
-            final maxChips =
-                math.max(0, math.min(6, ((cs.maxHeight - 28) / 18).floor()));
-            final shown = total <= maxChips
-                ? total
-                : (maxChips > 0 ? maxChips - 1 : 0);
+            // 日付（22px + 2px）と余白（上下 2px）を除いた高さに、札（18px）と「+N」（14px）を収める。
+            // 低い画面（折りたたみ端末のカバー画面・スマホの横向き）で入らないときは、
+            // 「+N」を日付の横に出す
+            final avail = cs.maxHeight - 4 - 24;
+            final fit = math.max(0, math.min(6, (avail / 18).floor()));
+            final int shown;
+            if (total <= fit) {
+              shown = total;
+            } else {
+              shown = math.max(0, math.min(6, ((avail - 14) / 18).floor()));
+            }
             final hidden = total - shown;
+            final inlineMore = hidden > 0 && avail - shown * 18 < 14;
 
             final chips = <Widget>[];
             var n = 0;
@@ -284,7 +291,10 @@ class _MonthViewState extends State<MonthView> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
+                  Row(children: [
+                  // 細いマス（「11月1日」が入らない幅）でもはみ出さないよう、幅はマスに合わせる
+                  Flexible(
+                    child: Container(
                     constraints: BoxConstraints(minWidth: 22),
                     height: 22,
                     padding: EdgeInsets.symmetric(
@@ -301,11 +311,26 @@ class _MonthViewState extends State<MonthView> {
                             ? Colors.white
                             : _dim(weekendFg(day) ?? Fl.fg1, !inMonth),
                       ),
+                      maxLines: 1,
+                      softWrap: false,
+                      overflow: TextOverflow.clip,
                     ),
                   ),
-                  SizedBox(height: 2),
+                  ),
+                  if (inlineMore)
+                    Flexible(
+                      child: Padding(
+                        padding: EdgeInsets.only(left: 2),
+                        child: Text('+$hidden',
+                            maxLines: 1,
+                            overflow: TextOverflow.clip,
+                            style: FlText.caption2.copyWith(color: Fl.fg3)),
+                      ),
+                    ),
+                  ]),
+                  if (avail >= 2) SizedBox(height: 2),
                   ...chips,
-                  if (hidden > 0)
+                  if (hidden > 0 && !inlineMore)
                     Padding(
                       padding: EdgeInsets.only(left: 2),
                       child: Text('+$hidden',

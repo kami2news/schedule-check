@@ -86,8 +86,30 @@ Future<void> _closeTop(WidgetTester tester) async {
 Future<void> _pickView(WidgetTester tester, String label) async {
   await tester.tap(find.byTooltip('表示形式'));
   await tester.pumpAndSettle();
-  await tester.tap(find.descendant(
-      of: find.byType(PopupMenuItem<String>), matching: find.text(label)));
+  // 低い画面ではメニューがスクロールするので、見える位置まで動かしてから押す
+  final item = find.descendant(
+      of: find.byType(PopupMenuItem<String>), matching: find.text(label));
+  await tester.ensureVisible(item);
+  await tester.pumpAndSettle();
+  await tester.tap(item);
+  await tester.pumpAndSettle();
+}
+
+/// 縦にスクロールする一覧の中の文字を、見える位置まで動かしてから押す（サイドバーなど）
+Future<void> _tapInList(WidgetTester tester, String text, {required String near}) async {
+  final target = find.text(text);
+  if (target.hitTestable().evaluate().isEmpty) {
+    await tester.scrollUntilVisible(target, 100,
+        scrollable: find
+            .ancestor(
+                of: find.text(near),
+                matching: find.byWidgetPredicate((w) =>
+                    w is Scrollable &&
+                    axisDirectionToAxis(w.axisDirection) == Axis.vertical))
+            .first);
+    await tester.pumpAndSettle();
+  }
+  await tester.tap(target.last);
   await tester.pumpAndSettle();
 }
 
@@ -123,11 +145,9 @@ Future<void> _tour(WidgetTester tester, Size size) async {
   await _closeTop(tester);
 
   if (wide) {
-    await tester.tap(find.text('メールなどから取り込む'));
-    await tester.pumpAndSettle();
+    await _tapInList(tester, 'メールなどから取り込む', near: 'マイカレンダー');
     await _closeTop(tester);
-    await tester.tap(find.text('設定'));
-    await tester.pumpAndSettle();
+    await _tapInList(tester, '設定', near: 'マイカレンダー');
     await _closeTop(tester);
   } else {
     // 下のナビ: To Do・取り込み・カレンダー
