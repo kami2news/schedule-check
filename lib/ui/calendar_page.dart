@@ -177,8 +177,11 @@ class _CalendarPageState extends State<CalendarPage> {
           Expanded(child: Align(alignment: Alignment.centerLeft, child: title)),
           if (compact) ...[
             todayButton,
-            SizedBox(width: 2),
-            ...arrows,
+            // 幅 360px 未満では矢印を省く（前後へはスライドか、見出しを押して出る月の表から移れる）
+            if (MediaQuery.sizeOf(context).width >= 360) ...[
+              SizedBox(width: 2),
+              ...arrows,
+            ],
           ],
           SizedBox(width: 8),
           _viewMenu(c),
