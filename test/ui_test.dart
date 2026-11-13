@@ -193,8 +193,11 @@ void main() {
     expect(find.textContaining('13:00'), findsWidgets);
     // テストの既定はタッチの端末（部品が 44px 以上）なので、2件目は下にある
     await tester.scrollUntilVisible(find.textContaining('12/4'), 200,
+        // 候補の一覧（入力欄の中のスクロールではなく、候補「13:00」を含むもの）
         scrollable: find
-            .descendant(of: find.byType(Dialog), matching: find.byType(Scrollable))
+            .ancestor(
+                of: find.textContaining('13:00').first,
+                matching: find.byType(Scrollable))
             .first);
     expect(find.textContaining('12/4'), findsWidgets);
   });
