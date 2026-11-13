@@ -111,7 +111,7 @@ class CalendarController extends ChangeNotifier {
               : (s.month == b.month ? '${b.day}日' : '${b.month}月${b.day}日');
           return '${s.year}年${s.month}月${s.day}日〜$tail';
         }
-        return '${s.year}年${s.month}月${s.day}日（${weekdayNames[s.weekday - 1]}）';
+        return fmtLongDate(s);
       case CalView.week:
         final a = startOfWeek(s);
         final b = addDays(a, 6);

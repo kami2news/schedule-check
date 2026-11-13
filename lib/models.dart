@@ -18,8 +18,9 @@ DateTime startOfWeek(DateTime d) {
   return DateTime(d.year, d.month, d.day - offset);
 }
 
+/// 年つきの日付（KM1 の書き方「2026/11/12（木）」）
 String fmtLongDate(DateTime d) =>
-    '${d.year}年${d.month}月${d.day}日（${weekdayNames[d.weekday - 1]}）';
+    '${d.year}/${d.month}/${d.day}（${weekdayNames[d.weekday - 1]}）';
 
 /// KM1 の日付の書き方「11/12（木）」
 String fmtDate(DateTime d) =>

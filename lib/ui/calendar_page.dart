@@ -177,8 +177,9 @@ class _CalendarPageState extends State<CalendarPage> {
           Expanded(child: Align(alignment: Alignment.centerLeft, child: title)),
           if (compact) ...[
             todayButton,
-            // 幅 360px 未満では矢印を省く（前後へはスライドか、見出しを押して出る月の表から移れる）
-            if (MediaQuery.sizeOf(context).width >= 360) ...[
+            // スマホの幅（400px 未満）では矢印を省き、日付と追加のボタンを優先する
+            // （前後へはスライドか、見出しを押して出る月の表から移れる）
+            if (MediaQuery.sizeOf(context).width >= 400) ...[
               SizedBox(width: 2),
               ...arrows,
             ],
@@ -222,6 +223,12 @@ class _CalendarPageState extends State<CalendarPage> {
             SizedBox(width: 4),
             IconButton.filled(
               tooltip: '予定を追加',
+              style: IconButton.styleFrom(
+                backgroundColor: Fl.brand,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(Fl.r4)),
+              ),
               icon: Icon(FluentIcons.add_24_regular, size: 20),
               onPressed: () => openEventEditor(context, date: c.selected),
             ),
