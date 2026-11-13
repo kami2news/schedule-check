@@ -196,7 +196,9 @@ void main() {
         scrollable: find
             .ancestor(
                 of: find.textContaining('元の行: 12/1'),
-                matching: find.byType(Scrollable))
+                matching: find.byWidgetPredicate((w) =>
+                    w is Scrollable &&
+                    axisDirectionToAxis(w.axisDirection) == Axis.vertical))
             .first);
     expect(find.textContaining('12/4'), findsWidgets);
   });
