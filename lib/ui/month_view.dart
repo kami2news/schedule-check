@@ -39,6 +39,7 @@ class _MonthViewState extends State<MonthView> {
   late DateTime _shown;
 
   double _dragX = 0;
+  double _dragStartPx = 0;
   late DateTime _dragFrom;
 
   CalendarController get c => widget.controller;
@@ -180,7 +181,10 @@ class _MonthViewState extends State<MonthView> {
             return Listener(
               onPointerSignal: _onSignal,
               child: GestureDetector(
-                onVerticalDragStart: (_) => _dragFrom = _shown,
+                onVerticalDragStart: (_) {
+                  _dragFrom = _shown;
+                  _dragStartPx = _scroll!.offset;
+                },
                 // 指に合わせて動かし、離したら月の頭にそろえる
                 onVerticalDragUpdate: (d) {
                   final sc = _scroll!;
@@ -189,9 +193,8 @@ class _MonthViewState extends State<MonthView> {
                       .clamp(p.minScrollExtent, p.maxScrollExtent));
                 },
                 onVerticalDragEnd: (d) {
-                  final sc = _scroll!;
-                  final start = _rowOf(_dragFrom) * _rowH;
-                  _release(start - sc.offset, d.primaryVelocity ?? 0);
+                  // 動かした量（上へ動かすと負）で、次の月か前の月かを決める
+                  _release(_dragStartPx - _scroll!.offset, d.primaryVelocity ?? 0);
                 },
                 onHorizontalDragStart: (_) {
                   _dragFrom = _shown;
