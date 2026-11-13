@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:material_ui/material_ui.dart';
 import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 
-import 'models.dart';
 import 'notify/reminder_service.dart';
 import 'reminders.dart';
 import 'store.dart';
