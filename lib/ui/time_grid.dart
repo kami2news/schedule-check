@@ -796,7 +796,7 @@ class _TimeGridState extends State<TimeGrid>
     final days = widget.days;
     final today = dateOnly(DateTime.now());
 
-    Widget content(int extra) {
+    Widget content(int extra, double height) {
       _extra = extra;
       final events = [for (final d in days) c.eventsOn(store, d)];
       final tasks = [for (final d in days) c.tasksOn(store, d)];
@@ -827,7 +827,11 @@ class _TimeGridState extends State<TimeGrid>
               decoration: BoxDecoration(
                 border: Border(top: BorderSide(color: Fl.stroke2)),
               ),
-              child: Row(
+              // 低い画面（スマホの横向き・折りたたみ端末のカバー画面）でも時間の欄が残るよう、
+              // 終日の欄は高さの 1/4 まで。入りきらない分は欄の中でスクロールする
+              constraints: BoxConstraints(maxHeight: math.max(28, height / 4)),
+              child: SingleChildScrollView(
+                child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   SizedBox(
@@ -868,6 +872,7 @@ class _TimeGridState extends State<TimeGrid>
                   ),
                 ],
               ),
+              ),
             ),
           Divider(height: 1),
           Expanded(
@@ -904,7 +909,7 @@ class _TimeGridState extends State<TimeGrid>
             },
             onHorizontalDragUpdate: (d) => _move(-d.delta.dx / _colW),
             onHorizontalDragEnd: (d) => _release(d.primaryVelocity ?? 0),
-            child: content(_stride),
+            child: content(_stride, cs.maxHeight),
           ),
         );
       }
@@ -933,7 +938,7 @@ class _TimeGridState extends State<TimeGrid>
           child: SingleChildScrollView(
             controller: _hScroll,
             scrollDirection: Axis.horizontal,
-            child: SizedBox(width: width, child: content(0)),
+            child: SizedBox(width: width, child: content(0, cs.maxHeight)),
           ),
         ),
       );

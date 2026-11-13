@@ -89,7 +89,7 @@ class _CalendarPageState extends State<CalendarPage> {
   }
 
   /// 狭い画面では年を省いた短い見出しにする（今年以外は年も付ける）
-  String _compactTitle(CalendarController c) {
+  String _compactTitle(BuildContext context, CalendarController c) {
     final s = c.selected;
     final y = s.year == DateTime.now().year ? '' : '${s.year}/';
     switch (c.view) {
@@ -101,6 +101,8 @@ class _CalendarPageState extends State<CalendarPage> {
               ? '$y${s.month}/${s.day}〜${b.day}'
               : '$y${s.month}/${s.day}〜${b.month}/${b.day}';
         }
+        // 幅 380px 未満（折りたたみ端末のカバー画面など）では曜日を省く（すぐ下の日付の見出しに出ている）
+        if (MediaQuery.sizeOf(context).width < 380) return '$y${s.month}/${s.day}';
         return '$y${s.month}/${s.day}（${weekdayNames[s.weekday - 1]}）';
       case CalView.week:
         final a = startOfWeek(s);
@@ -135,7 +137,7 @@ class _CalendarPageState extends State<CalendarPage> {
     ];
 
     final titleStyle = compact ? FlText.subtitle2 : FlText.subtitle1;
-    final titleText = compact ? _compactTitle(c) : c.title;
+    final titleText = compact ? _compactTitle(context, c) : c.title;
     final Widget title = compact
         ? InkWell(
             borderRadius: BorderRadius.circular(Fl.r4),
