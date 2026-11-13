@@ -34,8 +34,9 @@ flutter:
   fonts:
     # KM1 の書体 Noto Sans JP（SIL OFL 1.1, assets/fonts/OFL-NotoSansJP.txt）。
     # 英数字・記号だけを切り出して同梱（各 84KB）。日本語の字形は Web では Flutter が
-    # Noto Sans JP を自動で読み込み、アプリでは各 OS の日本語フォントに任せる
-    - family: Noto Sans JP
+    # Noto Sans JP を自動で読み込み、アプリでは各 OS の日本語フォントに任せる。
+    # 名前を「Noto Sans JP」にすると、Web で日本語の自動読み込みが働かず文字化けするので別名にする
+    - family: KM1 Latin
       fonts:
         - asset: assets/fonts/NotoSansJP-Latin-400.ttf
           weight: 400

@@ -218,8 +218,10 @@ class Fl {
 class FlText {
   FlText._();
 
-  static const family = Km1Text.fontFamily;
-  static const fallback = Km1Text.fontFamilyFallback;
+  /// 同梱の英数字（Noto Sans JP の切り出し）。本物と同じ名前にすると Web で日本語が
+  /// 文字化けする（Flutter の日本語の自動読み込みが働かない）ので別名で登録している
+  static const family = 'KM1 Latin';
+  static const fallback = [Km1Text.fontFamily, ...Km1Text.fontFamilyFallback];
 
   static TextStyle _s(double size, double lineHeight, FontWeight w) =>
       TextStyle(

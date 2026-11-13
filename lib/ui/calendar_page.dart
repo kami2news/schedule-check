@@ -177,9 +177,9 @@ class _CalendarPageState extends State<CalendarPage> {
           Expanded(child: Align(alignment: Alignment.centerLeft, child: title)),
           if (compact) ...[
             todayButton,
-            // スマホの幅（400px 未満）では矢印を省き、日付と追加のボタンを優先する
-            // （前後へはスライドか、見出しを押して出る月の表から移れる）
-            if (MediaQuery.sizeOf(context).width >= 400) ...[
+            // スマホの幅（480px 未満）では矢印を省き、日付と追加のボタンを優先する
+            // （タッチではボタンが 44px になるため。前後へはスライドか、見出しを押して出る月の表から移れる）
+            if (MediaQuery.sizeOf(context).width >= 480) ...[
               SizedBox(width: 2),
               ...arrows,
             ],
