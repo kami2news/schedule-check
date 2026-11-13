@@ -6,6 +6,7 @@ import 'package:schedule_check/store.dart';
 import 'package:schedule_check/ui/controller.dart';
 import 'package:schedule_check/ui/fluent.dart';
 import 'package:schedule_check/ui/fluent_extras.dart';
+import 'package:schedule_check/ui/time_grid.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 Future<AppStore> _storeWithSamples() async {
@@ -65,7 +66,7 @@ void main() {
     expect(find.text('レポート提出'), findsWidgets);
 
     // 月表示に切り替えても例外が出ない
-    await tester.tap(find.byType(PopupMenuButton<CalView>));
+    await tester.tap(find.byTooltip('表示形式'));
     await tester.pumpAndSettle();
     await tester.tap(find.descendant(
       of: find.byType(PopupMenuItem<CalView>),
@@ -239,7 +240,8 @@ void main() {
     expect(y, isTrue);
 
     // 1日ぶん（24時間 × 56px）より少し多く引っ張ると、次の日に切り替わる
-    final grid = find.byType(ListView).first;
+    final grid =
+        find.descendant(of: find.byType(TimeGrid), matching: find.byType(ListView));
     await tester.drag(grid, const Offset(0, -24 * 56.0 - 40));
     await tester.pumpAndSettle();
     final next = addDays(today, 1);
@@ -280,7 +282,9 @@ void main() {
     expect(store.uiValue('dayCount'), '3');
 
     // 次の段（3日後から）が半分を超えるまで下へ
-    await tester.drag(find.byType(ListView).first, const Offset(0, -24 * 56.0 - 40));
+    await tester.drag(
+        find.descendant(of: find.byType(TimeGrid), matching: find.byType(ListView)),
+        const Offset(0, -24 * 56.0 - 40));
     await tester.pumpAndSettle();
     expect(find.text(titleOf(addDays(today, 3))), findsOneWidget);
 
@@ -416,7 +420,7 @@ void main() {
 
     await tester.pumpWidget(ScheduleApp(store: store));
     await tester.pumpAndSettle();
-    await tester.tap(find.byType(PopupMenuButton<CalView>));
+    await tester.tap(find.byTooltip('表示形式'));
     await tester.pumpAndSettle();
     await tester.tap(find.descendant(
       of: find.byType(PopupMenuItem<CalView>),
