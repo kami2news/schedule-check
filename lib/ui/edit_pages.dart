@@ -1217,7 +1217,7 @@ class _PeriodSettingsState extends State<_PeriodSettings> {
       final (s, e) = _list[i];
       if (e <= s) return '${i + 1}限の終了が開始より前か同じです';
       if (i > 0 && s < _list[i - 1].$2) {
-        return '${i + 1}限の開始が${i}限の終了（${fmtMin(_list[i - 1].$2)}）より前です';
+        return '${i + 1}限の開始が$i限の終了（${fmtMin(_list[i - 1].$2)}）より前です';
       }
     }
     return null;
