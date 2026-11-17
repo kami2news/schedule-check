@@ -405,6 +405,8 @@ void main() {
     // 終了を開始より前にすると保存できず、理由が出る
     await tester.tap(find.descendant(of: dialog, matching: find.text('9:50')).first);
     await tester.pumpAndSettle();
+    // 終了を選ぶときは、開始（9:05）からの長さが出る
+    expect(find.text('（45分）'), findsOneWidget);
     await tester.tap(find.descendant(of: dialog.last, matching: find.text('8')));
     await tester.pumpAndSettle();
     await tester.tap(find.text('決定'));
