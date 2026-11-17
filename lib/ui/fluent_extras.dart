@@ -332,6 +332,153 @@ Future<int?> showFlTimeList(BuildContext context, int initialMin,
       step: 5, title: title ?? '時刻を選ぶ', note: note, extra: extra);
 }
 
+/// 土日の文字色（設定で色分けがオフ、または平日なら null）。
+/// 日本のカレンダーの慣習どおり、土曜は青・日曜は赤
+Color? weekendFg(DateTime d) {
+  if (!weekendColorsOn) return null;
+  if (d.weekday == DateTime.sunday) return Fl.isDark ? Color(0xFFE37D80) : Color(0xFFB10E1C);
+  if (d.weekday == DateTime.saturday) return Fl.isDark ? Color(0xFF479EF5) : Color(0xFF0F6CBD);
+  return null;
+}
+
+/// ビルド番号（CI で --dart-define=BUILD_ID=<コミット> を渡す。ローカルでは dev）
+const kBuildId = String.fromEnvironment('BUILD_ID', defaultValue: 'dev');
+
+/// 表示テーマ（システム／ライト／ダーク）の切り替えメニュー
+class FlThemeButton extends StatelessWidget {
+  const FlThemeButton({super.key, this.onDark = false});
+
+  /// 濃い背景（上部バー）の上に置くとき true
+  final bool onDark;
+
+  @override
+  Widget build(BuildContext context) {
+    final store = StoreScope.of(context);
+    final current = store.themeMode;
+    return PopupMenuButton<FlThemeMode>(
+      tooltip: '表示テーマ',
+      position: PopupMenuPosition.under,
+      onSelected: (m) => StoreScope.read(context).setThemeMode(m.name),
+      itemBuilder: (_) => [
+        for (final m in FlThemeMode.values)
+          PopupMenuItem<FlThemeMode>(
+            value: m,
+            height: Fl.target,
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 20,
+                  child: m.name == current
+                      ? FlIcon(FluentIcons.checkmark_24_regular, size: 16)
+                      : null,
+                ),
+                SizedBox(width: 8),
+                Text(m.label),
+              ],
+            ),
+          ),
+        PopupMenuDivider(),
+        // どの版を見ているか確認できるようにビルド番号を出す
+        PopupMenuItem<FlThemeMode>(
+          enabled: false,
+          height: 28,
+          child: Text('バージョン $kBuildId',
+              style: FlText.caption1.copyWith(color: Fl.fg3)),
+        ),
+      ],
+      child: Padding(
+        padding: EdgeInsets.all(8),
+        child: FlIcon(
+          Fl.isDark
+              ? FluentIcons.weather_moon_24_regular
+              : FluentIcons.weather_sunny_24_regular,
+          size: 20,
+          color: onDark ? Colors.white : Fl.fg2,
+        ),
+      ),
+    );
+  }
+}
+
+/// 選択肢から1つ選ぶダイアログ（Fluent の RadioGroup ＋ Dialog）。キャンセルなら null
+Future<T?> showFlChoice<T>(
+  BuildContext context, {
+  required String title,
+  required List<(T value, String label)> options,
+  required T initial,
+  required String confirmLabel,
+  bool danger = false,
+}) {
+  var selected = initial;
+  return showFlDialog<T>(
+    context,
+    maxWidth: 400,
+    child: StatefulBuilder(
+      builder: (ctx, setState) => Material(
+        color: Fl.bg1,
+        child: Padding(
+          padding: EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: FlText.subtitle1),
+              SizedBox(height: 12),
+              for (final (v, label) in options)
+                InkWell(
+                  borderRadius: BorderRadius.circular(Fl.r4),
+                  onTap: () => setState(() => selected = v),
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                    child: Row(
+                      children: [
+                        // Fluent のラジオ（外枠＋選択中は中の点）
+                        Container(
+                          width: 18,
+                          height: 18,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                                color: v == selected
+                                    ? Fl.brandFg
+                                    : Fl.strokeAccessible),
+                          ),
+                          child: v == selected
+                              ? Container(
+                                  width: 10,
+                                  height: 10,
+                                  decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: Fl.brandFg),
+                                )
+                              : null,
+                        ),
+                        SizedBox(width: 10),
+                        Expanded(child: Text(label, style: FlText.body1)),
+                      ],
+                    ),
+                  ),
+                ),
+              SizedBox(height: 20),
+              FlActions(
+                primary: FilledButton(
+                  style: danger
+                      ? FilledButton.styleFrom(backgroundColor: Fl.danger)
+                      : null,
+                  onPressed: () => Navigator.of(ctx).pop(selected),
+                  child: Text(confirmLabel),
+                ),
+                onCancel: () => Navigator.of(ctx).pop(),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
 /// 時刻を「時」と「分」の2列から選ぶ（[step] 分刻み。時限の設定は 5 分刻み）。
 /// 1列だけの一覧だと 5 分刻みでは 288 行になり探しにくいため、時と分を分けている
 Future<int?> showFlTimeColumns(BuildContext context, int initialMin,
