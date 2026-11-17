@@ -402,7 +402,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.descendant(of: dialog, matching: find.text('45分')), findsOneWidget);
 
-    // 終了を開始より前にすると保存できず、理由が出る
+    // 終了を開始より前にすると翌日に終わる時限になり、次の時限と重なるので保存できず、理由が出る
     await tester.tap(find.descendant(of: dialog, matching: find.text('9:50')).first);
     await tester.pumpAndSettle();
     // 終了を選ぶときは、開始（9:05）からの長さが出る
@@ -411,8 +411,8 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('決定'));
     await tester.pumpAndSettle();
-    expect(find.textContaining('1限の終了が開始より前'), findsOneWidget);
-    await tester.tap(find.descendant(of: dialog, matching: find.text('8:50')).first);
+    expect(find.textContaining('2限の開始が1限の終了（翌8:50）より前'), findsOneWidget);
+    await tester.tap(find.descendant(of: dialog, matching: find.text('翌8:50')).first);
     await tester.pumpAndSettle();
     await tester.tap(find.descendant(of: dialog.last, matching: find.text('9')));
     await tester.pumpAndSettle();
