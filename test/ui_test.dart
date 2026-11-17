@@ -433,6 +433,12 @@ void main() {
             .first);
     await tester.tap(find.descendant(of: dialog.last, matching: find.text('0')));
     await tester.pumpAndSettle();
+    // 「分」の列も 50 分の近くが出ているので、上へ戻して 20 分を出す
+    await tester.scrollUntilVisible(
+        find.descendant(of: dialog.last, matching: find.text('20')), -100,
+        scrollable: find
+            .descendant(of: dialog.last, matching: find.byType(Scrollable))
+            .at(1));
     await tester.tap(find.descendant(of: dialog.last, matching: find.text('20')));
     await tester.pumpAndSettle();
     expect(find.text('（翌日・6時間20分）'), findsOneWidget);
