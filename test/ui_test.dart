@@ -425,6 +425,12 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(end10);
     await tester.pumpAndSettle();
+    // 「時」の列は 18 時の近くが出ているので、上へ戻して 0 時を出す
+    await tester.scrollUntilVisible(
+        find.descendant(of: dialog.last, matching: find.text('0')), -100,
+        scrollable: find
+            .descendant(of: dialog.last, matching: find.byType(Scrollable))
+            .first);
     await tester.tap(find.descendant(of: dialog.last, matching: find.text('0')));
     await tester.pumpAndSettle();
     await tester.tap(find.descendant(of: dialog.last, matching: find.text('20')));
