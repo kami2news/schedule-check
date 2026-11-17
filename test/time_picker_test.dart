@@ -31,7 +31,7 @@ void main() {
       expect(find.text('終了時刻'), findsOneWidget);
       // 分の列は 00・05・10…
       expect(find.text('05'), findsOneWidget);
-      expect(find.text('10'), findsOneWidget);
+      expect(find.text('55', skipOffstage: false), findsOneWidget); // 分は 55 まで
       await tester.tap(find.text('05'));
       await tester.pumpAndSettle();
       expect(find.text('9:05'), findsOneWidget);
