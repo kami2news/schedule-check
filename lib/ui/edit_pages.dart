@@ -1189,7 +1189,9 @@ class _PeriodPicker extends StatelessWidget {
 
 /// 時限の時刻を設定するダイアログ
 Future<void> showPeriodSettings(BuildContext context) {
-  return showFlDialog<void>(context, maxWidth: 420, child: _PeriodSettings());
+  // 時限が多くても一覧で見られるよう、広く・高めに（中はスクロール）
+  return showFlDialog<void>(context,
+      maxWidth: 560, maxHeight: 720, child: _PeriodSettings());
 }
 
 class _PeriodSettings extends StatefulWidget {
@@ -1202,13 +1204,28 @@ class _PeriodSettingsState extends State<_PeriodSettings> {
 
   Future<void> _pick(int i, bool isStart) async {
     final (s, e) = _list[i];
-    final v = await showFlTimeList(context, isStart ? s : e);
+    // 時限は 5 分刻みで選ぶ（時と分を別の列から）
+    final v = await showFlTimeColumns(context, isStart ? s : e,
+        title: '${i + 1}限の${isStart ? '開始' : '終了'}');
     if (v == null) return;
     setState(() => _list[i] = isStart ? (v, e) : (s, v));
   }
 
+  /// 保存できない理由（なければ null）
+  String? get _error {
+    for (var i = 0; i < _list.length; i++) {
+      final (s, e) = _list[i];
+      if (e <= s) return '${i + 1}限の終了が開始より前か同じです';
+      if (i > 0 && s < _list[i - 1].$2) {
+        return '${i + 1}限の開始が${i}限の終了（${fmtMin(_list[i - 1].$2)}）より前です';
+      }
+    }
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
+    final error = _error;
     return Material(
       color: Fl.bg1,
       child: Padding(
@@ -1219,9 +1236,14 @@ class _PeriodSettingsState extends State<_PeriodSettings> {
           children: [
             Text('時限の時刻', style: FlText.subtitle1),
             SizedBox(height: 4),
-            Text('授業の時程に合わせて変更してください。',
+            Text('授業の時程に合わせて変更してください（5分刻み）。',
                 style: FlText.caption1.copyWith(color: Fl.fg3)),
             SizedBox(height: 12),
+            Flexible(
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
             for (var i = 0; i < _list.length; i++)
               Padding(
                 padding: EdgeInsets.only(bottom: 6),
@@ -1248,6 +1270,18 @@ class _PeriodSettingsState extends State<_PeriodSettings> {
                         onTap: () => _pick(i, false),
                       ),
                     ),
+                    // 授業の長さ（50分 など）。スマホの幅では省く
+                    if (MediaQuery.sizeOf(context).width >= 480)
+                    SizedBox(
+                      width: 44,
+                      child: Text(
+                        _list[i].$2 > _list[i].$1
+                            ? '${_list[i].$2 - _list[i].$1}分'
+                            : '',
+                        textAlign: TextAlign.right,
+                        style: FlText.caption1.copyWith(color: Fl.fg3),
+                      ),
+                    ),
                     IconButton(
                       tooltip: 'この時限を削除',
                       icon: FlIcon(FluentIcons.dismiss_24_regular, size: 16),
@@ -1267,11 +1301,28 @@ class _PeriodSettingsState extends State<_PeriodSettings> {
               icon: FlIcon(FluentIcons.add_24_regular, size: 16),
               label: Text('時限を追加'),
             ),
+                  ],
+                ),
+              ),
+            ),
+            if (error != null) ...[
+              SizedBox(height: 8),
+              Row(
+                children: [
+                  FlIcon(FluentIcons.error_circle_16_filled, size: 16, color: Fl.danger),
+                  SizedBox(width: 6),
+                  Expanded(
+                    child: Text(error,
+                        style: FlText.caption1.copyWith(color: Fl.danger)),
+                  ),
+                ],
+              ),
+            ],
             SizedBox(height: 16),
             FlActions(
               primary: FilledButton(
                 onPressed: () {
-                  if (_list.any((p) => p.$2 <= p.$1)) return;
+                  if (_error != null) return;
                   StoreScope.read(context).setPeriods(_list);
                   Navigator.of(context).pop();
                 },

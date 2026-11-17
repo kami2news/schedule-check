@@ -522,3 +522,140 @@ Future<T?> showFlChoice<T>(
     ),
   );
 }
+
+/// 時刻を「時」と「分」の2列から選ぶ（[step] 分刻み。時限の設定は 5 分刻み）。
+/// 1列だけの一覧だと 5 分刻みでは 288 行になり探しにくいため、時と分を分けている
+Future<int?> showFlTimeColumns(BuildContext context, int initialMin,
+    {int step = 5, String title = '時刻を選ぶ'}) {
+  return showFlDialog<int>(
+    context,
+    maxWidth: 320,
+    maxHeight: 520,
+    child: _FlTimeColumns(initial: initialMin, step: step, title: title),
+  );
+}
+
+class _FlTimeColumns extends StatefulWidget {
+  const _FlTimeColumns(
+      {required this.initial, required this.step, required this.title});
+
+  final int initial;
+  final int step;
+  final String title;
+
+  @override
+  State<_FlTimeColumns> createState() => _FlTimeColumnsState();
+}
+
+class _FlTimeColumnsState extends State<_FlTimeColumns> {
+  late int _h = (widget.initial ~/ 60).clamp(0, 23);
+  // 刻みに合わない分（取り込んだ 9:52 など）は近い刻みにそろえる
+  late int _m = (((widget.initial % 60) / widget.step).round() * widget.step)
+      .clamp(0, 60 - widget.step);
+
+  double get _rowH => Fl.touch ? 44 : 36;
+
+  late final _hScroll =
+      ScrollController(initialScrollOffset: math.max(0, (_h - 2) * _rowH));
+  late final _mScroll = ScrollController(
+      initialScrollOffset: math.max(0, (_m ~/ widget.step - 2) * _rowH));
+
+  @override
+  void dispose() {
+    _hScroll.dispose();
+    _mScroll.dispose();
+    super.dispose();
+  }
+
+  Widget _column(String label, ScrollController sc, List<int> values,
+      int selected, ValueChanged<int> onPick, String Function(int) fmt) {
+    return Expanded(
+      child: Column(
+        children: [
+          Text(label, style: FlText.caption1.copyWith(color: Fl.fg3)),
+          SizedBox(height: 4),
+          Expanded(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                border: Border.all(color: Fl.stroke2),
+                borderRadius: BorderRadius.circular(Fl.r4),
+              ),
+              child: ListView.builder(
+                controller: sc,
+                itemExtent: _rowH,
+                itemCount: values.length,
+                itemBuilder: (_, i) {
+                  final v = values[i];
+                  final sel = v == selected;
+                  return Semantics(
+                    selected: sel,
+                    button: true,
+                    child: InkWell(
+                      onTap: () => onPick(v),
+                      child: Container(
+                        margin: EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: sel ? Fl.brandTint : null,
+                          borderRadius: BorderRadius.circular(Fl.r4),
+                        ),
+                        child: Text(fmt(v),
+                            style: sel
+                                ? FlText.body1Strong.copyWith(color: Fl.brandFg)
+                                : FlText.body1),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final step = widget.step;
+    return Material(
+      color: Fl.bg1,
+      child: Padding(
+        padding: EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(widget.title, style: FlText.subtitle2),
+            SizedBox(height: 4),
+            // いま選んでいる時刻（大きく）
+            Text(fmtMin(_h * 60 + _m),
+                textAlign: TextAlign.center,
+                style: FlText.title3.copyWith(color: Fl.brandFg)),
+            SizedBox(height: 8),
+            Expanded(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _column('時', _hScroll, [for (var h = 0; h < 24; h++) h], _h,
+                      (v) => setState(() => _h = v), (v) => '$v'),
+                  SizedBox(width: 8),
+                  _column('分', _mScroll, [for (var m = 0; m < 60; m += step) m],
+                      _m, (v) => setState(() => _m = v),
+                      (v) => v.toString().padLeft(2, '0')),
+                ],
+              ),
+            ),
+            SizedBox(height: 12),
+            FlActions(
+              primary: FilledButton(
+                onPressed: () => Navigator.of(context).pop(_h * 60 + _m),
+                child: Text('決定'),
+              ),
+              onCancel: () => Navigator.of(context).pop(),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

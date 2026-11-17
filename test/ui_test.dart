@@ -380,6 +380,48 @@ void main() {
     expect(find.text('${next.year}年${next.month}月'), findsWidgets);
   });
 
+  testWidgets('時限の時刻は広い画面で編集でき、5分刻みで選べる', (tester) async {
+    final store = await _storeWithSamples();
+    await pumpWide(tester, store);
+    await tester.tap(find.text('設定'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('時限の時刻を編集'));
+    await tester.tap(find.text('時限の時刻を編集'));
+    await tester.pumpAndSettle();
+
+    final dialog = find.byType(Dialog);
+    expect(find.descendant(of: dialog, matching: find.text('10限')), findsOneWidget);
+    // 1限の開始（9:00）を押して、分の列から 05 を選ぶ
+    await tester.tap(find.descendant(of: dialog, matching: find.text('9:00')).first);
+    await tester.pumpAndSettle();
+    expect(find.text('1限の開始'), findsOneWidget);
+    await tester.tap(find.text('05'));
+    await tester.pumpAndSettle();
+    expect(find.text('9:05'), findsWidgets);
+    await tester.tap(find.text('決定'));
+    await tester.pumpAndSettle();
+    expect(find.descendant(of: dialog, matching: find.text('45分')), findsOneWidget);
+
+    // 終了を開始より前にすると保存できず、理由が出る
+    await tester.tap(find.descendant(of: dialog, matching: find.text('9:50')).first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('8'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('決定'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('1限の終了が開始より前'), findsOneWidget);
+    await tester.tap(find.descendant(of: dialog, matching: find.text('8:50')).first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('9').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('決定'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.descendant(of: dialog, matching: find.text('保存')));
+    await tester.pumpAndSettle();
+    expect(store.periods.first, (9 * 60 + 5, 9 * 60 + 50));
+  });
+
   testWidgets('To Do のクイック追加でタスクが増える', (tester) async {
     final store = await _storeWithSamples();
     tester.view.physicalSize = const Size(1400, 900);
