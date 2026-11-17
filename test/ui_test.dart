@@ -419,37 +419,24 @@ void main() {
     await tester.tap(find.text('決定'));
     await tester.pumpAndSettle();
 
-    // 10限（18:00〜）の終了に 0:20 を選ぶと、日をまたぐ時限（翌0:20）になる
+    // 10限（18:00〜）の終了に開始より前の時刻を選ぶと、日をまたぐ時限になる
     final end10 = find.descendant(of: dialog, matching: find.text('18:50'));
     await tester.ensureVisible(end10);
     await tester.pumpAndSettle();
     await tester.tap(end10);
     await tester.pumpAndSettle();
-    // 「時」の列は 18 時の近くが出ているので、上へ戻して 0 時を出す
-    await tester.scrollUntilVisible(
-        find.descendant(of: dialog.last, matching: find.text('0')), -100,
-        scrollable: find
-            .descendant(of: dialog.last, matching: find.byType(Scrollable))
-            .first);
-    await tester.tap(find.descendant(of: dialog.last, matching: find.text('0')));
+    // 開始（18:00）より前の 17 時を選ぶと、翌日の 17:50 に終わる
+    await tester.tap(find.descendant(of: dialog.last, matching: find.text('17')));
     await tester.pumpAndSettle();
-    // 「分」の列も 50 分の近くが出ているので、上へ戻して 20 分を出す
-    await tester.scrollUntilVisible(
-        find.descendant(of: dialog.last, matching: find.text('20')), -100,
-        scrollable: find
-            .descendant(of: dialog.last, matching: find.byType(Scrollable))
-            .at(1));
-    await tester.tap(find.descendant(of: dialog.last, matching: find.text('20')));
-    await tester.pumpAndSettle();
-    expect(find.text('（翌日・6時間20分）'), findsOneWidget);
+    expect(find.text('（翌日・23時間50分）'), findsOneWidget);
     await tester.tap(find.text('決定'));
     await tester.pumpAndSettle();
-    expect(find.descendant(of: dialog, matching: find.text('翌0:20')), findsOneWidget);
+    expect(find.descendant(of: dialog, matching: find.text('翌17:50')), findsOneWidget);
 
     await tester.tap(find.descendant(of: dialog, matching: find.text('保存')));
     await tester.pumpAndSettle();
     expect(store.periods.first, (9 * 60 + 5, 9 * 60 + 50));
-    expect(store.periods.last, (18 * 60, 24 * 60 + 20));
+    expect(store.periods.last, (18 * 60, 24 * 60 + 17 * 60 + 50));
   });
 
   testWidgets('To Do のクイック追加でタスクが増える', (tester) async {
