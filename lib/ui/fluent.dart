@@ -1324,39 +1324,63 @@ class FlIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = IconTheme.of(context);
+    final s = _snap(size ?? theme.size ?? 20);
     final k = icon == null ? null : _km1IconMap[icon];
     if (k == null) {
-      return Icon(icon, size: size, color: color, semanticLabel: semanticLabel);
+      return Icon(icon, size: s, color: color, semanticLabel: semanticLabel);
     }
-    final theme = IconTheme.of(context);
     final inherited = theme.color;
     // 部品（ボタン・選択中の項目など）が色を決めているときはそれに従う
     final inParent = inherited != null && inherited != Theme.of(context).iconTheme.color;
     return Km1BIcon(k.$1,
-        size: size ?? theme.size ?? 20,
+        size: s,
         filled: k.$2,
         color: color ?? (inParent ? inherited : null),
         semanticLabel: semanticLabel);
   }
 }
 
-/// Fluent のアイコン → KM1 のアイコン（名前, 塗り）
+/// KM1 のアイコンの大きさ（16・20・24・32px）にそろえる。14px 未満は部品の中の印
+/// （チェックボックスのチェックなど）なのでそのまま
+double _snap(double v) {
+  if (v < 14) return v;
+  const sizes = [16.0, 20.0, 24.0, 32.0];
+  // 真ん中（18px など）は大きいほうへ（KM1 の標準は 20px）
+  return sizes.reduce((a, b) => (v - a).abs() < (v - b).abs() ? a : b);
+}
+
+/// Fluent のアイコン → KM1 のアイコン（名前, 塗り）。
+/// 1つの意味に1つの絵（KM1-ICO-001）。ここに無い Fluent のアイコンは KM1 にまだ無い意味で、
+/// Fluent のまま描く（DESIGN.md「アイコン」に一覧。KM1 に足す候補）
 final Map<IconData, (Km1BIconName, bool)> _km1IconMap = {
   FluentIcons.add_16_regular: (Km1BIconName.add, false),
   FluentIcons.add_24_regular: (Km1BIconName.add, false),
   FluentIcons.alert_16_regular: (Km1BIconName.notification, false),
   FluentIcons.alert_24_regular: (Km1BIconName.notification, false),
-  FluentIcons.alert_on_24_regular: (Km1BIconName.reminder, false),
+  // 「この端末で受け取る」がオンの状態 → 通知の塗りの形（以前はリマインダーの絵で意味がずれていた）
+  FluentIcons.alert_on_24_regular: (Km1BIconName.notification, true),
+  FluentIcons.alert_off_24_regular: (Km1BIconName.notificationOff, false),
   FluentIcons.arrow_repeat_all_24_regular: (Km1BIconName.repeatWeekly, false),
   FluentIcons.arrow_sync_24_regular: (Km1BIconName.sync, false),
   FluentIcons.calendar_add_24_regular: (Km1BIconName.calendarAdd, false),
   FluentIcons.calendar_cancel_24_regular: (Km1BIconName.canceled, false),
+  // 予定に関連付ける → リンク
+  FluentIcons.calendar_link_24_regular: (Km1BIconName.link, false),
   FluentIcons.calendar_ltr_16_regular: (Km1BIconName.calendar, false),
   FluentIcons.calendar_ltr_24_filled: (Km1BIconName.calendar, true),
   FluentIcons.calendar_ltr_24_regular: (Km1BIconName.calendar, false),
+  // 空き時間を探す: KM1 に合う絵が無いので時刻（KM1 に足す候補）
   FluentIcons.calendar_search_20_regular: (Km1BIconName.clock, false),
   FluentIcons.checkmark_12_filled: (Km1BIconName.check, true),
   FluentIcons.checkmark_24_regular: (Km1BIconName.check, false),
+  // 状態の記号（完了・お知らせ・注意・エラー）は KM1 の status-*
+  FluentIcons.checkmark_circle_16_filled: (Km1BIconName.statusSuccess, true),
+  FluentIcons.checkmark_circle_16_regular: (Km1BIconName.statusInfo, false),
+  FluentIcons.checkmark_circle_48_regular: (Km1BIconName.statusSuccess, false),
+  FluentIcons.error_circle_16_filled: (Km1BIconName.statusError, true),
+  FluentIcons.info_16_regular: (Km1BIconName.statusInfo, false),
+  FluentIcons.warning_16_regular: (Km1BIconName.statusWarning, false),
   FluentIcons.chevron_down_24_regular: (Km1BIconName.chevronDown, false),
   FluentIcons.chevron_left_24_regular: (Km1BIconName.chevronLeft, false),
   FluentIcons.chevron_right_24_regular: (Km1BIconName.chevronRight, false),
@@ -1370,6 +1394,8 @@ final Map<IconData, (Km1BIconName, bool)> _km1IconMap = {
   FluentIcons.delete_24_regular: (Km1BIconName.delete, false),
   FluentIcons.dismiss_12_regular: (Km1BIconName.dismiss, false),
   FluentIcons.dismiss_24_regular: (Km1BIconName.dismiss, false),
+  // 中止の連絡 → 休講・中止
+  FluentIcons.dismiss_circle_16_regular: (Km1BIconName.canceled, false),
   FluentIcons.edit_16_regular: (Km1BIconName.edit, false),
   FluentIcons.edit_24_regular: (Km1BIconName.edit, false),
   FluentIcons.flag_16_regular: (Km1BIconName.flag, false),
@@ -1379,8 +1405,9 @@ final Map<IconData, (Km1BIconName, bool)> _km1IconMap = {
   FluentIcons.location_24_regular: (Km1BIconName.location, false),
   FluentIcons.lock_closed_24_regular: (Km1BIconName.lock, false),
   FluentIcons.mail_24_regular: (Km1BIconName.mail, false),
+  // 「その他の操作」は横の … に統一（1つの画面に縦と横が並ばないように）
   FluentIcons.more_horizontal_24_regular: (Km1BIconName.more, false),
-  FluentIcons.more_vertical_24_regular: (Km1BIconName.moreVertical, false),
+  FluentIcons.more_vertical_24_regular: (Km1BIconName.more, false),
   FluentIcons.note_16_regular: (Km1BIconName.note, false),
   FluentIcons.note_24_regular: (Km1BIconName.note, false),
   FluentIcons.person_24_regular: (Km1BIconName.person, false),
@@ -1389,12 +1416,14 @@ final Map<IconData, (Km1BIconName, bool)> _km1IconMap = {
   FluentIcons.send_24_regular: (Km1BIconName.send, false),
   FluentIcons.settings_24_regular: (Km1BIconName.settings, false),
   FluentIcons.sign_out_24_regular: (Km1BIconName.signOut, false),
+  FluentIcons.sparkle_24_regular: (Km1BIconName.sparkle, false),
   FluentIcons.star_24_filled: (Km1BIconName.star, true),
   FluentIcons.star_24_regular: (Km1BIconName.star, false),
-  FluentIcons.task_list_ltr_24_filled: (Km1BIconName.list, true),
-  FluentIcons.task_list_ltr_24_regular: (Km1BIconName.list, false),
-  FluentIcons.warning_16_regular: (Km1BIconName.warning, false),
+  // タスク（以前はリストの絵だった）
+  FluentIcons.task_list_ltr_24_filled: (Km1BIconName.taskList, true),
+  FluentIcons.task_list_ltr_24_regular: (Km1BIconName.taskList, false),
   FluentIcons.weather_moon_24_regular: (Km1BIconName.darkMode, false),
   FluentIcons.weather_sunny_24_regular: (Km1BIconName.lightMode, false),
-  FluentIcons.window_new_24_regular: (Km1BIconName.openExternal, false),
+  // 「詳しく入力」は別のタブで開くのではなく、入力欄を広げる操作
+  FluentIcons.window_new_24_regular: (Km1BIconName.expand, false),
 };

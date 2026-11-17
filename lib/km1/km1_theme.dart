@@ -1,5 +1,5 @@
+// （このアプリでは import を material_ui に替え、Cupertino の画面遷移の指定を外しただけ。値は KM1 のデザインシステムが正）
 // KM1 km1_theme.dart — tokens.json から自動生成。直接編集しない。
-// （このアプリでは import を material_ui に替えただけ。値は KM1 のデザインシステムが正）
 // Generated from tokens.json; do not edit by hand.
 //
 // 使い方 / Usage:
