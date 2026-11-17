@@ -39,6 +39,27 @@ String fmtDate(DateTime d) =>
   return (d, min);
 }
 
+/// 時限の時刻の書き方。時限は「その日の 0:00 からの分」で持ち、24:00 を超えると翌日
+/// （日をまたぐ時限: 「23:30〜翌0:20」）
+String fmtPeriodMin(int m) =>
+    m >= 24 * 60 ? '翌${fmtMin(m - 24 * 60)}' : fmtMin(m);
+
+/// 時限（通しの分）を予定の時刻に直す: 開始はその日の時刻、終了はその日の時刻と何日後か
+({int start, int end, int endOffset}) periodToEvent(int start, int end) {
+  final s = start % (24 * 60);
+  final e = end - (start - s); // 開始に合わせてずらす
+  return (start: s, end: e % (24 * 60), endOffset: e ~/ (24 * 60));
+}
+
+/// 時刻 [clock]（0:00〜23:59）を、[after] 以後でいちばん近い通しの分にする（翌日なら +24時間）
+int periodAfter(int clock, int after) {
+  var v = clock % (24 * 60);
+  while (v < after) {
+    v += 24 * 60;
+  }
+  return v;
+}
+
 /// 所要時間「50分」「2時間」「1時間30分」
 String fmtDuration(int minutes) {
   final h = minutes ~/ 60, m = minutes % 60;

@@ -19,4 +19,18 @@ void main() {
     // 2日後に終わる
     expect(durationNote(9 * 60, 9 * 60, endOffset: 2), '（2日後・48時間）');
   });
+
+  test('日をまたぐ時限（通しの分）', () {
+    expect(fmtPeriodMin(23 * 60), '23:00');
+    expect(fmtPeriodMin(24 * 60 + 20), '翌0:20');
+    // 予定の時刻に直す
+    expect(periodToEvent(23 * 60 + 30, 24 * 60 + 20),
+        (start: 23 * 60 + 30, end: 20, endOffset: 1));
+    expect(periodToEvent(24 * 60 + 30, 25 * 60 + 20),
+        (start: 30, end: 80, endOffset: 0));
+    // 選んだ時刻を、前の時限より後の通しの分に
+    expect(periodAfter(10, 23 * 60), 24 * 60 + 10);
+    expect(periodAfter(23 * 60 + 40, 23 * 60), 23 * 60 + 40);
+    expect(periodAfter(20, 23 * 60 + 31), 24 * 60 + 20);
+  });
 }

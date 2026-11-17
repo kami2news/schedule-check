@@ -519,10 +519,13 @@ class _EventEditPageState extends State<EventEditPage> {
           _PeriodPicker(
             start: _start,
             end: _end,
+            endOffset: _endOffset,
             onChanged: (st, en) => setState(() {
-              _start = st;
-              _end = en;
-              _endOffset = 0; // 時限は同じ日のうちに終わる
+              // 日をまたぐ時限（23:30〜翌0:20 など）は、終了日を翌日にする
+              final t = periodToEvent(st, en);
+              _start = t.start;
+              _end = t.end;
+              _endOffset = t.endOffset;
               _revalidate();
             }),
           ),
@@ -1137,7 +1140,13 @@ class _DayChip extends StatelessWidget {
 /// 時限（1限〜）を選んで開始・終了を入れる。続けて隣の時限を押すと連続にできる
 class _PeriodPicker extends StatelessWidget {
   const _PeriodPicker(
-      {required this.start, required this.end, required this.onChanged});
+      {required this.start,
+      required this.end,
+      required this.onChanged,
+      this.endOffset = 0});
+
+  /// 予定の終了日が何日後か（日をまたぐ時限と見比べるのに使う）
+  final int endOffset;
 
   final int start;
   final int end;
@@ -1147,8 +1156,12 @@ class _PeriodPicker extends StatelessWidget {
   Widget build(BuildContext context) {
     final periods = StoreScope.of(context).periods;
     // 今の開始・終了に一致する時限の範囲
-    final a = periods.indexWhere((p) => p.$1 == start);
-    final b = periods.indexWhere((p) => p.$2 == end);
+    // 時限は通しの分（翌日は 24:00 を超える）なので、予定の時刻と同じ形に直して見比べる
+    final a = periods.indexWhere((p) => periodToEvent(p.$1, p.$2).start == start);
+    final b = periods.indexWhere((p) {
+      final t = periodToEvent(periods[a < 0 ? 0 : a].$1, p.$2);
+      return t.end == end && t.endOffset == endOffset;
+    });
     final hasRange = a >= 0 && b >= a;
     return Padding(
       padding: EdgeInsets.only(top: 4, bottom: 4),
@@ -1205,15 +1218,29 @@ class _PeriodSettings extends StatefulWidget {
 class _PeriodSettingsState extends State<_PeriodSettings> {
   late final List<(int, int)> _list = [...StoreScope.read(context).periods];
 
+  /// 時刻を選ぶ。時限は通しの分（24:00 を超えると翌日）で持ち、選んだ時刻が
+  /// - 開始: 前の時限の開始より前なら翌日（23:00 の次の 0:10 は翌0:10）
+  /// - 終了: 開始以前なら翌日（23:30〜0:20 は翌0:20 に終わる）
+  /// とみなす
   Future<void> _pick(int i, bool isStart) async {
     final (s, e) = _list[i];
-    // 時限は 5 分刻みで選ぶ（時と分を別の列から）
-    final v = await showFlTimeColumns(context, isStart ? s : e,
+    final prevStart = i > 0 ? _list[i - 1].$1 : 0;
+    final v = await showFlTimeColumns(context, (isStart ? s : e) % (24 * 60),
         title: '${i + 1}限の${isStart ? '開始' : '終了'}',
-        // 終了を選ぶときは授業の長さを添える
-        note: isStart ? null : (m) => m > s ? '（${fmtDuration(m - s)}）' : '（開始より前）');
+        note: isStart
+            ? (m) => periodAfter(m, prevStart) >= 24 * 60 ? '（翌日）' : ''
+            // 終了を選ぶときは授業の長さを添える（開始以前の時刻は翌日に終わる）
+            : (m) => durationNote(s % (24 * 60), m));
     if (v == null) return;
-    setState(() => _list[i] = isStart ? (v, e) : (s, v));
+    setState(() {
+      if (isStart) {
+        final ns = periodAfter(v, prevStart);
+        // 終了は時刻をそのままに、新しい開始より後にそろえる
+        _list[i] = (ns, periodAfter(e, ns + 1));
+      } else {
+        _list[i] = (s, periodAfter(v, s + 1));
+      }
+    });
   }
 
   /// 保存できない理由（なければ null）
@@ -1221,8 +1248,9 @@ class _PeriodSettingsState extends State<_PeriodSettings> {
     for (var i = 0; i < _list.length; i++) {
       final (s, e) = _list[i];
       if (e <= s) return '${i + 1}限の終了が開始より前か同じです';
+      if (e - s >= 24 * 60) return '${i + 1}限が24時間以上になっています';
       if (i > 0 && s < _list[i - 1].$2) {
-        return '${i + 1}限の開始が$i限の終了（${fmtMin(_list[i - 1].$2)}）より前です';
+        return '${i + 1}限の開始が$i限の終了（${fmtPeriodMin(_list[i - 1].$2)}）より前です';
       }
     }
     return null;
@@ -1241,7 +1269,8 @@ class _PeriodSettingsState extends State<_PeriodSettings> {
           children: [
             Text('時限の時刻', style: FlText.subtitle1),
             SizedBox(height: 4),
-            Text('授業の時程に合わせて変更してください（5分刻み）。',
+            Text('授業の時程に合わせて変更してください（5分刻み）。'
+                '開始より前の終了時刻は翌日（日をまたぐ時限）、前の時限より前の開始時刻も翌日になります。',
                 style: FlText.caption1.copyWith(color: Fl.fg3)),
             SizedBox(height: 12),
             Flexible(
@@ -1260,7 +1289,7 @@ class _PeriodSettingsState extends State<_PeriodSettings> {
                     Expanded(
                       child: FlPickerField(
                         icon: FluentIcons.clock_24_regular,
-                        text: fmtMin(_list[i].$1),
+                        text: fmtPeriodMin(_list[i].$1),
                         onTap: () => _pick(i, true),
                       ),
                     ),
@@ -1271,7 +1300,7 @@ class _PeriodSettingsState extends State<_PeriodSettings> {
                     Expanded(
                       child: FlPickerField(
                         icon: FluentIcons.clock_24_regular,
-                        text: fmtMin(_list[i].$2),
+                        text: fmtPeriodMin(_list[i].$2),
                         onTap: () => _pick(i, false),
                       ),
                     ),
@@ -1301,6 +1330,7 @@ class _PeriodSettingsState extends State<_PeriodSettings> {
               onPressed: () => setState(() {
                 final last = _list.last;
                 final s = last.$2 + 10;
+                if (s >= 2 * 24 * 60 - 60) return; // 翌日の終わりまで
                 _list.add((s, s + (last.$2 - last.$1)));
               }),
               icon: FlIcon(FluentIcons.add_24_regular, size: 16),

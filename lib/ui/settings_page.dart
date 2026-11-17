@@ -136,8 +136,8 @@ class SettingsPage extends StatelessWidget {
         Text(
           periods.isEmpty
               ? '設定されていません'
-              : '1限 ${fmtMin(periods.first.$1)}〜${fmtMin(periods.first.$2)} ／ '
-                  '${periods.length}限 ${fmtMin(periods.last.$1)}〜${fmtMin(periods.last.$2)}'
+              : '1限 ${fmtPeriodMin(periods.first.$1)}〜${fmtPeriodMin(periods.first.$2)} ／ '
+                  '${periods.length}限 ${fmtPeriodMin(periods.last.$1)}〜${fmtPeriodMin(periods.last.$2)}'
                   '（全${periods.length}コマ）',
           style: FlText.body1,
         ),

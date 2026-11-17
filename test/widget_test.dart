@@ -36,6 +36,21 @@ void main() {
     ];
     Candidate one(String t) => parseText(t, now, periods: periods).candidates.single;
 
+    test('日をまたぐ時限: 終了は翌日、日付が変わってからの時限はその日の時刻', () {
+      const night = [
+        (22 * 60, 22 * 60 + 50),
+        (23 * 60, 24 * 60 + 20), // 23:00〜翌0:20
+        (24 * 60 + 30, 25 * 60 + 20), // 翌0:30〜翌1:20
+      ];
+      final a = parseText('11/20 2限 夜間講義', now, periods: night).candidates.single;
+      expect((a.startMin, a.endMin, a.endOffset), (23 * 60, 20, 1));
+      final b = parseText('11/20 1・2限 夜間講義', now, periods: night).candidates.single;
+      expect((b.startMin, b.endMin, b.endOffset), (22 * 60, 20, 1));
+      final c = parseText('11/21 3限 夜間講義', now, periods: night).candidates.single;
+      expect((c.date, c.startMin, c.endMin, c.endOffset),
+          (DateTime(2026, 11, 21), 30, 80, 0));
+    });
+
     test('「3限」「3・4限」を時限の時刻にする（授業として）', () {
       final a = one('11/20 3限 環境化学 補講');
       expect((a.startMin, a.endMin), (13 * 60, 14 * 60 + 30));

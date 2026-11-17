@@ -368,9 +368,13 @@ final _multiSplitRe = RegExp(
     final a = _digit(p.group(1)!);
     final b = p.group(2) == null ? a : _digit(p.group(2)!);
     if (a <= b && b <= _periods.length) {
+      // 時限は通しの分（24:00 を超えると翌日）。開始はその日の時刻にし、
+      // 終了が翌日にかかるときは 24:00 を超えた値のまま返す（後で終了日を翌日にする）
+      final ps = _periods[a - 1].$1, pe = _periods[b - 1].$2;
+      final shift = ps - ps % (24 * 60);
       return (
-        start: _periods[a - 1].$1,
-        end: _periods[b - 1].$2,
+        start: ps - shift,
+        end: pe - shift,
         rest: s.replaceRange(p.start, p.end, ' '),
       );
     }
