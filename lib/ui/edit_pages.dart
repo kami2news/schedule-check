@@ -156,8 +156,9 @@ Future<DateTime?> _pickDate(BuildContext context, DateTime initial,
   );
 }
 
-Future<int?> _pickTime(BuildContext context, int initialMin) {
-  return showFlTimeList(context, initialMin, extra: [23 * 60 + 59]);
+Future<int?> _pickTime(BuildContext context, int initialMin,
+    {String Function(int)? note}) {
+  return showFlTimeList(context, initialMin, extra: [23 * 60 + 59], note: note);
 }
 
 Future<bool> _confirmDelete(BuildContext context, String what) {
@@ -328,7 +329,9 @@ class _EventEditPageState extends State<EventEditPage> {
   }
 
   Future<void> _chooseEnd() async {
-    final v = await _pickTime(context, _end);
+    // 各時刻に開始からの所要時間を添える（開始以前の時刻は翌日に終わる扱い）
+    final v = await _pickTime(context, _end,
+        note: (m) => durationNote(_start, m, endOffset: _endOffset));
     if (v == null) return;
     setState(() {
       _end = v;
@@ -1206,7 +1209,9 @@ class _PeriodSettingsState extends State<_PeriodSettings> {
     final (s, e) = _list[i];
     // 時限は 5 分刻みで選ぶ（時と分を別の列から）
     final v = await showFlTimeColumns(context, isStart ? s : e,
-        title: '${i + 1}限の${isStart ? '開始' : '終了'}');
+        title: '${i + 1}限の${isStart ? '開始' : '終了'}',
+        // 終了を選ぶときは授業の長さを添える
+        note: isStart ? null : (m) => m > s ? '（${fmtDuration(m - s)}）' : '（開始より前）');
     if (v == null) return;
     setState(() => _list[i] = isStart ? (v, e) : (s, v));
   }

@@ -325,7 +325,7 @@ Future<bool> showFlConfirm(
 
 /// Outlook 風の時刻リスト（15分刻み）。[extra] は刻みに無い値（23:59 など）を追加する。
 Future<int?> showFlTimeList(BuildContext context, int initialMin,
-    {List<int> extra = const []}) {
+    {List<int> extra = const [], String Function(int)? note}) {
   final values = <int>{
     for (var m = 0; m < 24 * 60; m += 15) m,
     initialMin,
@@ -339,7 +339,8 @@ Future<int?> showFlTimeList(BuildContext context, int initialMin,
   String fmt(int m) => fmtMin(m);
   return showFlDialog<int>(
     context,
-    maxWidth: 200,
+    // 所要時間を添えるとき（終了時刻）は、その分だけ広く
+    maxWidth: note == null ? 200 : 280,
     maxHeight: 368,
     child: Builder(
       builder: (ctx) => Material(
@@ -361,8 +362,16 @@ Future<int?> showFlTimeList(BuildContext context, int initialMin,
                   color: sel ? Fl.brandTint : null,
                   borderRadius: BorderRadius.circular(Fl.r4),
                 ),
-                child: Text(
-                  fmt(values[i]),
+                child: Text.rich(
+                  TextSpan(children: [
+                    TextSpan(text: fmt(values[i])),
+                    // 終了時刻: 開始からの所要時間「（1時間30分）」
+                    if (note != null)
+                      TextSpan(
+                          text: ' ${note(values[i])}',
+                          style: FlText.caption1.copyWith(
+                              color: sel ? Fl.brandFg : Fl.fg3)),
+                  ]),
                   style: sel
                       ? FlText.body1Strong.copyWith(color: Fl.brandFg)
                       : FlText.body1,
@@ -526,19 +535,25 @@ Future<T?> showFlChoice<T>(
 /// 時刻を「時」と「分」の2列から選ぶ（[step] 分刻み。時限の設定は 5 分刻み）。
 /// 1列だけの一覧だと 5 分刻みでは 288 行になり探しにくいため、時と分を分けている
 Future<int?> showFlTimeColumns(BuildContext context, int initialMin,
-    {int step = 5, String title = '時刻を選ぶ'}) {
+    {int step = 5, String title = '時刻を選ぶ', String Function(int)? note}) {
   return showFlDialog<int>(
     context,
     maxWidth: 320,
     maxHeight: 520,
-    child: _FlTimeColumns(initial: initialMin, step: step, title: title),
+    child: _FlTimeColumns(
+        initial: initialMin, step: step, title: title, note: note),
   );
 }
 
 class _FlTimeColumns extends StatefulWidget {
   const _FlTimeColumns(
-      {required this.initial, required this.step, required this.title});
+      {required this.initial,
+      required this.step,
+      required this.title,
+      this.note});
 
+  /// 時刻に添える文字（終了時刻なら所要時間「（50分）」）
+  final String Function(int)? note;
   final int initial;
   final int step;
   final String title;
@@ -631,6 +646,10 @@ class _FlTimeColumnsState extends State<_FlTimeColumns> {
             Text(fmtMin(_h * 60 + _m),
                 textAlign: TextAlign.center,
                 style: FlText.title3.copyWith(color: Fl.brandFg)),
+            if (widget.note != null)
+              Text(widget.note!(_h * 60 + _m),
+                  textAlign: TextAlign.center,
+                  style: FlText.body1.copyWith(color: Fl.fg2)),
             SizedBox(height: 8),
             Expanded(
               child: Row(

@@ -39,6 +39,29 @@ String fmtDate(DateTime d) =>
   return (d, min);
 }
 
+/// 所要時間「50分」「2時間」「1時間30分」
+String fmtDuration(int minutes) {
+  final h = minutes ~/ 60, m = minutes % 60;
+  if (h == 0) return '$m分';
+  if (m == 0) return '$h時間';
+  return '$h時間$m分';
+}
+
+/// 終了時刻 [end] を選んだときの所要時間（開始 [start] から）。
+/// [endOffset] は終了日が何日後か。同じ日で開始以前の時刻は、翌日に終わる（夜勤など）とみなす
+int durationTo(int start, int end, {int endOffset = 0}) {
+  final days = endOffset > 0 ? endOffset : (end <= start ? 1 : 0);
+  return end + days * 24 * 60 - start;
+}
+
+/// 終了時刻の一覧に添える文字「（1時間30分）」「（翌日・6時間）」
+String durationNote(int start, int end, {int endOffset = 0}) {
+  final d = durationTo(start, end, endOffset: endOffset);
+  final after = (start + d) ~/ (24 * 60); // 終わるのが何日後か
+  final day = switch (after) { 0 => '', 1 => '翌日・', _ => '$after日後・' };
+  return '（$day${fmtDuration(d)}）';
+}
+
 /// KM1 の時刻の書き方「9:00」（24時間制、時の先頭に 0 を付けない）
 String fmtMin(int m) => '${m ~/ 60}:${(m % 60).toString().padLeft(2, '0')}';
 

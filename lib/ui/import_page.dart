@@ -354,8 +354,8 @@ class _CandidateTileState extends State<_CandidateTile> {
     }
   }
 
-  Future<int?> _pickTime(int initial) {
-    return showFlTimeList(context, initial, extra: [23 * 60 + 59]);
+  Future<int?> _pickTime(int initial, {String Function(int)? note}) {
+    return showFlTimeList(context, initial, extra: [23 * 60 + 59], note: note);
   }
 
   Future<void> _pickStart() async {
@@ -369,7 +369,8 @@ class _CandidateTileState extends State<_CandidateTile> {
   Future<void> _pickEnd() async {
     final s = c.startMin;
     if (s == null) return;
-    final v = await _pickTime(c.endMin ?? defaultEnd(s));
+    final v = await _pickTime(c.endMin ?? defaultEnd(s),
+        note: (m) => durationNote(s, m));
     if (v == null) return;
     // 開始より前の時刻は、翌日に終わる予定（夜勤など）
     c.endOffset = v <= s ? 1 : 0;
