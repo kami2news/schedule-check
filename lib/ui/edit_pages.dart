@@ -157,8 +157,9 @@ Future<DateTime?> _pickDate(BuildContext context, DateTime initial,
 }
 
 Future<int?> _pickTime(BuildContext context, int initialMin,
-    {String Function(int)? note}) {
-  return showFlTimeList(context, initialMin, extra: [23 * 60 + 59], note: note);
+    {String Function(int)? note, String? title}) {
+  return showFlTimeList(context, initialMin,
+      extra: [23 * 60 + 59], note: note, title: title);
 }
 
 Future<bool> _confirmDelete(BuildContext context, String what) {
@@ -314,7 +315,7 @@ class _EventEditPageState extends State<EventEditPage> {
   }
 
   Future<void> _chooseStart() async {
-    final v = await _pickTime(context, _start);
+    final v = await _pickTime(context, _start, title: '開始時刻');
     if (v == null) return;
     setState(() {
       _start = v;
@@ -330,7 +331,7 @@ class _EventEditPageState extends State<EventEditPage> {
 
   Future<void> _chooseEnd() async {
     // 各時刻に開始からの所要時間を添える（開始以前の時刻は翌日に終わる扱い）
-    final v = await _pickTime(context, _end,
+    final v = await _pickTime(context, _end, title: '終了時刻',
         note: (m) => durationNote(_start, m, endOffset: _endOffset));
     if (v == null) return;
     setState(() {
@@ -890,7 +891,8 @@ class _TaskEditPageState extends State<TaskEditPage> {
                 setState(() => _dueMin = null);
                 return;
               }
-              final picked = await _pickTime(context, _dueMin ?? 23 * 60 + 59);
+              final picked =
+                  await _pickTime(context, _dueMin ?? 23 * 60 + 59, title: '期限の時刻');
               if (picked != null) setState(() => _dueMin = picked);
             },
           ),

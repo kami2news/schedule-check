@@ -273,7 +273,7 @@ class _FreeTimePageState extends State<_FreeTimePage> {
                       icon: FluentIcons.clock_24_regular,
                       text: fmtMin(_dayStart),
                       onTap: () async {
-                        final v = await showFlTimeList(context, _dayStart);
+                        final v = await showFlTimeList(context, _dayStart, title: '探す時間帯の始まり');
                         if (v != null && v < _dayEnd) setState(() => _dayStart = v);
                       },
                     ),
@@ -284,7 +284,7 @@ class _FreeTimePageState extends State<_FreeTimePage> {
                       icon: FluentIcons.clock_24_regular,
                       text: fmtMin(_dayEnd),
                       onTap: () async {
-                        final v = await showFlTimeList(context, _dayEnd);
+                        final v = await showFlTimeList(context, _dayEnd, title: '探す時間帯の終わり');
                         if (v != null && v > _dayStart) setState(() => _dayEnd = v);
                       },
                     ),

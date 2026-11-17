@@ -323,225 +323,28 @@ Future<bool> showFlConfirm(
   return result ?? false;
 }
 
-/// Outlook 風の時刻リスト（15分刻み）。[extra] は刻みに無い値（23:59 など）を追加する。
+/// 時刻を選ぶ（5分刻み。「時」と「分」の2列から）。予定・タスク・取り込み・空き時間など、
+/// アプリの時刻はすべてこれで選ぶ。[extra] は刻みに無い値（締め切りの 23:59 など）で、
+/// 一覧の上にすぐ選べるボタンとして出す。[note] は時刻に添える文字（終了時刻の所要時間など）
 Future<int?> showFlTimeList(BuildContext context, int initialMin,
-    {List<int> extra = const [], String Function(int)? note}) {
-  final values = <int>{
-    for (var m = 0; m < 24 * 60; m += 15) m,
-    initialMin,
-    ...extra,
-  }.toList()
-    ..sort();
-  const rowH = 36.0;
-  final index = values.indexOf(initialMin);
-  final scroll = ScrollController(
-      initialScrollOffset: (index * rowH - 3 * rowH).clamp(0.0, 1e9).toDouble());
-  String fmt(int m) => fmtMin(m);
-  return showFlDialog<int>(
-    context,
-    // 所要時間を添えるとき（終了時刻）は、その分だけ広く
-    maxWidth: note == null ? 200 : 280,
-    maxHeight: 368,
-    child: Builder(
-      builder: (ctx) => Material(
-        color: Fl.bg1,
-        child: ListView.builder(
-          controller: scroll,
-          padding: EdgeInsets.symmetric(vertical: 4),
-          itemExtent: rowH,
-          itemCount: values.length,
-          itemBuilder: (_, i) {
-            final sel = values[i] == initialMin;
-            return InkWell(
-              onTap: () => Navigator.of(ctx).pop(values[i]),
-              child: Container(
-                margin: EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                padding: EdgeInsets.symmetric(horizontal: 12),
-                alignment: Alignment.centerLeft,
-                decoration: BoxDecoration(
-                  color: sel ? Fl.brandTint : null,
-                  borderRadius: BorderRadius.circular(Fl.r4),
-                ),
-                child: Text.rich(
-                  TextSpan(children: [
-                    TextSpan(text: fmt(values[i])),
-                    // 終了時刻: 開始からの所要時間「（1時間30分）」
-                    if (note != null)
-                      TextSpan(
-                          text: ' ${note(values[i])}',
-                          style: FlText.caption1.copyWith(
-                              color: sel ? Fl.brandFg : Fl.fg3)),
-                  ]),
-                  style: sel
-                      ? FlText.body1Strong.copyWith(color: Fl.brandFg)
-                      : FlText.body1,
-                ),
-              ),
-            );
-          },
-        ),
-      ),
-    ),
-  );
-}
-
-/// 土日の文字色（設定で色分けがオフ、または平日なら null）。
-/// 日本のカレンダーの慣習どおり、土曜は青・日曜は赤
-Color? weekendFg(DateTime d) {
-  if (!weekendColorsOn) return null;
-  if (d.weekday == DateTime.sunday) return Fl.isDark ? Color(0xFFE37D80) : Color(0xFFB10E1C);
-  if (d.weekday == DateTime.saturday) return Fl.isDark ? Color(0xFF479EF5) : Color(0xFF0F6CBD);
-  return null;
-}
-
-/// ビルド番号（CI で --dart-define=BUILD_ID=<コミット> を渡す。ローカルでは dev）
-const kBuildId = String.fromEnvironment('BUILD_ID', defaultValue: 'dev');
-
-/// 表示テーマ（システム／ライト／ダーク）の切り替えメニュー
-class FlThemeButton extends StatelessWidget {
-  const FlThemeButton({super.key, this.onDark = false});
-
-  /// 濃い背景（上部バー）の上に置くとき true
-  final bool onDark;
-
-  @override
-  Widget build(BuildContext context) {
-    final store = StoreScope.of(context);
-    final current = store.themeMode;
-    return PopupMenuButton<FlThemeMode>(
-      tooltip: '表示テーマ',
-      position: PopupMenuPosition.under,
-      onSelected: (m) => StoreScope.read(context).setThemeMode(m.name),
-      itemBuilder: (_) => [
-        for (final m in FlThemeMode.values)
-          PopupMenuItem<FlThemeMode>(
-            value: m,
-            height: Fl.target,
-            child: Row(
-              children: [
-                SizedBox(
-                  width: 20,
-                  child: m.name == current
-                      ? FlIcon(FluentIcons.checkmark_24_regular, size: 16)
-                      : null,
-                ),
-                SizedBox(width: 8),
-                Text(m.label),
-              ],
-            ),
-          ),
-        PopupMenuDivider(),
-        // どの版を見ているか確認できるようにビルド番号を出す
-        PopupMenuItem<FlThemeMode>(
-          enabled: false,
-          height: 28,
-          child: Text('バージョン $kBuildId',
-              style: FlText.caption1.copyWith(color: Fl.fg3)),
-        ),
-      ],
-      child: Padding(
-        padding: EdgeInsets.all(8),
-        child: FlIcon(
-          Fl.isDark
-              ? FluentIcons.weather_moon_24_regular
-              : FluentIcons.weather_sunny_24_regular,
-          size: 20,
-          color: onDark ? Colors.white : Fl.fg2,
-        ),
-      ),
-    );
-  }
-}
-
-/// 選択肢から1つ選ぶダイアログ（Fluent の RadioGroup ＋ Dialog）。キャンセルなら null
-Future<T?> showFlChoice<T>(
-  BuildContext context, {
-  required String title,
-  required List<(T value, String label)> options,
-  required T initial,
-  required String confirmLabel,
-  bool danger = false,
-}) {
-  var selected = initial;
-  return showFlDialog<T>(
-    context,
-    maxWidth: 400,
-    child: StatefulBuilder(
-      builder: (ctx, setState) => Material(
-        color: Fl.bg1,
-        child: Padding(
-          padding: EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(title, style: FlText.subtitle1),
-              SizedBox(height: 12),
-              for (final (v, label) in options)
-                InkWell(
-                  borderRadius: BorderRadius.circular(Fl.r4),
-                  onTap: () => setState(() => selected = v),
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-                    child: Row(
-                      children: [
-                        // Fluent のラジオ（外枠＋選択中は中の点）
-                        Container(
-                          width: 18,
-                          height: 18,
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                                color: v == selected
-                                    ? Fl.brandFg
-                                    : Fl.strokeAccessible),
-                          ),
-                          child: v == selected
-                              ? Container(
-                                  width: 10,
-                                  height: 10,
-                                  decoration: BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      color: Fl.brandFg),
-                                )
-                              : null,
-                        ),
-                        SizedBox(width: 10),
-                        Expanded(child: Text(label, style: FlText.body1)),
-                      ],
-                    ),
-                  ),
-                ),
-              SizedBox(height: 20),
-              FlActions(
-                primary: FilledButton(
-                  style: danger
-                      ? FilledButton.styleFrom(backgroundColor: Fl.danger)
-                      : null,
-                  onPressed: () => Navigator.of(ctx).pop(selected),
-                  child: Text(confirmLabel),
-                ),
-                onCancel: () => Navigator.of(ctx).pop(),
-              ),
-            ],
-          ),
-        ),
-      ),
-    ),
-  );
+    {List<int> extra = const [], String Function(int)? note, String? title}) {
+  return showFlTimeColumns(context, initialMin,
+      step: 5, title: title ?? '時刻を選ぶ', note: note, extra: extra);
 }
 
 /// 時刻を「時」と「分」の2列から選ぶ（[step] 分刻み。時限の設定は 5 分刻み）。
 /// 1列だけの一覧だと 5 分刻みでは 288 行になり探しにくいため、時と分を分けている
 Future<int?> showFlTimeColumns(BuildContext context, int initialMin,
-    {int step = 5, String title = '時刻を選ぶ', String Function(int)? note}) {
+    {int step = 5,
+    String title = '時刻を選ぶ',
+    String Function(int)? note,
+    List<int> extra = const []}) {
   return showFlDialog<int>(
     context,
     maxWidth: 320,
     maxHeight: 520,
     child: _FlTimeColumns(
-        initial: initialMin, step: step, title: title, note: note),
+        initial: initialMin, step: step, title: title, note: note, extra: extra),
   );
 }
 
@@ -550,7 +353,11 @@ class _FlTimeColumns extends StatefulWidget {
       {required this.initial,
       required this.step,
       required this.title,
-      this.note});
+      this.note,
+      this.extra = const []});
+
+  /// 刻みに無い値（23:59 など）。すぐ選べるボタンにする
+  final List<int> extra;
 
   /// 時刻に添える文字（終了時刻なら所要時間「（50分）」）
   final String Function(int)? note;
@@ -567,6 +374,12 @@ class _FlTimeColumnsState extends State<_FlTimeColumns> {
   // 刻みに合わない分（取り込んだ 9:52 など）は近い刻みにそろえる
   late int _m = (((widget.initial % 60) / widget.step).round() * widget.step)
       .clamp(0, 60 - widget.step);
+
+  /// 刻みに合わない時刻（23:59 など）で開いたときは、時か分を選び直すまで元の時刻を保つ
+  /// （開いて「決定」を押しただけで 23:55 に変わらないように）
+  late bool _exact = widget.initial % widget.step != 0;
+
+  int get _value => _exact ? widget.initial : _h * 60 + _m;
 
   double get _rowH => Fl.touch ? 44 : 36;
 
@@ -643,23 +456,44 @@ class _FlTimeColumnsState extends State<_FlTimeColumns> {
             Text(widget.title, style: FlText.subtitle2),
             SizedBox(height: 4),
             // いま選んでいる時刻（大きく）
-            Text(fmtMin(_h * 60 + _m),
+            Text(fmtMin(_value),
                 textAlign: TextAlign.center,
                 style: FlText.title3.copyWith(color: Fl.brandFg)),
             if (widget.note != null)
-              Text(widget.note!(_h * 60 + _m),
+              Text(widget.note!(_value),
                   textAlign: TextAlign.center,
                   style: FlText.body1.copyWith(color: Fl.fg2)),
+            if (widget.extra.isNotEmpty) ...[
+              SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                alignment: WrapAlignment.center,
+                children: [
+                  for (final v in widget.extra)
+                    OutlinedButton(
+                      onPressed: () => Navigator.of(context).pop(v),
+                      child: Text(
+                          '${fmtMin(v)}${widget.note == null ? '' : ' ${widget.note!(v)}'}'),
+                    ),
+                ],
+              ),
+            ],
             SizedBox(height: 8),
             Expanded(
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   _column('時', _hScroll, [for (var h = 0; h < 24; h++) h], _h,
-                      (v) => setState(() => _h = v), (v) => '$v'),
+                      (v) => setState(() {
+                            _h = v;
+                            _exact = false;
+                          }), (v) => '$v'),
                   SizedBox(width: 8),
                   _column('分', _mScroll, [for (var m = 0; m < 60; m += step) m],
-                      _m, (v) => setState(() => _m = v),
+                      _m, (v) => setState(() {
+                            _m = v;
+                            _exact = false;
+                          }),
                       (v) => v.toString().padLeft(2, '0')),
                 ],
               ),
@@ -667,7 +501,7 @@ class _FlTimeColumnsState extends State<_FlTimeColumns> {
             SizedBox(height: 12),
             FlActions(
               primary: FilledButton(
-                onPressed: () => Navigator.of(context).pop(_h * 60 + _m),
+                onPressed: () => Navigator.of(context).pop(_value),
                 child: Text('決定'),
               ),
               onCancel: () => Navigator.of(context).pop(),

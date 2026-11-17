@@ -354,12 +354,13 @@ class _CandidateTileState extends State<_CandidateTile> {
     }
   }
 
-  Future<int?> _pickTime(int initial, {String Function(int)? note}) {
-    return showFlTimeList(context, initial, extra: [23 * 60 + 59], note: note);
+  Future<int?> _pickTime(int initial, {String Function(int)? note, String? title}) {
+    return showFlTimeList(context, initial,
+        extra: [23 * 60 + 59], note: note, title: title);
   }
 
   Future<void> _pickStart() async {
-    final v = await _pickTime(c.startMin ?? 9 * 60);
+    final v = await _pickTime(c.startMin ?? 9 * 60, title: '開始時刻');
     if (v == null) return;
     c.startMin = v;
     if (c.endOffset == 0 && c.endMin != null && c.endMin! <= v) c.endMin = null;
@@ -369,7 +370,7 @@ class _CandidateTileState extends State<_CandidateTile> {
   Future<void> _pickEnd() async {
     final s = c.startMin;
     if (s == null) return;
-    final v = await _pickTime(c.endMin ?? defaultEnd(s),
+    final v = await _pickTime(c.endMin ?? defaultEnd(s), title: '終了時刻',
         note: (m) => durationNote(s, m));
     if (v == null) return;
     // 開始より前の時刻は、翌日に終わる予定（夜勤など）
