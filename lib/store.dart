@@ -4,6 +4,7 @@ import 'package:flutter/widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'models.dart';
+import 'sharing.dart';
 
 /// ログイン中の保存先（Firestore など）。ストアの変更を1件ずつ送る
 abstract class RemoteSink {
@@ -16,6 +17,12 @@ abstract class RemoteSink {
 
   /// アカウントに保存する設定（テーマ・時限・既定の通知など）
   void putSettings(Map<String, dynamic> settings);
+}
+
+/// 共有されている相手の予定を書き込む先（メールで「編集可」で招待されたとき）
+abstract class SharedSink {
+  void putSharedEvent(String owner, Event e);
+  void removeSharedEvent(String owner, String id);
 }
 
 /// 予定・タスク・マイカレンダーを持つストア。
@@ -39,6 +46,83 @@ class AppStore extends ChangeNotifier {
   int _seq = 0;
 
   RemoteSink? _remote;
+
+  // ---- 共有されている相手の予定（メールで招待されたもの） ----
+
+  /// 相手（uid）ごとの予定。自分の [events] とは別に持ち、表示のときだけ混ぜる
+  final Map<String, SharedSource> shared = {};
+  SharedSink? sharedSink;
+
+  /// 共有されている相手のカレンダー（この端末で使う id・名前）
+  List<CalendarDef> get sharedCalendars =>
+      [for (final s in shared.values) ...s.wrappedCalendars];
+
+  /// 予定が共有されている相手のものなら、その相手
+  SharedSource? sourceOf(Event e) {
+    final p = parseSharedId(e.calendarId) ?? parseSharedId(e.id);
+    return p == null ? null : shared[p.owner];
+  }
+
+  /// 編集・削除できる予定か（自分の予定か、「編集可」で共有されている相手の予定）
+  bool canEditEvent(Event e) => sourceOf(e)?.canEdit ?? parseSharedId(e.calendarId) == null;
+
+  /// id から予定を探す（自分の予定と、共有されている相手の予定）
+  Event? eventById(String id) =>
+      events.where((x) => x.id == id).firstOrNull ??
+      [for (final s in shared.values) ...s.wrappedEvents]
+          .where((x) => x.id == id)
+          .firstOrNull;
+
+  void applyShared(SharedSource s) {
+    shared[s.owner] = s;
+    notifyListeners();
+  }
+
+  void removeShared(String owner) {
+    if (shared.remove(owner) != null) notifyListeners();
+  }
+
+  void clearShared() {
+    if (shared.isEmpty) return;
+    shared.clear();
+    notifyListeners();
+  }
+
+  /// 共有の相手の予定を保存・削除する（相手のデータに書く）。共有のものでなければ false
+  bool _routeShared(Event e, {bool delete = false}) {
+    final cal = parseSharedId(e.calendarId);
+    final idp = parseSharedId(e.id);
+    final owner = cal?.owner ?? idp?.owner;
+    if (owner == null) return false;
+    final src = shared[owner];
+    if (src == null || !src.canEdit) return true; // 表示のみ: 何もしない
+    final rawId = idp?.raw ?? e.id;
+    final raw = rewrapEvent(e,
+        id: rawId,
+        calendarId: cal?.raw ?? e.calendarId,
+        series: (s) => parseSharedId(s)?.raw ?? s);
+    final list = [...src.events];
+    final i = list.indexWhere((x) => x.id == rawId);
+    if (delete) {
+      list.removeWhere((x) => x.id == rawId);
+      sharedSink?.removeSharedEvent(owner, rawId);
+    } else {
+      if (i >= 0) {
+        list[i] = raw;
+      } else {
+        list.add(raw);
+      }
+      sharedSink?.putSharedEvent(owner, raw);
+    }
+    shared[owner] = SharedSource(
+        owner: owner,
+        ownerName: src.ownerName,
+        canEdit: src.canEdit,
+        events: list,
+        calendars: src.calendars);
+    notifyListeners();
+    return true;
+  }
 
   /// ログイン中（クラウドに保存中）か
   bool get isRemote => _remote != null;
@@ -307,7 +391,10 @@ class AppStore extends ChangeNotifier {
   List<Event> eventsOn(DateTime day) {
     // 日をまたぐ予定は、続きの日にも含める
     final list = <(Event, int)>[];
-    for (final e in events) {
+    for (final e in [
+      ...events,
+      for (final s in shared.values) ...s.wrappedEvents,
+    ]) {
       final s = e.sliceOn(day);
       if (s != null) list.add((e, s.allDay ? -1 : s.start));
     }
@@ -325,8 +412,9 @@ class AppStore extends ChangeNotifier {
   }
 
   /// id に対応するカレンダー（見つからなければ先頭）
-  CalendarDef calendarOf(String id) =>
-      calendars.firstWhere((c) => c.id == id, orElse: () => calendars.first);
+  CalendarDef calendarOf(String id) => calendars.firstWhere((c) => c.id == id,
+      orElse: () => sharedCalendars.firstWhere((c) => c.id == id,
+          orElse: () => calendars.first));
 
   Color colorOf(Event e) => calendarOf(e.calendarId).color;
 
@@ -436,7 +524,7 @@ class AppStore extends ChangeNotifier {
     _dropOccurrenceTasks(series, (x) => !x.isBefore(d));
     upsertEvent(series);
     // 切り出していた回のうち、それ以降のものも消す
-    for (final e in events
+    for (final e in [...events, for (final s in shared.values) ...s.wrappedEvents]
         .where((e) =>
             e.seriesId == series.id &&
             e.originalDate != null &&
@@ -448,7 +536,7 @@ class AppStore extends ChangeNotifier {
 
   /// 毎週の予定をすべて削除する（切り出した回もいっしょに消す）
   void deleteSeries(Event series) {
-    for (final e in events
+    for (final e in [...events, for (final s in shared.values) ...s.wrappedEvents]
         .where((e) => e.seriesId == series.id && e.originalDate != null)
         .toList()) {
       deleteEvent(e.id);
@@ -459,6 +547,7 @@ class AppStore extends ChangeNotifier {
   // ---- 更新 ----
 
   void upsertEvent(Event e) {
+    if (_routeShared(e)) return;
     final i = events.indexWhere((x) => x.id == e.id);
     if (i >= 0) {
       events[i] = e;
@@ -473,6 +562,13 @@ class AppStore extends ChangeNotifier {
 
   /// 予定を削除する。まだ終わっていない関連タスク（終了報告など）もいっしょに消す
   void deleteEvent(String id) {
+    if (parseSharedId(id) != null) {
+      final e = [for (final s in shared.values) ...s.wrappedEvents]
+          .where((x) => x.id == id)
+          .firstOrNull;
+      if (e != null) _routeShared(e, delete: true);
+      return;
+    }
     events.removeWhere((e) => e.id == id);
     _remote?.removeEvent(id);
     for (final t in tasks.where((t) => t.eventId == id && !t.done).toList()) {

@@ -4,6 +4,7 @@ import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import '../models.dart';
 import '../store.dart';
 import '../sync/account.dart';
+import 'sharing_page.dart';
 import 'account_page.dart';
 import 'edit_pages.dart';
 import 'fluent.dart';
@@ -158,6 +159,16 @@ class SettingsPage extends StatelessWidget {
         def('timed', '時刻のある予定', false),
         def('allDay', '終日の予定', true),
         def('deadline', '締め切り（時刻なし）', true),
+        divider(),
+
+        // ---- 予定の共有 ----
+        section('予定の共有',
+            note: 'リンクで見せる（AI に渡す用）か、メールアドレスで招待して見せる・編集してもらうことができます。'),
+        if (acc.signedIn)
+          SharingSection(sharing: acc.sharing, myEmail: acc.user?.email ?? '')
+        else
+          Text('ログインすると使えます（予定をクラウドに保存しているときだけ共有できます）。',
+              style: FlText.body1.copyWith(color: Fl.fg2)),
         divider(),
 
         // ---- この端末だけ ----

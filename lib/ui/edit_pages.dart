@@ -357,6 +357,18 @@ class _EventEditPageState extends State<EventEditPage> {
     if (_error != null) _error = _validate();
   }
 
+  List<CalendarDef> _calendarChoices(AppStore store) {
+    final e = widget.event;
+    final owner = e == null ? null : store.sourceOf(e)?.owner;
+    if (owner != null) return store.shared[owner]!.wrappedCalendars;
+    if (e != null) return store.calendars;
+    return [
+      ...store.calendars,
+      for (final s in store.shared.values)
+        if (s.canEdit) ...s.wrappedCalendars,
+    ];
+  }
+
   Future<void> _save() async {
     final err = _validate();
     if (err != null) {
@@ -456,7 +468,9 @@ class _EventEditPageState extends State<EventEditPage> {
                 child: FlField(
                   label: 'カレンダー',
                   child: FlDropdown<CalendarDef>(
-                    items: store.calendars,
+                    // 共有されている相手の予定は相手のカレンダーの中だけで、自分の予定は自分のカレンダーの
+                    // 中だけで移せる。新しい予定は「編集可」で共有されている相手のカレンダーにも作れる
+                    items: _calendarChoices(store),
                     value: cal,
                     labelOf: (c) => c.name,
                     leadingOf: (c) => FlColorDot(color: c.color),

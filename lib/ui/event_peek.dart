@@ -34,7 +34,7 @@ class _EventPeek extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final store = StoreScope.of(context);
-    final e = store.events.where((x) => x.id == eventId).firstOrNull;
+    final e = store.eventById(eventId);
     if (e == null) {
       // 削除された・別の回に切り出されたなど
       return Material(
@@ -47,6 +47,8 @@ class _EventPeek extends StatelessWidget {
     }
     final color = store.colorOf(e);
     final cal = store.calendarOf(e.calendarId);
+    // 共有されている相手の予定なら、だれの予定か・編集できるか
+    final src = store.sourceOf(e);
     final tasks = store.tasksFor(e, day);
     final when = e.repeat != null
         ? '${fmtLongDate(day)}  ${e.timeLabel}'
@@ -86,6 +88,7 @@ class _EventPeek extends StatelessWidget {
                     child: Text(e.title, style: FlText.subtitle1),
                   ),
                 ),
+                if (store.canEditEvent(e))
                 IconButton(
                   tooltip: '編集',
                   icon: FlIcon(FluentIcons.edit_24_regular, size: 20),
@@ -96,6 +99,7 @@ class _EventPeek extends StatelessWidget {
                     openEventEditor(nav.context, event: e, occurrence: day);
                   },
                 ),
+                if (store.canEditEvent(e))
                 IconButton(
                   tooltip: '削除',
                   icon: FlIcon(FluentIcons.delete_24_regular,
@@ -120,6 +124,13 @@ class _EventPeek extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  if (src != null)
+                    row(
+                      FluentIcons.person_24_regular,
+                      Text(
+                          '${src.ownerName}さんの予定（${src.canEdit ? '編集可' : '表示のみ'}で共有）',
+                          style: FlText.body1),
+                    ),
                   row(
                     FluentIcons.clock_24_regular,
                     Column(

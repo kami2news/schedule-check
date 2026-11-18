@@ -10,6 +10,7 @@ import '../store.dart';
 import '../firebase_options.dart';
 import 'firebase_sync.dart';
 import 'push_service.dart';
+import 'sharing_service.dart';
 
 /// ログイン方法
 enum SignInMethod { google, email }
@@ -32,6 +33,9 @@ class AccountService extends ChangeNotifier {
 
   /// アプリを閉じていても届く通知（ログイン中のみ）
   late final PushService push = PushService(store);
+
+  /// 予定の共有（ログイン中のみ）
+  late final SharingService sharing = SharingService(store);
 
   bool get signedIn => user != null;
 
@@ -71,6 +75,7 @@ class AccountService extends ChangeNotifier {
     await _sync?.stop();
     _sync = null;
     push.stop();
+    await sharing.stop();
     user = u;
     if (u == null) {
       store.detachRemote();
@@ -84,6 +89,7 @@ class AccountService extends ChangeNotifier {
       store.attachRemote(sync);
       sync.start();
       push.start(u.uid);
+      sharing.start(u.uid, email: u.email, name: u.displayName);
     }
     notifyListeners();
   }
@@ -150,6 +156,10 @@ class AccountService extends ChangeNotifier {
     if (u == null) return;
     try {
       await push.disableHere().timeout(const Duration(seconds: 5));
+    } catch (_) {}
+    // 共有（招待・共有リンク）もやめる
+    try {
+      await sharing.stopSharingAll();
     } catch (_) {}
     await _sync?.deleteAll();
     await u.delete();

@@ -1,15 +1,68 @@
 rules_version = '2';
 
-// 各ユーザーは自分のデータ（users/{自分のuid}/...）だけを読み書きできる
+// 各ユーザーは自分のデータ（users/{自分のuid}/...）だけを読み書きできる。
+// 予定の共有:
+// - メールで招待された人（shareAcl/{持ち主の uid} の members に、確認済みのメールアドレスが入っている人）は、
+//   持ち主の予定とカレンダーを読める。editors に入っていれば予定を書ける（カレンダー・タスク・設定は不可）
+// - 共有リンク（shares/{推測できない文字列}）は、文字列を知っている人なら誰でも 1 件だけ読める（一覧は不可）
 service cloud.firestore {
   match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+    // ログイン中の人の、確認済みのメールアドレス（小文字）。確認していなければ空
+    function myEmail() {
+      return signedIn() && request.auth.token.email != null
+          && request.auth.token.email_verified == true
+        ? request.auth.token.email.lower() : '';
+    }
+    function acl(uid) {
+      return get(/databases/$(database)/documents/shareAcl/$(uid)).data;
+    }
+    function hasAcl(uid) {
+      return exists(/databases/$(database)/documents/shareAcl/$(uid));
+    }
+    function isMember(uid) {
+      return myEmail() != '' && hasAcl(uid) && myEmail() in acl(uid).members;
+    }
+    function isEditor(uid) {
+      return myEmail() != '' && hasAcl(uid) && myEmail() in acl(uid).editors;
+    }
+
     match /users/{uid}/{document=**} {
-      allow read, write: if request.auth != null && request.auth.uid == uid;
+      allow read, write: if signedIn() && request.auth.uid == uid;
+    }
+
+    // 招待された人: 予定を読む（編集可なら書く）・カレンダーを読む
+    match /users/{uid}/events/{id} {
+      allow read: if isMember(uid);
+      allow write: if isEditor(uid);
+    }
+    match /users/{uid}/calendars/{id} {
+      allow read: if isMember(uid);
+    }
+
+    // 共有の設定（招待した人の一覧・共有リンクの文字列）。持ち主だけが書け、
+    // 招待された人は自分が入っているものを読める（「共有されたカレンダー」を探すため）
+    match /shareAcl/{uid} {
+      allow read: if signedIn() && (request.auth.uid == uid
+          || (myEmail() != '' && myEmail() in resource.data.members));
+      allow write: if signedIn() && request.auth.uid == uid;
+    }
+
+    // 共有リンクの中身（表示のみ）。1 件ずつなら誰でも読める。書けるのは持ち主だけ
+    match /shares/{token} {
+      allow get: if true;
+      allow list: if false;
+      allow create: if signedIn() && request.resource.data.owner == request.auth.uid;
+      allow update: if signedIn() && resource.data.owner == request.auth.uid
+          && request.resource.data.owner == request.auth.uid;
+      allow delete: if signedIn() && resource.data.owner == request.auth.uid;
     }
 
     // 通知サーバーが公開する情報（通知の公開鍵）。ログイン中なら読める
     match /public/{doc} {
-      allow read: if request.auth != null;
+      allow read: if signedIn();
     }
 
     // serverPrivate/... （通知サーバーの秘密鍵など）はアプリから読み書きできない。

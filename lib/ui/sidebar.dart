@@ -110,6 +110,28 @@ class CalendarList extends StatelessWidget {
             label: 'タスクの期限',
             onTap: () => controller.setShowTasks(!controller.showTasks),
           ),
+          // メールで招待されている相手のカレンダー（表示・非表示を切り替えられる）
+          if (store.sharedCalendars.isNotEmpty) ...[
+            Padding(
+              padding: EdgeInsets.fromLTRB(20, 16, 8, 4),
+              child: Text('共有されたカレンダー', style: FlText.body1Strong),
+            ),
+            for (final s in store.shared.values)
+              for (final c in s.wrappedCalendars)
+                _CalendarRowBase(
+                  dot: FlColorDot(
+                      color: c.color,
+                      filled: !controller.hidden.contains(c.id),
+                      size: 14),
+                  label: c.name,
+                  trailing: Padding(
+                    padding: EdgeInsets.only(right: 8),
+                    child: Text(s.canEdit ? '編集可' : '表示のみ',
+                        style: FlText.caption1.copyWith(color: Fl.fg3)),
+                  ),
+                  onTap: () => controller.toggleCalendar(c.id),
+                ),
+          ],
         ],
       ),
     );

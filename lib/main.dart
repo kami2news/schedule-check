@@ -7,6 +7,7 @@ import 'notify/reminder_service.dart';
 import 'reminders.dart';
 import 'store.dart';
 import 'sync/account.dart';
+import 'sync/sharing_service.dart';
 import 'ui/account_page.dart';
 import 'ui/calendar_page.dart';
 import 'ui/controller.dart';
@@ -17,6 +18,7 @@ import 'ui/fluent.dart';
 import 'ui/fluent_extras.dart';
 import 'ui/import_page.dart';
 import 'ui/layout.dart';
+import 'ui/sharing_page.dart';
 import 'ui/sidebar.dart';
 import 'ui/todo_panel.dart';
 
@@ -24,13 +26,18 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final store = await AppStore.load();
   final account = AccountService(store);
+  // 共有リンク（?share=…）で開いたときは、その予定の閲覧ページだけを出す
+  final shareToken = Uri.base.queryParameters['share'];
   // 先に画面を出す。Firebase の準備は裏で行い、つながらなくても端末内のデータで使える
-  runApp(ScheduleApp(store: store, account: account));
+  runApp(ScheduleApp(store: store, account: account, shareToken: shareToken));
   unawaited(account.init());
 }
 
 class ScheduleApp extends StatefulWidget {
-  const ScheduleApp({super.key, required this.store, this.account});
+  const ScheduleApp({super.key, required this.store, this.account, this.shareToken});
+
+  /// 共有リンクで開いたとき（閲覧ページだけを出す）
+  final String? shareToken;
 
   final AppStore store;
 
@@ -144,7 +151,20 @@ class _ScheduleAppState extends State<ScheduleApp> with WidgetsBindingObserver {
         supportedLocales: [Locale('ja'), Locale('en')],
         // Material・Cupertino・Widgets の日本語化をまとめて指定
         localizationsDelegates: GlobalMaterialLocalizations.delegates,
-        home: HomeShell(),
+        home: widget.shareToken == null || widget.shareToken!.isEmpty
+            ? HomeShell()
+            : SharedLinkPage(
+                token: widget.shareToken!,
+                loader: (t) async {
+                  // Firebase の準備ができるまで待つ（最大 20 秒）
+                  for (var i = 0;
+                      i < 200 && !_account.available && !_account.connectFailed;
+                      i++) {
+                    await Future<void>.delayed(const Duration(milliseconds: 100));
+                  }
+                  if (!_account.available) return null;
+                  return loadSharedLink(t);
+                }),
       ),
       ),
     );
