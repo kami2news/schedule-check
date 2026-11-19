@@ -127,20 +127,24 @@ void main() {
 
     await tester.tap(find.text('設定'));
     await tester.pumpAndSettle();
-    // 設定は項目が多いので、下までスクロールして確かめる
-    await tester.scrollUntilVisible(find.text('最初から付ける通知'), 200,
-        scrollable: find
-            .ancestor(of: find.text('表示'), matching: find.byType(Scrollable))
-            .first);
-    expect(find.text('最初から付ける通知'), findsOneWidget);
-    expect(find.text('時刻のある予定'), findsOneWidget);
     expect(find.textContaining('この端末にだけ保存'), findsOneWidget);
 
     // 土日の色分けを切り替えると、すぐ設定に反映される
+    final weekend = find.text('土日を色分けする（土曜は青、日曜は赤）');
+    await tester.ensureVisible(weekend);
+    await tester.pumpAndSettle();
     expect(store.weekendColors, isTrue);
-    await tester.tap(find.text('土日を色分けする（土曜は青、日曜は赤）'));
+    await tester.tap(weekend);
     await tester.pumpAndSettle();
     expect(store.weekendColors, isFalse);
+
+    // 設定は項目が多いので、下までスクロールして確かめる
+    await tester.scrollUntilVisible(find.text('最初から付ける通知'), 200,
+        scrollable: find
+            .ancestor(of: find.text('週の始まり'), matching: find.byType(Scrollable))
+            .first);
+    expect(find.text('最初から付ける通知'), findsOneWidget);
+    expect(find.text('時刻のある予定'), findsOneWidget);
   });
 
   testWidgets('To Do: 入力中の内容を引き継いで詳しい入力画面を開き、予定に関連付けて保存できる',
