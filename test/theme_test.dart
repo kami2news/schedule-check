@@ -35,15 +35,29 @@ void main() {
     expect(Fl.bg1, const Color(0xFFFFFFFF));
   });
 
-  test('グレーはライトとダークの間。薄い文字・ブランド色も 4.5:1 以上', () {
+  test('グレーは場所で濃さを分ける: カレンダーの地は白より暗く、左の列・To Do はさらに濃く、カードは明るく浮く', () {
     final g = FlPalette.gray;
     expect(g.isGray, isTrue);
-    expect(g.bg1.computeLuminance(), lessThan(FlPalette.soft.bg1.computeLuminance()));
-    expect(g.bg1.computeLuminance(), greaterThan(FlPalette.dark.bg1.computeLuminance()));
-    for (final bg in [g.bg1, g.bg2, g.bg3, g.bg4]) {
+    double l(Color c) => c.computeLuminance();
+    // カレンダーの地はハイライトを抑える（白・やわらかめより暗い）
+    expect(l(g.wall), lessThan(l(FlPalette.soft.bg1)));
+    // 横の列・To Do の枠はカレンダーの地より濃い（差をつける）
+    expect(_contrast(g.wall, g.side), greaterThanOrEqualTo(1.5));
+    expect(l(g.sidePane), lessThan(l(g.wall)));
+    // カードはどの地の上でも明るく浮く
+    for (final bg in [g.wall, g.side, g.sidePane]) {
+      expect(l(g.bg1), greaterThan(l(bg)));
+    }
+    // 文字のコントラストは下げない（いちばん薄い文字・ブランド色も 4.5:1 以上）
+    for (final bg in [g.bg1, g.bg2, g.bg3, g.bg4, g.wall, g.side, g.sidePane]) {
       expect(_contrast(g.fg3, bg), greaterThanOrEqualTo(4.5));
       expect(_contrast(g.brand, bg), greaterThanOrEqualTo(4.5));
     }
+    // 罫線がカレンダーの地に溶けない
+    expect(_contrast(g.stroke2, g.wall), greaterThanOrEqualTo(1.2));
+    // ライト・ダークは今までどおり
+    expect(FlPalette.light.wall, FlPalette.light.bg1);
+    expect(FlPalette.dark.side, FlPalette.dark.bg3);
     Fl.use(Brightness.light, gray: true);
     expect(Fl.isGray, isTrue);
     expect(Fl.isDark, isFalse);

@@ -256,7 +256,7 @@ class _HomeShellState extends State<HomeShell> {
 
     if (isWide(context)) {
       return Scaffold(
-        backgroundColor: Fl.bg3,
+        backgroundColor: Fl.side,
         body: Column(
           children: [
             FlTopBar(
@@ -291,12 +291,12 @@ class _HomeShellState extends State<HomeShell> {
                       ]),
                     ),
                     Expanded(
-                      child: FlPane(child: CalendarPage(controller: cal)),
+                      child: FlPane(color: Fl.wall, child: CalendarPage(controller: cal)),
                     ),
                     SizedBox(width: 8),
                     SizedBox(
                       width: 340,
-                      child: FlPane(color: Fl.bg2, child: TodoPanel()),
+                      child: FlPane(color: Fl.sidePane, child: TodoPanel()),
                     ),
                   ],
                 ),
@@ -308,14 +308,14 @@ class _HomeShellState extends State<HomeShell> {
     }
 
     return Scaffold(
-      backgroundColor: Fl.bg1,
+      backgroundColor: Fl.wall,
       body: SafeArea(
         child: Stack(children: [
           Positioned.fill(child: IndexedStack(
           index: _tab,
           children: [
             CalendarPage(controller: cal, compact: true),
-            ColoredBox(color: Fl.bg2, child: TodoPanel(trailing: Row(mainAxisSize: MainAxisSize.min, children: [FlAccountButton(), FlThemeButton()]))),
+            ColoredBox(color: Fl.sidePane, child: TodoPanel(trailing: Row(mainAxisSize: MainAxisSize.min, children: [FlAccountButton(), FlThemeButton()]))),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [

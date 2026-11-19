@@ -16,6 +16,9 @@ class FlPalette {
     required this.brightness,
     this.isGray = false,
     required this.km1,
+    required this.wall,
+    required this.side,
+    required this.sidePane,
     required this.fg1,
     required this.fg2,
     required this.fg3,
@@ -61,18 +64,26 @@ class FlPalette {
   final Color danger, dangerLine, warning, success;
   /// グレーのテーマか（ライトとダークの間。明るさの扱いはライト）
   final bool isGray;
+
+  /// 面の役割（どこに使うか）。
+  /// wall: カレンダー本体の地（予定の帯が乗る壁）。side: 広い画面の左の列と全体の地。
+  /// sidePane: To Do の枠。ライト・ダークは今までどおり bg1・bg3・bg2 と同じ色
+  final Color wall, side, sidePane;
   final Color topBar;
   final Color subtleHover, subtlePressed;
 
   /// KM1 の意味づけトークン（Km1Colors）からパレットを作る。値の正は lib/km1/km1_theme.dart。
   /// アプリ独自の面（bg5・bg6・上部バーなど）だけここで足す。
   factory FlPalette.fromKm1(Km1Colors k, Brightness b,
-      {bool soft = false, bool gray = false}) {
+      {bool soft = false, bool gray = false, Color? wall, Color? side, Color? sidePane}) {
     final dark = b == Brightness.dark;
     return FlPalette(
       brightness: b,
       isGray: gray,
       km1: k,
+      wall: wall ?? k.surface,
+      side: side ?? k.surfaceMuted,
+      sidePane: sidePane ?? k.surfaceSubtle,
       fg1: k.ink,
       fg2: k.inkSecondary,
       fg3: k.inkTertiary,
@@ -81,12 +92,12 @@ class FlPalette {
       bg2: k.surfaceSubtle,
       bg3: k.surfaceMuted,
       bg4: k.surfaceSunken,
-      bg5: dark ? Color(0xFF000000) : (gray ? Color(0xFFBDBDBD) : soft ? Color(0xFFE0E0E0) : Color(0xFFEBEBEB)),
-      bg6: dark ? Color(0xFF333333) : (gray ? Color(0xFFB5B5B5) : soft ? Color(0xFFDBDBDB) : Color(0xFFE6E6E6)),
+      bg5: dark ? Color(0xFF000000) : (gray ? Color(0xFFD3D7DD) : soft ? Color(0xFFE0E0E0) : Color(0xFFEBEBEB)),
+      bg6: dark ? Color(0xFF333333) : (gray ? Color(0xFFCBCFD6) : soft ? Color(0xFFDBDBDB) : Color(0xFFE6E6E6)),
       stroke1: k.stroke,
       stroke1Hover: dark ? Color(0xFF757575) : Color(0xFFC7C7C7),
       stroke2: k.strokeSubtle,
-      stroke3: dark ? Color(0xFF3D3D3D) : (gray ? Color(0xFFC4C4C4) : soft ? Color(0xFFE3E3E3) : Color(0xFFF0F0F0)),
+      stroke3: dark ? Color(0xFF3D3D3D) : (gray ? Color(0xFFCDD1D8) : soft ? Color(0xFFE3E3E3) : Color(0xFFF0F0F0)),
       strokeAccessible: k.strokeStrong,
       brand: k.brand,
       brandHover: k.brandHover,
@@ -125,26 +136,32 @@ class FlPalette {
       Brightness.light,
       soft: true);
 
-  /// グレー: ライトとダークの間。面を中くらいの灰色にし、文字は少し濃くする（ライトの扱い）。
-  /// いちばん薄い文字（#474747）でも、いちばん濃い面（#C2C2C2）の上で 4.5:1 以上
+  /// グレー: 全体のトーンを下げるのではなく、場所で濃さを分けてコントラストを作る。
+  /// - カレンダーの地（wall）: 少し青みの灰色 #DFE2E7 で、白のまぶしさ（ハイライト）を抑える
+  /// - 左の列・全体の地（side #B3B8C1）と To Do の枠（sidePane #BDC2CA）: 濃くして、本体との差をはっきりさせる
+  /// - カード・入力欄・予定のラベル（bg1 #F0F1F3）: いちばん明るく残し、濃い地の上で浮かせる
+  /// 文字は濃いめ。いちばん薄い文字（#444444）でも、いちばん濃い地（#B3B8C1）の上で 4.5:1 以上
   static final gray = FlPalette.fromKm1(
       Km1Colors.light.copyWith(
-        surface: Color(0xFFD6D6D6),
-        surfaceSubtle: Color(0xFFCFCFCF),
-        surfaceMuted: Color(0xFFC9C9C9),
-        surfaceSunken: Color(0xFFC2C2C2),
-        surfaceHover: Color(0xFFC9C9C9),
-        surfacePressed: Color(0xFFB8B8B8),
+        surface: Color(0xFFF0F1F3),
+        surfaceSubtle: Color(0xFFE8EAED),
+        surfaceMuted: Color(0xFFDFE2E7),
+        surfaceSunken: Color(0xFFD7DADF),
+        surfaceHover: Color(0xFFCDD1D8),
+        surfacePressed: Color(0xFFBFC4CC),
         ink: Color(0xFF141414),
-        inkSecondary: Color(0xFF2E2E2E),
-        inkTertiary: Color(0xFF474747),
-        inkDisabled: Color(0xFF8A8A8A),
-        stroke: Color(0xFFA3A3A3),
-        strokeSubtle: Color(0xFFB3B3B3),
-        brandTint: Color(0xFFC6CADC),
+        inkSecondary: Color(0xFF2B2B2B),
+        inkTertiary: Color(0xFF444444),
+        inkDisabled: Color(0xFF7E838B),
+        stroke: Color(0xFF9EA3AC),
+        strokeSubtle: Color(0xFFC3C8D0),
+        brandTint: Color(0xFFD3D8EE),
       ),
       Brightness.light,
-      gray: true);
+      gray: true,
+      wall: Color(0xFFDFE2E7),
+      side: Color(0xFFB3B8C1),
+      sidePane: Color(0xFFBDC2CA));
   static final dark = FlPalette.fromKm1(Km1Colors.dark, Brightness.dark);
 }
 
@@ -183,6 +200,9 @@ class Fl {
   static Color get fg3 => _p.fg3;
   static Color get fgDisabled => _p.fgDisabled;
   static Color get bg1 => _p.bg1;
+  static Color get wall => _p.wall;
+  static Color get side => _p.side;
+  static Color get sidePane => _p.sidePane;
   static Color get bg2 => _p.bg2;
   static Color get bg3 => _p.bg3;
   static Color get bg4 => _p.bg4;
