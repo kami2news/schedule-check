@@ -1,12 +1,17 @@
-"""C 案「週の予定表」のアプリアイコン。紺の地に白い予定表、中に授業・シフト・締め切りなどの色の帯。
+"""C 案「週の予定表」のアプリアイコン（--invert で反転版: 白の地に紺の予定表）。紺の地に白い予定表、中に授業・シフト・締め切りなどの色の帯。
 - 普通の版（iPhone・192/512）: 予定表の幅 72%
 - maskable（Android のホーム画面などで円・しずく形に切り抜かれる）: 予定表を囲む長方形の対角線が直径 80% の円に収まる大きさ
 - 小さい版（ファビコン 16〜48px）: 予定表を 90% に広げ、帯を太く 3 本に減らす。角を 20% 丸める"""
 import io, math, subprocess, sys
 from PIL import Image
 out = sys.argv[1]
+INVERT = '--invert' in sys.argv
 N, W = '10218B', 'FFFFFF'
 SH, LE, DL, OT = 'CA5010', '4F6BED', 'C50F1F', '038387'
+# 地の色（BG）と予定表の色（CARD）。反転版は白の地に紺の予定表で、帯は紺の上で見える明るい色
+BG, CARD = (W, N) if INVERT else (N, W)
+if INVERT:
+    SH, LE, DL, OT = 'F59765', '93A4F4', 'F1707B', '58D3DB'
 
 def table(w, small=False):
     """幅 w、中心 (256, 256+リングの分) の予定表。座標は 512 の枠"""
@@ -14,12 +19,12 @@ def table(w, small=False):
     ring = w * 0.10
     x, y = 256 - w / 2, 256 - (h - ring) / 2
     r = w * 0.10
-    b = f'<rect x="{x:.1f}" y="{y:.1f}" width="{w:.1f}" height="{h:.1f}" rx="{r:.1f}" fill="#{W}"/>'
+    b = f'<rect x="{x:.1f}" y="{y:.1f}" width="{w:.1f}" height="{h:.1f}" rx="{r:.1f}" fill="#{CARD}"/>'
     head = h * 0.22
-    b += f'<rect x="{x + w*0.09:.1f}" y="{y + head:.1f}" width="{w*0.82:.1f}" height="{w*0.035:.1f}" rx="{w*0.0175:.1f}" fill="#{N}"/>'
+    b += f'<rect x="{x + w*0.09:.1f}" y="{y + head:.1f}" width="{w*0.82:.1f}" height="{w*0.035:.1f}" rx="{w*0.0175:.1f}" fill="#{BG}"/>'
     rw = w * 0.075
     for cx in (x + w * 0.26, x + w * 0.74):
-        b += f'<rect x="{cx - rw/2:.1f}" y="{y - ring:.1f}" width="{rw:.1f}" height="{ring*2:.1f}" rx="{rw/2:.1f}" fill="#{W}"/>'
+        b += f'<rect x="{cx - rw/2:.1f}" y="{y - ring:.1f}" width="{rw:.1f}" height="{ring*2:.1f}" rx="{rw/2:.1f}" fill="#{CARD}"/>'
     top = y + head + w * 0.09
     area = h - head - w * 0.09 - w * 0.08   # 帯を置く高さ
     if small:
@@ -40,7 +45,7 @@ def table(w, small=False):
 def svg(body, size, r=0.0):
     rx = f' rx="{512*r:.1f}"' if r else ''
     return (f'<svg xmlns="http://www.w3.org/2000/svg" width="{size}" height="{size}" viewBox="0 0 512 512">'
-            f'<rect width="512" height="512"{rx} fill="#{N}"/>{body}</svg>')
+            f'<rect width="512" height="512"{rx} fill="#{BG}"/>{body}</svg>')
 
 def png(s, name, size, alpha=True):
     raw = subprocess.run(['rsvg-convert', '-w', str(size), '-h', str(size)], input=s.encode(), capture_output=True, check=True).stdout
