@@ -63,7 +63,7 @@ class FlPalette {
 
   /// KM1 の意味づけトークン（Km1Colors）からパレットを作る。値の正は lib/km1/km1_theme.dart。
   /// アプリ独自の面（bg5・bg6・上部バーなど）だけここで足す。
-  factory FlPalette.fromKm1(Km1Colors k, Brightness b) {
+  factory FlPalette.fromKm1(Km1Colors k, Brightness b, {bool soft = false}) {
     final dark = b == Brightness.dark;
     return FlPalette(
       brightness: b,
@@ -76,12 +76,12 @@ class FlPalette {
       bg2: k.surfaceSubtle,
       bg3: k.surfaceMuted,
       bg4: k.surfaceSunken,
-      bg5: dark ? Color(0xFF000000) : Color(0xFFEBEBEB),
-      bg6: dark ? Color(0xFF333333) : Color(0xFFE6E6E6),
+      bg5: dark ? Color(0xFF000000) : (soft ? Color(0xFFE0E0E0) : Color(0xFFEBEBEB)),
+      bg6: dark ? Color(0xFF333333) : (soft ? Color(0xFFDBDBDB) : Color(0xFFE6E6E6)),
       stroke1: k.stroke,
       stroke1Hover: dark ? Color(0xFF757575) : Color(0xFFC7C7C7),
       stroke2: k.strokeSubtle,
-      stroke3: dark ? Color(0xFF3D3D3D) : Color(0xFFF0F0F0),
+      stroke3: dark ? Color(0xFF3D3D3D) : (soft ? Color(0xFFE3E3E3) : Color(0xFFF0F0F0)),
       strokeAccessible: k.strokeStrong,
       brand: k.brand,
       brandHover: k.brandHover,
@@ -103,6 +103,22 @@ class FlPalette {
   final Km1Colors km1;
 
   static final light = FlPalette.fromKm1(Km1Colors.light, Brightness.light);
+
+  /// ライトの「やわらかめ」: 白い面を薄い灰色に寄せて、まぶしさを抑える（目が疲れにくい）。
+  /// いちばん薄い文字（ink-tertiary #616161）でも、いちばん濃い面（#E3E3E3）の上で 4.5:1 以上を保つ範囲
+  static final soft = FlPalette.fromKm1(
+      Km1Colors.light.copyWith(
+        surface: Color(0xFFF3F3F3),
+        surfaceSubtle: Color(0xFFEDEDED),
+        surfaceMuted: Color(0xFFE8E8E8),
+        surfaceSunken: Color(0xFFE3E3E3),
+        surfaceHover: Color(0xFFE8E8E8),
+        surfacePressed: Color(0xFFD6D6D6),
+        stroke: Color(0xFFC7C7C7),
+        strokeSubtle: Color(0xFFD9D9D9),
+      ),
+      Brightness.light,
+      soft: true);
   static final dark = FlPalette.fromKm1(Km1Colors.dark, Brightness.dark);
 }
 
@@ -126,8 +142,9 @@ class Fl {
   static bool get isDark => _p.brightness == Brightness.dark;
 
   /// パレットを切り替える（呼び出し側で画面全体を再構築すること）
-  static void use(Brightness b) =>
-      _p = b == Brightness.dark ? FlPalette.dark : FlPalette.light;
+  static void use(Brightness b, {bool soft = false}) => _p = b == Brightness.dark
+      ? FlPalette.dark
+      : (soft ? FlPalette.soft : FlPalette.light);
 
   static Color get fg1 => _p.fg1;
   static Color get fg2 => _p.fg2;

@@ -117,6 +117,15 @@ class SettingsPage extends StatelessWidget {
           ),
         ),
         FlField(
+          label: 'ライトテーマの明るさ',
+          child: FlDropdown<bool>(
+            items: const [true, false],
+            value: store.softLight,
+            labelOf: (v) => v ? 'やわらかめ（白を抑えた灰色・目が疲れにくい）' : '標準（白）',
+            onChanged: store.setSoftLight,
+          ),
+        ),
+        FlField(
           label: '週の始まり',
           child: FlDropdown<bool>(
             items: const [true, false],

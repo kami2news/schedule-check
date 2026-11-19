@@ -228,6 +228,14 @@ class AppStore extends ChangeNotifier {
   /// 表示テーマ（'system' / 'light' / 'dark'）
   String get themeMode => _prefs.getString('themeMode') ?? 'system';
 
+  /// ライトテーマを「やわらかめ」（白を薄い灰色に寄せる）にするか
+  bool get softLight => _prefs.getBool('softLight') ?? true;
+
+  void setSoftLight(bool v) {
+    _prefs.setBool('softLight', v);
+    _settingsChanged();
+  }
+
   /// 週の始まりを日曜にするか
   bool get weekStartsSunday => _prefs.getBool('weekStartsSunday') ?? true;
 
@@ -254,6 +262,7 @@ class AppStore extends ChangeNotifier {
   /// アカウントに保存する設定の中身
   Map<String, dynamic> get syncedSettings => {
         'themeMode': themeMode,
+        'softLight': softLight,
         'weekStartsSunday': weekStartsSunday,
         'weekendColors': weekendColors,
         'periods': [for (final (a, b) in periods) [a, b]],
@@ -275,6 +284,7 @@ class AppStore extends ChangeNotifier {
     if (j['weekStartsSunday'] is bool) {
       _prefs.setBool('weekStartsSunday', j['weekStartsSunday'] as bool);
     }
+    if (j['softLight'] is bool) _prefs.setBool('softLight', j['softLight'] as bool);
     if (j['weekendColors'] is bool) _prefs.setBool('weekendColors', j['weekendColors'] as bool);
     if (j['periods'] is List) {
       try {

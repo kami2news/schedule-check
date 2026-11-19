@@ -101,7 +101,7 @@ class _ScheduleAppState extends State<ScheduleApp> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
-    Fl.use(_brightness);
+    Fl.use(_brightness, soft: widget.store.softLight);
     WidgetsBinding.instance.addObserver(this);
     widget.store.addListener(_apply);
     // 画面内の表示（SnackBar）が出せるようになってから通知の確認を始める
@@ -123,8 +123,12 @@ class _ScheduleAppState extends State<ScheduleApp> with WidgetsBindingObserver {
 
   void _apply() {
     final b = _brightness;
-    if (b == Fl.palette.brightness || !mounted) return;
-    Fl.use(b);
+    final soft = widget.store.softLight;
+    final wanted = b == Brightness.dark
+        ? FlPalette.dark
+        : (soft ? FlPalette.soft : FlPalette.light);
+    if (identical(wanted, Fl.palette) || !mounted) return;
+    Fl.use(b, soft: soft);
     setState(() {});
     void rebuild(Element e) {
       e.markNeedsBuild();
