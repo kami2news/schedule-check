@@ -1,6 +1,5 @@
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:material_ui/material_ui.dart';
 import 'package:schedule_check/main.dart';
 import 'package:schedule_check/store.dart';
 import 'package:schedule_check/ui/swipe_guard.dart';
