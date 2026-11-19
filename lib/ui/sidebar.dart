@@ -77,17 +77,20 @@ List<Widget> _groups(List<List<Widget>> groups) {
       if (i > 0) out.add(SizedBox(height: 8));
       out.add(Padding(
         padding: EdgeInsets.symmetric(horizontal: 8),
-        child: Material(
-          color: Fl.bg1,
-          clipBehavior: Clip.antiAlias,
-          shape: RoundedRectangleBorder(
+        child: DecoratedBox(
+          decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(Fl.r8),
-            side: BorderSide(color: Fl.stroke2),
+            boxShadow: Fl.shadow2,
           ),
-          child: Padding(
-            padding: EdgeInsets.symmetric(vertical: 4),
-            child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch, children: g),
+          child: Material(
+            color: Fl.bg1,
+            clipBehavior: Clip.antiAlias,
+            borderRadius: BorderRadius.circular(Fl.r8),
+            child: Padding(
+              padding: EdgeInsets.symmetric(vertical: 4),
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch, children: g),
+            ),
           ),
         ),
       ));

@@ -63,6 +63,14 @@ void main() {
     for (final bg in [g.bg1, g.wall, g.side]) {
       expect(_contrast(g.brandTint, bg), greaterThanOrEqualTo(1.2));
     }
+    // 予定の塗りはカレンダーの地から浮き、文字は読める
+    Fl.use(Brightness.light, gray: true);
+    for (final c in const [Color(0xFF4F6BED), Color(0xFFCA5010), Color(0xFF038387), Color(0xFF13A10E)]) {
+      final t = Fl.tint(c);
+      expect(_contrast(t, g.wall), greaterThanOrEqualTo(1.05));
+      expect(_contrast(g.fg1, t), greaterThanOrEqualTo(4.5));
+      expect(_contrast(g.fg2, t), greaterThanOrEqualTo(4.5));
+    }
     // 土日の色（左の列の小さなカレンダーにも出る）
     Fl.use(Brightness.light, gray: true);
     for (final d in [DateTime(2026, 11, 21), DateTime(2026, 11, 22)]) {

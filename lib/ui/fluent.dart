@@ -279,8 +279,10 @@ class Fl {
       ];
 
   /// 色の薄い塗り（イベントの背景など）。ダークでは少し濃くする
+  /// 分類色の淡い塗り（予定の帯など）。グレーは地（wall）が灰色なので、
+  /// 淡すぎると地に溶ける。色を濃いめ（24%）にして予定を地から浮かせる
   static Color tint(Color c, [double? alpha]) => Color.alphaBlend(
-      c.withValues(alpha: alpha ?? (isDark ? 0.32 : 0.14)), bg1);
+      c.withValues(alpha: alpha ?? (isDark ? 0.32 : isGray ? 0.24 : 0.14)), bg1);
 }
 
 /// KM1 の文字の型（Km1Text と同じ大きさ・行の高さ）。
