@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:material_ui/material_ui.dart';
 import 'package:fluentui_system_icons/fluentui_system_icons.dart';
@@ -23,6 +24,7 @@ import 'ui/sharing_page.dart';
 import 'ui/sidebar.dart';
 import 'ui/swipe_guard.dart';
 import 'ui/todo_panel.dart';
+import 'ui/web_insets.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -170,8 +172,8 @@ class _ScheduleAppState extends State<ScheduleApp> with WidgetsBindingObserver {
         supportedLocales: [Locale('ja'), Locale('en')],
         // Material・Cupertino・Widgets の日本語化をまとめて指定
         localizationsDelegates: GlobalMaterialLocalizations.delegates,
-        builder: (context, child) =>
-            SwipeGuardListener(child: child ?? SizedBox.shrink()),
+        builder: (context, child) => _BottomInset(
+            child: SwipeGuardListener(child: child ?? SizedBox.shrink())),
         home: widget.shareToken == null || widget.shareToken!.isEmpty
             ? HomeShell()
             : SharedLinkPage(
@@ -384,6 +386,27 @@ class _TopSearchBox extends StatelessWidget {
               style: FlText.body1.copyWith(color: Fl.isDark ? Fl.fg3 : Fl.fg2)),
         ]),
       ),
+    );
+  }
+}
+
+/// ホーム画面から開いたとき、下のホームバー（横棒）の分の余白を画面全体の「安全な余白」に足す。
+/// 下のタブ・画面の下のボタンなど、SafeArea を使う所すべてがホームバーに重ならなくなる
+class _BottomInset extends StatelessWidget {
+  const _BottomInset({required this.child});
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final extra = standaloneBottomInset();
+    final mq = MediaQuery.of(context);
+    if (extra <= mq.viewPadding.bottom) return child;
+    return MediaQuery(
+      data: mq.copyWith(
+        padding: mq.padding.copyWith(bottom: math.max(mq.padding.bottom, extra)),
+        viewPadding: mq.viewPadding.copyWith(bottom: extra),
+      ),
+      child: child,
     );
   }
 }
