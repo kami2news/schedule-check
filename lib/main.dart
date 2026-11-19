@@ -28,6 +28,7 @@ import 'ui/web_insets.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  prepareStandalone();
   final store = await AppStore.load();
   final account = AccountService(store);
   // 共有リンク（?share=…）で開いたときは、その予定の閲覧ページだけを出す
@@ -266,7 +267,9 @@ class _HomeShellState extends State<HomeShell> {
     final cal = _cal!;
     final wide = isWide(context);
     // ステータスバー（時計・電池の帯）の後ろの色を、画面のいちばん上の色にそろえる
-    final top = wide ? Fl.topBar : (_tab == 1 ? Fl.sidePane : Fl.wall);
+    final top = wide || standaloneInsets().top > 0
+        ? Fl.topBar
+        : (_tab == 1 ? Fl.sidePane : Fl.wall);
     WidgetsBinding.instance.addPostFrameCallback((_) => setPageColor(top));
 
     if (wide) {
@@ -390,23 +393,37 @@ class _TopSearchBox extends StatelessWidget {
   }
 }
 
-/// ホーム画面から開いたとき、下のホームバー（横棒）の分の余白を画面全体の「安全な余白」に足す。
-/// 下のタブ・画面の下のボタンなど、SafeArea を使う所すべてがホームバーに重ならなくなる
+/// ホーム画面から開いたとき、時計の帯（上）とホームバー（下）の分を、画面全体の「安全な余白」に足す。
+/// SafeArea を使う所すべて（下のタブ・画面の下のボタン・見出し）が帯やホームバーに重ならなくなる。
+/// 時計の帯の後ろは上部バーの色（ライトは紺・ダークは黒）で塗る（ホーム画面アプリの時計の文字は白のため）
 class _BottomInset extends StatelessWidget {
   const _BottomInset({required this.child});
   final Widget child;
 
   @override
   Widget build(BuildContext context) {
-    final extra = standaloneBottomInset();
     final mq = MediaQuery.of(context);
-    if (extra <= mq.viewPadding.bottom) return child;
+    final add = standaloneInsets();
+    final top = math.max(mq.viewPadding.top, add.top);
+    final bottom = math.max(mq.viewPadding.bottom, add.bottom);
+    if (top == mq.viewPadding.top && bottom == mq.viewPadding.bottom) return child;
     return MediaQuery(
       data: mq.copyWith(
-        padding: mq.padding.copyWith(bottom: math.max(mq.padding.bottom, extra)),
-        viewPadding: mq.viewPadding.copyWith(bottom: extra),
+        padding: mq.padding.copyWith(
+            top: math.max(mq.padding.top, top), bottom: math.max(mq.padding.bottom, bottom)),
+        viewPadding: mq.viewPadding.copyWith(top: top, bottom: bottom),
       ),
-      child: child,
+      child: Stack(alignment: Alignment.topLeft, children: [
+        Positioned.fill(child: child),
+        if (add.top > 0)
+          Positioned(
+            left: 0,
+            right: 0,
+            top: 0,
+            height: top,
+            child: IgnorePointer(child: ColoredBox(color: Fl.topBar)),
+          ),
+      ]),
     );
   }
 }
