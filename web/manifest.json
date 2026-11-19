@@ -3,7 +3,7 @@
     "short_name": "スケジュール",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#F5F5F5",
+    "background_color": "#10218B",
     "theme_color": "#10218B",
     "description": "バイト・授業・締切をまとめて確認するスケジュール確認アプリ",
     "orientation": "portrait-primary",
