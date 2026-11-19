@@ -38,36 +38,67 @@ class CalendarSidebar extends StatelessWidget {
               ),
             ),
             SizedBox(height: 12),
-            MiniMonth(controller: controller),
-            Padding(
-              padding: EdgeInsets.symmetric(vertical: 8),
-              child: Divider(),
-            ),
-            CalendarList(controller: controller),
-            Padding(
-              padding: EdgeInsets.symmetric(vertical: 8),
-              child: Divider(),
-            ),
-            _SideAction(
-              icon: FluentIcons.clipboard_paste_24_regular,
-              label: 'メールなどから取り込む',
-              onTap: onImport,
-            ),
-            _SideAction(
-              icon: FluentIcons.calendar_search_20_regular,
-              label: '空き時間の候補をコピー',
-              onTap: () => openFreeTime(context),
-            ),
-            _SideAction(
-              icon: FluentIcons.settings_24_regular,
-              label: '設定',
-              onTap: () => openSettings(context),
-            ),
+            ..._groups([
+              [MiniMonth(controller: controller)],
+              [CalendarList(controller: controller)],
+              [
+                _SideAction(
+                  icon: FluentIcons.clipboard_paste_24_regular,
+                  label: 'メールなどから取り込む',
+                  onTap: onImport,
+                ),
+                _SideAction(
+                  icon: FluentIcons.calendar_search_20_regular,
+                  label: '空き時間の候補をコピー',
+                  onTap: () => openFreeTime(context),
+                ),
+                _SideAction(
+                  icon: FluentIcons.settings_24_regular,
+                  label: '設定',
+                  onTap: () => openSettings(context),
+                ),
+              ],
+            ]),
           ],
         );
       },
     );
   }
+}
+
+/// 左の列のまとまり（小さなカレンダー・マイカレンダー・操作）。
+/// ライト・ダークは区切り線で分ける。グレーは濃い地（Fl.side）の上に明るいカード（bg1）を置き、
+/// 文字やアイコンは明るい面の上で読ませる（To Do のカードと同じ考え方）
+List<Widget> _groups(List<List<Widget>> groups) {
+  final out = <Widget>[];
+  for (var i = 0; i < groups.length; i++) {
+    final g = groups[i];
+    if (Fl.isGray) {
+      if (i > 0) out.add(SizedBox(height: 8));
+      out.add(Padding(
+        padding: EdgeInsets.symmetric(horizontal: 8),
+        child: Material(
+          color: Fl.bg1,
+          clipBehavior: Clip.antiAlias,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(Fl.r8),
+            side: BorderSide(color: Fl.stroke2),
+          ),
+          child: Padding(
+            padding: EdgeInsets.symmetric(vertical: 4),
+            child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch, children: g),
+          ),
+        ),
+      ));
+    } else {
+      if (i > 0) {
+        out.add(Padding(padding: EdgeInsets.symmetric(vertical: 8), child: Divider()));
+      }
+      out.addAll(g);
+    }
+  }
+  return out;
 }
 
 /// 「マイカレンダー」の一覧。丸をタップで表示／非表示、… から編集・削除
