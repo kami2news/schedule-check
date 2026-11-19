@@ -141,7 +141,7 @@ void main() {
     // 設定は項目が多いので、下までスクロールして確かめる
     await tester.scrollUntilVisible(find.text('最初から付ける通知'), 200,
         scrollable: find
-            .ancestor(of: find.text('週の始まり'), matching: find.byType(Scrollable))
+            .ancestor(of: weekend, matching: find.byType(Scrollable))
             .first);
     expect(find.text('最初から付ける通知'), findsOneWidget);
     expect(find.text('時刻のある予定'), findsOneWidget);
