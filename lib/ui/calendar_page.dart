@@ -263,8 +263,7 @@ class _CalendarPageState extends State<CalendarPage> {
               key: ValueKey('grid-week'),
               controller: c,
               days: [for (var i = 0; i < 7; i++) addDays(start, i)],
-              // 縦にスクロールすると、そのまま前後の週へ続く
-              continuous: true,
+              // 週は縦に続けない（縦は 0:00〜24:00 の中だけ）。前後の週へは横スライドだけで移る
               stride: 7,
             );
             break;

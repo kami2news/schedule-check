@@ -353,17 +353,21 @@ void main() {
     await tester.tap(find.text('今日'));
     await tester.pumpAndSettle();
 
-    // 週: 縦にスクロールして次の週が半分を超えたら次の週
+    // 週: 縦は 0:00〜24:00 の中だけ（下まで引っ張っても次の週にはならない）
     await tester.tap(find.byTooltip('表示形式'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('週').last);
     await tester.pumpAndSettle();
     expect(find.text(title(CalView.week, today)), findsOneWidget);
-    await tester.drag(grid, Offset(0, -24 * timeGridHourHeight - 40));
+    final weekGrid = find.byType(TimeGrid);
+    await tester.drag(weekGrid, Offset(0, -30 * timeGridHourHeight));
+    await tester.pumpAndSettle();
+    expect(find.text(title(CalView.week, today)), findsOneWidget);
+    // 前後の週へは横スライドだけ: 左へ払うと次の週、右へ払うと戻る
+    await tester.fling(weekGrid, const Offset(-300, 0), 1000);
     await tester.pumpAndSettle();
     expect(find.text(title(CalView.week, addDays(today, 7))), findsOneWidget);
-    // 横に払うと前の週
-    await tester.fling(grid, const Offset(300, 0), 1000);
+    await tester.fling(weekGrid, const Offset(300, 0), 1000);
     await tester.pumpAndSettle();
     expect(find.text(title(CalView.week, today)), findsOneWidget);
 

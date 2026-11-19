@@ -20,6 +20,7 @@ import 'ui/import_page.dart';
 import 'ui/layout.dart';
 import 'ui/sharing_page.dart';
 import 'ui/sidebar.dart';
+import 'ui/swipe_guard.dart';
 import 'ui/todo_panel.dart';
 
 Future<void> main() async {
@@ -126,6 +127,11 @@ class _ScheduleAppState extends State<ScheduleApp> with WidgetsBindingObserver {
   @override
   void didChangePlatformBrightness() => _apply();
 
+  /// ブラウザの戻る（端からのスワイプ・トラックパッドの横スワイプ）が、横スライドの直後に来たら
+  /// 誤操作とみなして受け流す（画面に留まる）。それ以外は今までどおり（ダイアログを閉じるなど）
+  @override
+  Future<bool> didPopRoute() async => SwipeGuard.recent;
+
   void _apply() {
     final b = _brightness;
     final soft = widget.store.softLight;
@@ -163,6 +169,8 @@ class _ScheduleAppState extends State<ScheduleApp> with WidgetsBindingObserver {
         supportedLocales: [Locale('ja'), Locale('en')],
         // Material・Cupertino・Widgets の日本語化をまとめて指定
         localizationsDelegates: GlobalMaterialLocalizations.delegates,
+        builder: (context, child) =>
+            SwipeGuardListener(child: child ?? SizedBox.shrink()),
         home: widget.shareToken == null || widget.shareToken!.isEmpty
             ? HomeShell()
             : SharedLinkPage(
