@@ -141,7 +141,7 @@ class FlPalette {
         inkDisabled: Color(0xFF8A8A8A),
         stroke: Color(0xFFA3A3A3),
         strokeSubtle: Color(0xFFB3B3B3),
-        brandTint: Color(0xFFBCC3E6),
+        brandTint: Color(0xFFC6CADC),
       ),
       Brightness.light,
       gray: true);
