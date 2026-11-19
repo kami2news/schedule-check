@@ -394,7 +394,11 @@ void main() {
     await pumpWide(tester, store);
     await tester.tap(find.text('設定'));
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('時限の時刻を編集'));
+    // 設定は項目が多いので、一覧をスクロールして出す
+    await tester.scrollUntilVisible(find.text('時限の時刻を編集'), 200,
+        scrollable: find
+            .ancestor(of: find.text('週の始まり'), matching: find.byType(Scrollable))
+            .first);
     await tester.tap(find.text('時限の時刻を編集'));
     await tester.pumpAndSettle();
 
