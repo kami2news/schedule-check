@@ -18,6 +18,7 @@ import 'ui/fluent.dart';
 import 'ui/fluent_extras.dart';
 import 'ui/import_page.dart';
 import 'ui/layout.dart';
+import 'ui/page_color.dart';
 import 'ui/sharing_page.dart';
 import 'ui/sidebar.dart';
 import 'ui/swipe_guard.dart';
@@ -261,8 +262,12 @@ class _HomeShellState extends State<HomeShell> {
   @override
   Widget build(BuildContext context) {
     final cal = _cal!;
+    final wide = isWide(context);
+    // ステータスバー（時計・電池の帯）の後ろの色を、画面のいちばん上の色にそろえる
+    final top = wide ? Fl.topBar : (_tab == 1 ? Fl.sidePane : Fl.wall);
+    WidgetsBinding.instance.addPostFrameCallback((_) => setPageColor(top));
 
-    if (isWide(context)) {
+    if (wide) {
       return Scaffold(
         backgroundColor: Fl.side,
         body: Column(
@@ -336,8 +341,6 @@ class _HomeShellState extends State<HomeShell> {
             ),
           ],
         )),
-          // 版の番号（左下にうっすら。押せないので操作のじゃまをしない）
-          Positioned(left: 6, bottom: 2, child: IgnorePointer(child: _VersionText())),
         ]),
       ),
       // KM1 では FAB（浮いた丸いボタン）を使わない。予定の追加はカレンダーの見出し行の右、
