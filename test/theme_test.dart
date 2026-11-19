@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:schedule_check/store.dart';
 import 'package:schedule_check/ui/fluent.dart';
+import 'package:schedule_check/ui/fluent_extras.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 double _contrast(Color a, Color b) {
@@ -52,6 +53,22 @@ void main() {
     for (final bg in [g.bg1, g.bg2, g.bg3, g.bg4, g.wall, g.side, g.sidePane]) {
       expect(_contrast(g.fg3, bg), greaterThanOrEqualTo(4.5));
       expect(_contrast(g.brand, bg), greaterThanOrEqualTo(4.5));
+    }
+    // KM1 との突き合わせ: 操作要素の枠（stroke-strong）は 3:1、アイコンの線は 4.5:1、
+    // 選択中の淡い紺はどの地とも見分けられる
+    for (final bg in [g.bg1, g.wall, g.side, g.sidePane]) {
+      expect(_contrast(g.strokeAccessible, bg), greaterThanOrEqualTo(3));
+      expect(_contrast(g.km1.iconInk, bg), greaterThanOrEqualTo(4.5));
+    }
+    for (final bg in [g.bg1, g.wall, g.side]) {
+      expect(_contrast(g.brandTint, bg), greaterThanOrEqualTo(1.2));
+    }
+    // 土日の色（左の列の小さなカレンダーにも出る）
+    Fl.use(Brightness.light, gray: true);
+    for (final d in [DateTime(2026, 11, 21), DateTime(2026, 11, 22)]) {
+      for (final bg in [g.wall, g.side, g.sidePane]) {
+        expect(_contrast(weekendFg(d)!, bg), greaterThanOrEqualTo(4.5));
+      }
     }
     // 罫線がカレンダーの地に溶けない
     expect(_contrast(g.stroke2, g.wall), greaterThanOrEqualTo(1.2));

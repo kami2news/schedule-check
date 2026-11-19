@@ -336,10 +336,12 @@ Future<int?> showFlTimeList(BuildContext context, int initialMin,
 /// 日本のカレンダーの慣習どおり、土曜は青・日曜は赤
 Color? weekendFg(DateTime d) {
   if (!weekendColorsOn) return null;
-  if (d.weekday == DateTime.sunday) return Fl.isDark ? Color(0xFFE37D80) : Color(0xFFB10E1C);
-  // グレーのテーマでは、灰色の面の上で読めるよう青を濃くする
+  // グレーのテーマでは、濃い左の列（Fl.side）の上でも 4.5:1 以上になるよう赤・青を濃くする
+  if (d.weekday == DateTime.sunday) {
+    return Fl.isDark ? Color(0xFFE37D80) : Fl.isGray ? Color(0xFF8F0B17) : Color(0xFFB10E1C);
+  }
   if (d.weekday == DateTime.saturday) {
-    return Fl.isDark ? Color(0xFF479EF5) : Fl.isGray ? Color(0xFF0B4F8F) : Color(0xFF0F6CBD);
+    return Fl.isDark ? Color(0xFF479EF5) : Fl.isGray ? Color(0xFF083E73) : Color(0xFF0F6CBD);
   }
   return null;
 }

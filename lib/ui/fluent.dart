@@ -155,7 +155,9 @@ class FlPalette {
         inkDisabled: Color(0xFF7E838B),
         stroke: Color(0xFF9EA3AC),
         strokeSubtle: Color(0xFFC3C8D0),
-        brandTint: Color(0xFFD3D8EE),
+        brandTint: Color(0xFFC5CCEB),
+        // アイコンの線（KM1 は白地で 4.9:1）。濃い左の列の上でも 4.5:1 以上になるよう濃くする
+        iconInk: Color(0xFF3E4857),
       ),
       Brightness.light,
       gray: true,
