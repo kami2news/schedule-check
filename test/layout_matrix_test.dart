@@ -221,4 +221,35 @@ void main() {
       debugDefaultTargetPlatformOverride = null;
     });
   }
+
+  // テーマ（ライト・やわらかめ・グレー・ダーク）で変わるのは色だけ。部品の位置は同じ
+  for (final touch in [true, false]) {
+    testWidgets('テーマで配置がずれない（${touch ? 'タッチ' : 'マウス'}）', (tester) async {
+      debugDefaultTargetPlatformOverride =
+          touch ? TargetPlatform.android : TargetPlatform.windows;
+      tester.view.physicalSize = Size(1400, 900);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      const labels = ['新しい予定', 'マイカレンダー', '授業', 'タスクの期限', '設定', 'To Do', 'マイデイ'];
+      Map<String, Rect>? base;
+      for (final (mode, soft) in [('light', false), ('light', true), ('gray', true), ('dark', true)]) {
+        final store = await _stressStore();
+        store.setThemeMode(mode);
+        store.setSoftLight(soft);
+        await tester.pumpWidget(ScheduleApp(key: ValueKey('$mode$soft'), store: store));
+        await tester.pumpAndSettle();
+        final rects = {
+          for (final l in labels) l: tester.getRect(find.text(l).first),
+        };
+        if (base == null) {
+          base = rects;
+        } else {
+          for (final l in labels) {
+            expect(rects[l], base[l], reason: '$mode（やわらかめ $soft）の「$l」');
+          }
+        }
+      }
+      debugDefaultTargetPlatformOverride = null;
+    });
+  }
 }

@@ -67,39 +67,33 @@ class CalendarSidebar extends StatelessWidget {
 }
 
 /// 左の列のまとまり（小さなカレンダー・マイカレンダー・操作）。
-/// ライト・ダークは区切り線で分ける。グレーは濃い地（Fl.side）の上に明るいカード（bg1）を置き、
-/// 文字やアイコンは明るい面の上で読ませる（To Do のカードと同じ考え方）
+/// どのテーマでも同じ組み立て（位置・間隔をテーマで変えない）: 左の列の地（Fl.side）の上に
+/// 明るいカード（bg1、角丸 8、To Do のカードと同じ shadow2）を並べ、間は 8px。
+/// グレーでは地が濃いので、文字は明るいカードの上で読ませる形になる
 List<Widget> _groups(List<List<Widget>> groups) {
   final out = <Widget>[];
   for (var i = 0; i < groups.length; i++) {
-    final g = groups[i];
-    if (Fl.isGray) {
-      if (i > 0) out.add(SizedBox(height: 8));
-      out.add(Padding(
-        padding: EdgeInsets.symmetric(horizontal: 8),
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(Fl.r8),
-            boxShadow: Fl.shadow2,
-          ),
-          child: Material(
-            color: Fl.bg1,
-            clipBehavior: Clip.antiAlias,
-            borderRadius: BorderRadius.circular(Fl.r8),
-            child: Padding(
-              padding: EdgeInsets.symmetric(vertical: 4),
-              child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch, children: g),
-            ),
+    if (i > 0) out.add(SizedBox(height: 8));
+    out.add(Padding(
+      padding: EdgeInsets.symmetric(horizontal: 8),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(Fl.r8),
+          boxShadow: Fl.shadow2,
+        ),
+        child: Material(
+          color: Fl.bg1,
+          clipBehavior: Clip.antiAlias,
+          borderRadius: BorderRadius.circular(Fl.r8),
+          child: Padding(
+            padding: EdgeInsets.symmetric(vertical: 4),
+            child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: groups[i]),
           ),
         ),
-      ));
-    } else {
-      if (i > 0) {
-        out.add(Padding(padding: EdgeInsets.symmetric(vertical: 8), child: Divider()));
-      }
-      out.addAll(g);
-    }
+      ),
+    ));
   }
   return out;
 }
