@@ -337,7 +337,10 @@ Future<int?> showFlTimeList(BuildContext context, int initialMin,
 Color? weekendFg(DateTime d) {
   if (!weekendColorsOn) return null;
   if (d.weekday == DateTime.sunday) return Fl.isDark ? Color(0xFFE37D80) : Color(0xFFB10E1C);
-  if (d.weekday == DateTime.saturday) return Fl.isDark ? Color(0xFF479EF5) : Color(0xFF0F6CBD);
+  // グレーのテーマでは、灰色の面の上で読めるよう青を濃くする
+  if (d.weekday == DateTime.saturday) {
+    return Fl.isDark ? Color(0xFF479EF5) : Fl.isGray ? Color(0xFF0B4F8F) : Color(0xFF0F6CBD);
+  }
   return null;
 }
 
@@ -391,7 +394,9 @@ class FlThemeButton extends StatelessWidget {
         child: FlIcon(
           Fl.isDark
               ? FluentIcons.weather_moon_24_regular
-              : FluentIcons.weather_sunny_24_regular,
+              : Fl.isGray
+                  ? FluentIcons.weather_partly_cloudy_day_24_regular
+                  : FluentIcons.weather_sunny_24_regular,
           size: 20,
           color: onDark ? Colors.white : Fl.fg2,
         ),

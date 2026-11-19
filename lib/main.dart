@@ -92,16 +92,21 @@ class _ScheduleAppState extends State<ScheduleApp> with WidgetsBindingObserver {
       );
 
   Brightness get _brightness => switch (_mode) {
-        FlThemeMode.light => Brightness.light,
+        FlThemeMode.light || FlThemeMode.gray => Brightness.light,
         FlThemeMode.dark => Brightness.dark,
         FlThemeMode.system =>
           WidgetsBinding.instance.platformDispatcher.platformBrightness,
       };
 
+  /// グレーを使うか（テーマが「グレー」か、「システムに合わせる」で明るいときにグレーを選んでいる）
+  bool get _gray =>
+      _mode == FlThemeMode.gray ||
+      (_mode == FlThemeMode.system && widget.store.systemLightGray);
+
   @override
   void initState() {
     super.initState();
-    Fl.use(_brightness, soft: widget.store.softLight);
+    Fl.use(_brightness, soft: widget.store.softLight, gray: _gray);
     WidgetsBinding.instance.addObserver(this);
     widget.store.addListener(_apply);
     // 画面内の表示（SnackBar）が出せるようになってから通知の確認を始める
@@ -124,11 +129,14 @@ class _ScheduleAppState extends State<ScheduleApp> with WidgetsBindingObserver {
   void _apply() {
     final b = _brightness;
     final soft = widget.store.softLight;
+    final gray = _gray;
     final wanted = b == Brightness.dark
         ? FlPalette.dark
-        : (soft ? FlPalette.soft : FlPalette.light);
+        : gray
+            ? FlPalette.gray
+            : (soft ? FlPalette.soft : FlPalette.light);
     if (identical(wanted, Fl.palette) || !mounted) return;
-    Fl.use(b, soft: soft);
+    Fl.use(b, soft: soft, gray: gray);
     setState(() {});
     void rebuild(Element e) {
       e.markNeedsBuild();

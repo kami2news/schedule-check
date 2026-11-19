@@ -109,6 +109,7 @@ class SettingsPage extends StatelessWidget {
                 switch (m) {
                   FlThemeMode.system => FluentIcons.desktop_24_regular,
                   FlThemeMode.light => FluentIcons.weather_sunny_24_regular,
+                  FlThemeMode.gray => FluentIcons.weather_partly_cloudy_day_24_regular,
                   FlThemeMode.dark => FluentIcons.weather_moon_24_regular,
                 },
                 size: 16,
@@ -116,6 +117,17 @@ class SettingsPage extends StatelessWidget {
             onChanged: (m) => store.setThemeMode(m.name),
           ),
         ),
+        // システムに合わせるとき、明るい側をライトにするかグレーにするか
+        if (store.themeMode == FlThemeMode.system.name)
+          FlField(
+            label: 'システムが明るいときの色',
+            child: FlDropdown<bool>(
+              items: const [false, true],
+              value: store.systemLightGray,
+              labelOf: (v) => v ? 'グレー' : 'ライト',
+              onChanged: store.setSystemLightGray,
+            ),
+          ),
         FlField(
           label: 'ライトテーマの明るさ',
           child: FlDropdown<bool>(

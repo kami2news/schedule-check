@@ -225,8 +225,16 @@ class AppStore extends ChangeNotifier {
 
   // ---- 設定（ログイン中はアカウントに保存して、ほかの端末と同じにする） ----
 
-  /// 表示テーマ（'system' / 'light' / 'dark'）
+  /// 表示テーマ（'system' / 'light' / 'gray' / 'dark'）
   String get themeMode => _prefs.getString('themeMode') ?? 'system';
+
+  /// テーマが「システムに合わせる」で、システムが明るいときにグレーを使うか（false ならライト）
+  bool get systemLightGray => _prefs.getBool('systemLightGray') ?? false;
+
+  void setSystemLightGray(bool v) {
+    _prefs.setBool('systemLightGray', v);
+    _settingsChanged();
+  }
 
   /// ライトテーマを「やわらかめ」（白を薄い灰色に寄せる）にするか
   bool get softLight => _prefs.getBool('softLight') ?? true;
@@ -263,6 +271,7 @@ class AppStore extends ChangeNotifier {
   Map<String, dynamic> get syncedSettings => {
         'themeMode': themeMode,
         'softLight': softLight,
+        'systemLightGray': systemLightGray,
         'weekStartsSunday': weekStartsSunday,
         'weekendColors': weekendColors,
         'periods': [for (final (a, b) in periods) [a, b]],
@@ -285,6 +294,9 @@ class AppStore extends ChangeNotifier {
       _prefs.setBool('weekStartsSunday', j['weekStartsSunday'] as bool);
     }
     if (j['softLight'] is bool) _prefs.setBool('softLight', j['softLight'] as bool);
+    if (j['systemLightGray'] is bool) {
+      _prefs.setBool('systemLightGray', j['systemLightGray'] as bool);
+    }
     if (j['weekendColors'] is bool) _prefs.setBool('weekendColors', j['weekendColors'] as bool);
     if (j['periods'] is List) {
       try {

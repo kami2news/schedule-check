@@ -14,6 +14,7 @@ export '../km1/km1_theme.dart';
 class FlPalette {
   const FlPalette({
     required this.brightness,
+    this.isGray = false,
     required this.km1,
     required this.fg1,
     required this.fg2,
@@ -58,15 +59,19 @@ class FlPalette {
   /// 淡いブランド背景（選択中など）
   final Color brandTint;
   final Color danger, dangerLine, warning, success;
+  /// グレーのテーマか（ライトとダークの間。明るさの扱いはライト）
+  final bool isGray;
   final Color topBar;
   final Color subtleHover, subtlePressed;
 
   /// KM1 の意味づけトークン（Km1Colors）からパレットを作る。値の正は lib/km1/km1_theme.dart。
   /// アプリ独自の面（bg5・bg6・上部バーなど）だけここで足す。
-  factory FlPalette.fromKm1(Km1Colors k, Brightness b, {bool soft = false}) {
+  factory FlPalette.fromKm1(Km1Colors k, Brightness b,
+      {bool soft = false, bool gray = false}) {
     final dark = b == Brightness.dark;
     return FlPalette(
       brightness: b,
+      isGray: gray,
       km1: k,
       fg1: k.ink,
       fg2: k.inkSecondary,
@@ -76,12 +81,12 @@ class FlPalette {
       bg2: k.surfaceSubtle,
       bg3: k.surfaceMuted,
       bg4: k.surfaceSunken,
-      bg5: dark ? Color(0xFF000000) : (soft ? Color(0xFFE0E0E0) : Color(0xFFEBEBEB)),
-      bg6: dark ? Color(0xFF333333) : (soft ? Color(0xFFDBDBDB) : Color(0xFFE6E6E6)),
+      bg5: dark ? Color(0xFF000000) : (gray ? Color(0xFFBDBDBD) : soft ? Color(0xFFE0E0E0) : Color(0xFFEBEBEB)),
+      bg6: dark ? Color(0xFF333333) : (gray ? Color(0xFFB5B5B5) : soft ? Color(0xFFDBDBDB) : Color(0xFFE6E6E6)),
       stroke1: k.stroke,
       stroke1Hover: dark ? Color(0xFF757575) : Color(0xFFC7C7C7),
       stroke2: k.strokeSubtle,
-      stroke3: dark ? Color(0xFF3D3D3D) : (soft ? Color(0xFFE3E3E3) : Color(0xFFF0F0F0)),
+      stroke3: dark ? Color(0xFF3D3D3D) : (gray ? Color(0xFFC4C4C4) : soft ? Color(0xFFE3E3E3) : Color(0xFFF0F0F0)),
       strokeAccessible: k.strokeStrong,
       brand: k.brand,
       brandHover: k.brandHover,
@@ -119,16 +124,38 @@ class FlPalette {
       ),
       Brightness.light,
       soft: true);
+
+  /// グレー: ライトとダークの間。面を中くらいの灰色にし、文字は少し濃くする（ライトの扱い）。
+  /// いちばん薄い文字（#474747）でも、いちばん濃い面（#C2C2C2）の上で 4.5:1 以上
+  static final gray = FlPalette.fromKm1(
+      Km1Colors.light.copyWith(
+        surface: Color(0xFFD6D6D6),
+        surfaceSubtle: Color(0xFFCFCFCF),
+        surfaceMuted: Color(0xFFC9C9C9),
+        surfaceSunken: Color(0xFFC2C2C2),
+        surfaceHover: Color(0xFFC9C9C9),
+        surfacePressed: Color(0xFFB8B8B8),
+        ink: Color(0xFF141414),
+        inkSecondary: Color(0xFF2E2E2E),
+        inkTertiary: Color(0xFF474747),
+        inkDisabled: Color(0xFF8A8A8A),
+        stroke: Color(0xFFA3A3A3),
+        strokeSubtle: Color(0xFFB3B3B3),
+        brandTint: Color(0xFFBCC3E6),
+      ),
+      Brightness.light,
+      gray: true);
   static final dark = FlPalette.fromKm1(Km1Colors.dark, Brightness.dark);
 }
 
 /// アプリ全体のテーマ設定（システムに合わせる／ライト／ダーク）
-enum FlThemeMode { system, light, dark }
+enum FlThemeMode { system, light, gray, dark }
 
 extension FlThemeModeX on FlThemeMode {
   String get label => switch (this) {
         FlThemeMode.system => 'システムに合わせる',
         FlThemeMode.light => 'ライト',
+        FlThemeMode.gray => 'グレー',
         FlThemeMode.dark => 'ダーク',
       };
 }
@@ -142,9 +169,14 @@ class Fl {
   static bool get isDark => _p.brightness == Brightness.dark;
 
   /// パレットを切り替える（呼び出し側で画面全体を再構築すること）
-  static void use(Brightness b, {bool soft = false}) => _p = b == Brightness.dark
-      ? FlPalette.dark
-      : (soft ? FlPalette.soft : FlPalette.light);
+  static void use(Brightness b, {bool soft = false, bool gray = false}) =>
+      _p = b == Brightness.dark
+          ? FlPalette.dark
+          : gray
+              ? FlPalette.gray
+              : (soft ? FlPalette.soft : FlPalette.light);
+
+  static bool get isGray => _p.isGray;
 
   static Color get fg1 => _p.fg1;
   static Color get fg2 => _p.fg2;
@@ -1440,6 +1472,8 @@ final Map<IconData, (Km1BIconName, bool)> _km1IconMap = {
   FluentIcons.task_list_ltr_24_filled: (Km1BIconName.taskList, true),
   FluentIcons.task_list_ltr_24_regular: (Km1BIconName.taskList, false),
   FluentIcons.weather_moon_24_regular: (Km1BIconName.darkMode, false),
+  // グレーのテーマ（晴れと曇りの間）
+  FluentIcons.weather_partly_cloudy_day_24_regular: (Km1BIconName.weather, false),
   FluentIcons.weather_sunny_24_regular: (Km1BIconName.lightMode, false),
   // 「詳しく入力」は別のタブで開くのではなく、入力欄を広げる操作
   FluentIcons.window_new_24_regular: (Km1BIconName.expand, false),

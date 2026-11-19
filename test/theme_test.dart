@@ -34,4 +34,29 @@ void main() {
     Fl.use(Brightness.light);
     expect(Fl.bg1, const Color(0xFFFFFFFF));
   });
+
+  test('グレーはライトとダークの間。薄い文字・ブランド色も 4.5:1 以上', () {
+    final g = FlPalette.gray;
+    expect(g.isGray, isTrue);
+    expect(g.bg1.computeLuminance(), lessThan(FlPalette.soft.bg1.computeLuminance()));
+    expect(g.bg1.computeLuminance(), greaterThan(FlPalette.dark.bg1.computeLuminance()));
+    for (final bg in [g.bg1, g.bg2, g.bg3, g.bg4]) {
+      expect(_contrast(g.fg3, bg), greaterThanOrEqualTo(4.5));
+      expect(_contrast(g.brand, bg), greaterThanOrEqualTo(4.5));
+    }
+    Fl.use(Brightness.light, gray: true);
+    expect(Fl.isGray, isTrue);
+    expect(Fl.isDark, isFalse);
+    Fl.use(Brightness.light);
+  });
+
+  test('システムに合わせるとき、明るい側をグレーにできる（アカウントに保存）', () async {
+    SharedPreferences.setMockInitialValues({});
+    final store = await AppStore.load();
+    expect(store.systemLightGray, isFalse);
+    store.setSystemLightGray(true);
+    expect(store.syncedSettings['systemLightGray'], isTrue);
+    store.setThemeMode('gray');
+    expect(store.themeMode, 'gray');
+  });
 }
