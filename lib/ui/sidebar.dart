@@ -367,6 +367,7 @@ class _CalendarEditorState extends State<_CalendarEditor> {
             FlField(
               label: '名前',
               child: FlTextField(
+                key: ValueKey('cal-name'),
                 controller: _name,
                 autofocus: widget.cal == null,
                 hint: '例: 部活、病院、試験',

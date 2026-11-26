@@ -46,7 +46,8 @@ void main() {
     expect(store.learnGenre('就活', a.id), isTrue);
     expect(store.learnGenre('就活', a.id), isFalse);
     expect(store.learnGenre('就活', b.id), isTrue);
-    expect((a.genres, b.genres), (<String>[], ['就活']));
+    expect(a.genres, isEmpty);
+    expect(b.genres, ['就活']);
     store.updateCalendar(b.id, keywords: ['ノジマ']);
     expect(CalendarDef.fromJson(b.toJson()).keywords, ['ノジマ']);
     expect(CalendarDef.fromJson(b.toJson()).genres, ['就活']);

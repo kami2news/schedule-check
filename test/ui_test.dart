@@ -504,10 +504,19 @@ void main() {
 
     await tester.tap(find.byTooltip('カレンダーを追加'));
     await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField).last, '部活');
+    await tester.enterText(
+        find.descendant(of: find.byKey(ValueKey('cal-name')), matching: find.byType(TextField)),
+        '部活');
+    await tester.enterText(
+        find.descendant(of: find.byKey(ValueKey('cal-keywords')), matching: find.byType(TextField)),
+        '部活、サークル');
+    await tester.tap(find.text('遊び・イベント'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('保存'));
     await tester.pumpAndSettle();
-    expect(store.calendars.any((c) => c.name == '部活'), isTrue);
+    final club = store.calendars.firstWhere((c) => c.name == '部活');
+    expect(club.keywords, ['部活', 'サークル']);
+    expect(club.genres, ['遊び・イベント']);
     expect(find.text('部活'), findsOneWidget);
 
     // 「授業」を非表示にするとテスト授業が消える
