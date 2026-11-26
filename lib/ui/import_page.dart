@@ -196,6 +196,16 @@ class _ImportPageState extends State<ImportPage> {
       }
     }
     store.addMany(newEvents: events, newTasks: tasks);
+    // 取り込み画面でカレンダーを変えた系統は覚えて、次からそこに振り分ける
+    final learned = <String>[];
+    for (final c in _cands) {
+      final g = c.genre;
+      if (!c.selected || g == null || c.type == ImportType.task) continue;
+      if (c.calendarId == c.suggestedCalendarId || learned.contains(g)) continue;
+      if (store.learnGenre(g, c.calendarId)) {
+        learned.add('「$g」→「${store.calendarOf(c.calendarId).name}」');
+      }
+    }
     final added = events.length + tasks.length;
     setState(() {
       _cands = [];
@@ -210,7 +220,10 @@ class _ImportPageState extends State<ImportPage> {
       if (deleted > 0) '削除$deleted件',
     ];
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(parts.isEmpty ? '変更はありませんでした' : '${parts.join('・')}を反映しました')));
+        content: Text([
+      parts.isEmpty ? '変更はありませんでした' : '${parts.join('・')}を反映しました',
+      if (learned.isNotEmpty) '次から${learned.join('、')}に振り分けます',
+    ].join('。'))));
   }
 
   @override
@@ -494,6 +507,12 @@ class _CandidateTileState extends State<_CandidateTile> {
                       );
                     }),
                   ),
+                  if (c.genre != null)
+                    Tooltip(
+                      message: '文章から判断した系統。カレンダーを変えて登録すると、次からその系統はそのカレンダーに入ります',
+                      child: Text('系統: ${c.genre}',
+                          style: FlText.caption1.copyWith(color: Fl.fg3)),
+                    ),
                   if (!isTask && c.showAs != ShowAs.busy)
                     Text(c.showAs.label,
                         style: FlText.caption1.copyWith(color: Fl.fg3)),

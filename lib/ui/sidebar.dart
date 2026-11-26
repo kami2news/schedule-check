@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 
+import '../genre.dart';
 import '../models.dart';
 import '../store.dart';
 import 'controller.dart';
@@ -289,6 +290,9 @@ class _CalendarEditor extends StatefulWidget {
 class _CalendarEditorState extends State<_CalendarEditor> {
   late final TextEditingController _name =
       TextEditingController(text: widget.cal?.name ?? '');
+  late final TextEditingController _keywords =
+      TextEditingController(text: (widget.cal?.keywords ?? const []).join('、'));
+  late final Set<String> _genres = {...?widget.cal?.genres};
   late int _color;
   String? _error;
 
@@ -309,6 +313,7 @@ class _CalendarEditorState extends State<_CalendarEditor> {
   @override
   void dispose() {
     _name.dispose();
+    _keywords.dispose();
     super.dispose();
   }
 
@@ -319,10 +324,29 @@ class _CalendarEditorState extends State<_CalendarEditor> {
       return;
     }
     final store = StoreScope.read(context);
+    final keywords = _keywords.text
+        .split(RegExp(r'[、,，\s]+'))
+        .map((w) => w.trim())
+        .where((w) => w.isNotEmpty)
+        .toSet()
+        .toList();
+    final genres = [for (final g in kGenres) if (_genres.contains(g.label)) g.label];
     if (widget.cal == null) {
-      store.addCalendar(name, _color);
+      final c = store.addCalendar(name, _color, keywords: keywords);
+      for (final g in genres) {
+        store.learnGenre(g, c.id);
+      }
     } else {
-      store.updateCalendar(widget.cal!.id, name: name, color: _color);
+      store.updateCalendar(widget.cal!.id, name: name, color: _color, keywords: keywords);
+      // 系統は 1 つのカレンダーにだけ付く（ほかのカレンダーからは外れる）
+      for (final g in genres) {
+        store.learnGenre(g, widget.cal!.id);
+      }
+      final removed = widget.cal!.genres.where((g) => !genres.contains(g)).toList();
+      if (removed.isNotEmpty) {
+        store.updateCalendar(widget.cal!.id,
+            genres: widget.cal!.genres.where((g) => !removed.contains(g)).toList());
+      }
     }
     Navigator.of(context).pop();
   }
@@ -331,7 +355,7 @@ class _CalendarEditorState extends State<_CalendarEditor> {
   Widget build(BuildContext context) {
     return Material(
       color: Fl.bg1,
-      child: Padding(
+      child: SingleChildScrollView(
         padding: EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -383,12 +407,86 @@ class _CalendarEditorState extends State<_CalendarEditor> {
                   ),
               ],
             ),
+            SizedBox(height: 20),
+            Text('取り込みの振り分け', style: FlText.body1Strong),
+            SizedBox(height: 4),
+            Text('貼り付けた連絡文を、このカレンダーに入れる条件です。',
+                style: FlText.caption1.copyWith(color: Fl.fg2)),
+            SizedBox(height: 8),
+            FlField(
+              label: 'キーワード',
+              child: FlTextField(
+                key: ValueKey('cal-keywords'),
+                controller: _keywords,
+                hint: '例: ノジマ、ユニティー（「、」で区切る）',
+              ),
+            ),
+            Text('この系統の予定を入れる', style: FlText.body1Strong),
+            SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final g in kGenres)
+                  _GenreToggle(
+                    label: g.label,
+                    selected: _genres.contains(g.label),
+                    onTap: () => setState(() =>
+                        _genres.contains(g.label) ? _genres.remove(g.label) : _genres.add(g.label)),
+                  ),
+              ],
+            ),
             SizedBox(height: 24),
             FlActions(
               primary: FilledButton(onPressed: _save, child: Text('保存')),
               onCancel: () => Navigator.of(context).pop(),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 系統の選択（押すと切り替わる小さなボタン）
+class _GenreToggle extends StatelessWidget {
+  const _GenreToggle({required this.label, required this.selected, required this.onTap});
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      selected: selected,
+      child: Material(
+        color: selected ? Fl.brandTint : Fl.bg1,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(Fl.r4),
+          side: BorderSide(color: selected ? Fl.brand : Fl.stroke1),
+        ),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(Fl.r4),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: Fl.touch ? 44 : 32),
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: 12),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (selected) ...[
+                    FlIcon(FluentIcons.checkmark_12_filled, size: 12, color: Fl.brandFg),
+                    SizedBox(width: 4),
+                  ],
+                  Text(label,
+                      style: FlText.body1.copyWith(color: selected ? Fl.brandFg : Fl.fg1)),
+                ],
+              ),
+            ),
+          ),
         ),
       ),
     );

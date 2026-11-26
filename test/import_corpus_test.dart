@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:schedule_check/models.dart';
 import 'package:schedule_check/parser.dart';
 import 'package:schedule_check/store.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// 取り込みの例のデータベース（test/fixtures/import_corpus.json）を全部読み、
 /// 期待と違ったものをまとめて表示する。例を足すときは JSON に 1 件足すだけでよい
@@ -35,6 +36,20 @@ void main() {
     expect((h.genre, h.calendarId), ('病院', 'h'));
     // 「お届け予定」の「予定」はカレンダー名の手がかりにしない
     expect(one('12/10 お届け予定').genre, '配達');
+  });
+
+  test('系統を覚えると、そのカレンダーだけに付く（ほかからは外れる）', () async {
+    SharedPreferences.setMockInitialValues({});
+    final store = await AppStore.load();
+    final a = store.addCalendar('就活', 0xFF0F6CBD);
+    final b = store.addCalendar('キャリア', 0xFF13A10E);
+    expect(store.learnGenre('就活', a.id), isTrue);
+    expect(store.learnGenre('就活', a.id), isFalse);
+    expect(store.learnGenre('就活', b.id), isTrue);
+    expect((a.genres, b.genres), (<String>[], ['就活']));
+    store.updateCalendar(b.id, keywords: ['ノジマ']);
+    expect(CalendarDef.fromJson(b.toJson()).keywords, ['ノジマ']);
+    expect(CalendarDef.fromJson(b.toJson()).genres, ['就活']);
   });
 
   test('取り込みの例のデータベース', () {
