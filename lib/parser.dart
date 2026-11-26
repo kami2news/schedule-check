@@ -295,7 +295,8 @@ final _tagRe = RegExp(
     caseSensitive: false);
 
 /// 文頭に残りやすい助詞（「11/20までに提出」→「までに」）
-final _headParticleRe = RegExp(r'^(?:まで(?:に)?|から|より|頃|ごろ|に|は|の|で|を|が)\s*');
+/// 1文字の助詞は、後ろがひらがなのときは語の一部（「のぞみ」「はやぶさ」）なので取らない
+final _headParticleRe = RegExp(r'^(?:まで(?:に)?|から|より|頃|ごろ|(?:に|は|の|で|を|が)(?![ぁ-ゖ]))\s*');
 
 /// 文末の丁寧表現（「提出してください」→「提出」）
 final _politeTailRe = RegExp(
