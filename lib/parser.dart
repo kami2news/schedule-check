@@ -158,6 +158,11 @@ int _digit(String s) {
 /// 「正午」「午後3時」「午前9:30」を、ふつうの時刻の書き方に直す
 String _plainTimeWords(String s) => s
     .replaceAll('正午', '12:00')
+    // 「10時半」→「10:30」
+    .replaceAllMapped(RegExp(r'(\d{1,2})\s*時\s*半'), (m) => '${m.group(1)}:30')
+    // 「22:00-翌6:00」: 「翌」は取り除く（夜に始まり朝に終わる範囲として読む）
+    .replaceAllMapped(RegExp(r'([-〜~～–ー]\s*)翌\s*(?=\d)'), (m) => m.group(1)!)
+    .replaceAll(RegExp(r'Osaka,\s*Sapporo,\s*Tokyo'), ' ')
     // 時差の表記（Zoom の「大阪、札幌、東京」、GMT+9 など）は時刻ではない
     .replaceAll(RegExp(r'大阪、札幌、東京|[（(]?\s*(?:GMT|UTC)\s*[+＋]\s*0?9(?::?00)?\s*[)）]?|日本時間|\bJST\b'), ' ')
     // 「3:00 PM」「04:00 PM」
@@ -177,12 +182,33 @@ String _plainTimeWords(String s) => s
     .replaceAllMapped(RegExp(r'午後\s*(\d{1,2})(?=\s*[:：時])'),
         (m) => '${int.parse(m.group(1)!) % 12 + 12}')
     .replaceAllMapped(RegExp(r'午前\s*(\d{1,2})(?=\s*[:：時])'),
-        (m) => '${int.parse(m.group(1)!) % 12}');
+        (m) => '${int.parse(m.group(1)!) % 12}')
+    // 「AM 10:00」「PM 3:00」（前に付く形）
+    .replaceAllMapped(RegExp(r'\b([AaPp])\.?[Mm]\.?\s*(\d{1,2})(?=\s*[:：時])'), (m) {
+      final h = int.parse(m.group(2)!) % 12 + (m.group(1)!.toLowerCase() == 'p' ? 12 : 0);
+      return '$h';
+    })
+    // 「夜8時」「夕方5時」: 午後の時刻
+    .replaceAllMapped(RegExp(r'(?:夜|晩|夕方|夕)\s*(\d{1,2})(?=\s*[:：時])'), (m) {
+      final h = int.parse(m.group(1)!);
+      return h >= 1 && h <= 11 ? '${h + 12}' : '$h';
+    })
+    .replaceAll(RegExp(r'朝\s*(?=\d{1,2}\s*[:：時])'), '');
 
 const _timeTok = r'(\d{1,2})(?:[:：](\d{2})|時(?!間)(?:(\d{1,2})分?)?)';
 
 /// 「08:12発 … 10:07着」
 final _depArrRe = RegExp(r'(\d{1,2})[:：](\d{2})\s*発.{0,20}?(\d{1,2})[:：](\d{2})\s*着');
+
+/// 「出発：羽田 07:45 → 到着：那覇 10:25」
+final _arrowRe = RegExp(
+    r'(\d{1,2})[:：](\d{2})[^\d\n]{0,20}?(?:→|⇒|->|➡|⇨)[^\d\n]{0,20}?(\d{1,2})[:：](\d{2})');
+
+/// 「開場 16:00 / 開演 17:00」: 予定の開始は開演
+final _kaienRe = RegExp(r'開演\s*[:：]?\s*(\d{1,2})[:：](\d{2})');
+
+/// 「8:30集合 18:00解散」: 終わりの時刻
+final _endWordRe = RegExp(r'(\d{1,2})[:：](\d{2})\s*(?:解散|終了|終わり|閉会)');
 
 /// 「10-15」のような時だけの範囲（シフト連絡など）。日付を取り除いた残りにだけ使う
 final _bareHoursRe = RegExp(r'(?<![\d/:：.])([0-2]?\d)\s*[-〜~～]\s*([0-2]?\d)(?![\d/:：.時])');
@@ -192,7 +218,7 @@ final _rangeRe =
 final _singleRe = RegExp(_timeTok);
 
 final _taskWords = RegExp(r'締切|締め切り|〆|提出|期限|まで');
-final _shiftWords = RegExp(r'シフト|バイト|勤務|出勤');
+final _shiftWords = RegExp(r'シフト|バイト|勤務|出勤|早番|遅番|中番|日勤|夜勤');
 final _lectureWords =
     RegExp(r'授業|講義|演習|ゼミ|実験|休講|補講|試験|テスト|[0-9１-９]\s*(?:時限|限)');
 
@@ -248,19 +274,20 @@ final _trimHead = RegExp('^$_junk+');
 final _trimTail = RegExp('$_junk+\$');
 
 /// 「（水）」「(水曜日)」などの曜日表記
-final _weekdayRe = RegExp(r'[（(]\s*[月火水木金土日](?:曜日?)?\s*[)）]');
+final _weekdayRe = RegExp(
+    r'[（(]\s*[月火水木金土日](?:曜日?)?\s*[)）]|(?<=^|\s)[月火水木金土日](?:曜日?)?(?=\s|$)|\b(?:Mon|Tues|Wednes|Thurs|Fri|Satur|Sun)day\b,?');
 
 /// 行頭の見出しラベル（「日時：」「【件名】」など）。group(1) がラベル名
 final _labelRe = RegExp(
-    r'^(?:[【\[〈<（(]\s*)?([^\s:：【】\[\]〈〉<>（）()]{1,6}(?:日時|日程|期限|締切|締め切り)|時刻|開始時刻|時間帯|お届け時間|件名|トピック|タイトル|題名|内容|用件|日時|日程|日付|時間|開催日時?|実施日時?|期日|期限|提出期限|提出締切|締切|締め切り|〆切|イベント名?|科目名?|講義名?|授業名?|シフト|勤務)\s*(?:[】\]〉>）)]\s*[:：]?|[:：])\s*');
+    r'^(?:[【\[〈<（(]\s*)?([^\s:：【】\[\]〈〉<>（）()]{1,6}(?:日時|日程|期限|締切|締め切り|日|期間|時間)|When|Date|Time|時刻|開始時刻|時間帯|お届け時間|件名|トピック|タイトル|題名|内容|用件|日時|日程|日付|時間|開催日時?|実施日時?|期日|期限|提出期限|提出締切|締切|締め切り|〆切|イベント名?|科目名?|講義名?|授業名?|シフト|勤務)\s*(?:[】\]〉>）)]\s*[:：]?|[:：])\s*');
 
 /// タイトルとして使えるラベル行（「件名: 〜」「内容：〜」）
 final _titleLabelRe = RegExp(
-    r'^(?:[【\[〈<（(]\s*)?(?:件名|タイトル|題名|内容|用件|トピック|[Tt]opic|議題|会議名|ミーティング名|作品名?|公演名|演目|イベント名?|科目名?|講義名?|授業名?)\s*(?:[】\]〉>）)]\s*[:：]?|[:：])\s*(.+)$');
+    r'^(?:[【\[〈<（(]\s*)?(?:件名|[Ss]ubject|タイトル|題名|内容|用件|トピック|[Tt]opic|議題|列車名|便名|会議名|ミーティング名|作品名?|公演名|演目|イベント名?|科目名?|講義名?|授業名?)\s*(?:[】\]〉>）)]\s*[:：]?|[:：])\s*(.+)$');
 
 /// メモ向きの行（ミーティングID・パスコード・持ち物など）
 final _noteLineRe = RegExp(
-    r'^(?:[※＊*]|.*(?:ID|ＩＤ|[Ii][Dd]\s*[:：]|パスコード|パスワード|[Pp]asscode|[Pp]assword|持ち物|備考|注意|服装))');
+    r'^(?:[※＊*]|.*(?:ID|ＩＤ|[Ii][Dd]\s*[:：]|パスコード|パスワード|[Pp]asscode|[Pp]assword|持ち物|備考|注意|服装)|(?:人数|会費|料金|金額|定員|形式|担当|電話|TEL|コース|プラン|お支払い方法)\s*[:：])');
 
 /// 件名の前に付く【重要】などのタグ
 final _tagRe = RegExp(
@@ -347,11 +374,23 @@ String _halfWidth(String s) => s
         (m) => String.fromCharCode(m.group(0)!.codeUnitAt(0) - 0xFEE0))
     // 「１０：００」の「：」だけ半角に（「日程：11/25」の見出しの「：」はそのまま）
     .replaceAllMapped(RegExp(r'(?<=\d)\s*：\s*(?=\d)'), (_) => ':')
-    .replaceAll('／', '/');
+    .replaceAll('／', '/')
+    // 令和（「令和8年」「R8.12.22」）は西暦に直す
+    .replaceAllMapped(RegExp(r'令和\s*(\d{1,2})\s*年'), (m) => '${2018 + int.parse(m.group(1)!)}年')
+    .replaceAllMapped(
+        RegExp(r'(?<![A-Za-z])R\s*(\d{1,2})\s*[./]\s*(\d{1,2})\s*[./]\s*(\d{1,2})(?!\d)'),
+        (m) => '${2018 + int.parse(m.group(1)!)}/${m.group(2)}/${m.group(3)}');
+
+/// 月だけの見出し（「12月シフト確定」「【2026年12月】」）
+final _monthOnlyRe = RegExp(r'(?<!\d)(\d{1,2})\s*月(?!\s*\d)');
+
+/// 行頭の日だけの日付（「5日(土)」「5(土)」）
+final _dayOnlyRe = RegExp(
+    r'^\s*(\d{1,2})\s*(?:日\s*(?:[（(]\s*[月火水木金土日](?:曜日?)?\s*[)）])?|[（(]\s*[月火水木金土日](?:曜日?)?\s*[)）])');
 
 /// 日付のすぐ後ろに「・10日」「、2月10日」「・12/3」と続く日付（曜日は先に取り除いてある）
 final _alsoDayRe = RegExp(
-    r'^\s*[・、，,]\s*(?:(\d{1,2})\s*月\s*(\d{1,2})\s*日|(\d{1,2})/(\d{1,2})(?![\d:/])|(\d{1,2})\s*日(?![間後前]))');
+    r'(?:^|(?<=\s))\s*[・、，,]\s*(?:(\d{1,2})\s*月\s*(\d{1,2})\s*日|(\d{1,2})/(\d{1,2})(?![\d:/])|(\d{1,2})\s*日(?![間後前]))');
 
 /// 「12/2 10:00 A、12/3 13:00 B」のように1行に複数の日付があれば分ける
 final _multiSplitRe = RegExp(
@@ -360,7 +399,17 @@ final _multiSplitRe = RegExp(
 ({int? start, int? end, String rest}) _extractTime(String src) {
   final s = _plainTimeWords(src);
   // 「新横浜 08:12発 → 京都 10:07着」
-  final da = _depArrRe.firstMatch(s);
+  final kn = _kaienRe.firstMatch(s);
+  if (kn != null && s.contains('開場')) {
+    final a = int.parse(kn.group(1)!) * 60 + int.parse(kn.group(2)!);
+    if (a < 24 * 60) {
+      final rest = s
+          .replaceRange(kn.start, kn.end, ' ')
+          .replaceAll(RegExp(r'開場\s*[:：]?\s*\d{1,2}[:：]\d{2}\s*[/／]?'), ' ');
+      return (start: a, end: null, rest: rest);
+    }
+  }
+  final da = _depArrRe.firstMatch(s) ?? _arrowRe.firstMatch(s);
   if (da != null) {
     final a = int.parse(da.group(1)!) * 60 + int.parse(da.group(2)!);
     final b = int.parse(da.group(3)!) * 60 + int.parse(da.group(4)!);
@@ -760,6 +809,8 @@ ParseResult parseText(String text, DateTime now,
 
   // 段落の前置きの文（種類の手がかり）
   var context = '';
+  // 「12月シフト」のような月だけの見出し（続く「5日(土)」の月）
+  int? ctxMonth;
   // 空行の直前に作った候補（会議のリンクなど、空行をはさんだ補足を受け付ける）
   Candidate? afterBlank;
   for (var li = 0; li < lines.length; li++) {
@@ -784,7 +835,18 @@ ParseResult parseText(String text, DateTime now,
     final urls = [for (final m in urlPattern.allMatches(line)) m.group(0)!];
     final body = line.replaceAll(urlPattern, ' ').trim();
 
-    final d = _extractDate(body, today);
+    var d = _extractDate(body, today);
+    // 「12月シフト確定」のあとの「5日(土) 9-17」: 見出しの月を補う
+    if (d == null && ctxMonth != null) {
+      final dm = _dayOnlyRe.firstMatch(body);
+      if (dm != null) {
+        d = _extractDate(body.replaceRange(dm.start, dm.end, '$ctxMonth月${dm.group(1)}日 '), today);
+      }
+    }
+    if (d == null) {
+      final mm = _monthOnlyRe.firstMatch(body);
+      if (mm != null) ctxMonth = int.parse(mm.group(1)!);
+    }
     // 日付の形なのに読めない行（ありえない日付）は、前の予定のメモに入れず知らせる
     if (d == null && _dateLikeRe.hasMatch(body)) {
       unreadable.add(line);
@@ -943,11 +1005,11 @@ ParseResult parseText(String text, DateTime now,
       if (dt != null && !dt.isAfter(d.date)) dt = _validDate(d.date.year + 1, mo, day);
       if (dt == null || dt.difference(d.date).inDays > 60) break;
       alsoOn.add(dt);
-      rest = rest.substring(m.end);
+      rest = rest.replaceRange(m.start, m.end, ' ');
     }
     // 「12月1日(火)〜12月3日(木)」: 数日にわたる予定
     var spanDays = 0;
-    for (final sep in RegExp(r'[〜~～–ー]\s*(?=\d)').allMatches(rest)) {
+    for (final sep in RegExp(r'[〜~～–ー\-]\s*(?=\d)').allMatches(rest)) {
       final d2 = _extractDate(rest.substring(sep.end), today);
       // 区切りのすぐ後ろが日付のときだけ
       if (d2 == null || !d2.rest.startsWith(' ')) continue;
@@ -966,6 +1028,17 @@ ParseResult parseText(String text, DateTime now,
     String? warning;
     if (_reversedRange != null) {
       warning = '終了が開始より前になっています（$_reversedRange）。時刻を確かめてください';
+    }
+    // 「8:30集合 18:00解散」
+    if (start != null && end == null) {
+      final ew = _endWordRe.firstMatch(rest);
+      if (ew != null) {
+        final e = int.parse(ew.group(1)!) * 60 + int.parse(ew.group(2)!);
+        if (e > start && e <= 24 * 60) {
+          end = e;
+          rest = rest.replaceRange(ew.start, ew.end, ' ');
+        }
+      }
     }
     // 「11/18(水) 10-15」のような時だけの範囲
     if (start == null) {
@@ -994,6 +1067,14 @@ ParseResult parseText(String text, DateTime now,
       }
     }
 
+    // 「2月15日〜17日 9:00〜17:00」: 期間に時刻の範囲が付いていれば、毎日その時間に行う予定
+    if (spanDays > 0 && spanDays <= 31 && start != null && end != null && end > start &&
+        end <= 24 * 60) {
+      for (var k = 1; k <= spanDays; k++) {
+        alsoOn.add(addDays(d.date, k));
+      }
+      spanDays = 0;
+    }
     // 「25:00」「12:60」のように読めない時刻: 終日にせず、注意を付けてタイトルからも外す
     if (start == null) {
       final bad = _timeLikeRe.allMatches(rest).map((m) => m.group(0)!).toList();
@@ -1021,7 +1102,7 @@ ParseResult parseText(String text, DateTime now,
       } else if (title.isEmpty && cleaned.label.isNotEmpty &&
           !RegExp(r'^(?:日時|日程|日付|時間|開催日|実施日)').hasMatch(cleaned.label)) {
         // 「提出期限」など。「来店日時」「予約日時」は「来店」「予約」にする
-        title = cleaned.label.replaceFirst(RegExp(r'(?:日時|日程)$'), '');
+        title = cleaned.label.replaceFirst(RegExp(r'(?:日時|日程|予定日|日)$'), '');
       }
     }
 
