@@ -204,6 +204,34 @@ void main() {
     expect(find.textContaining('12/4', skipOffstage: false), findsWidgets);
   });
 
+  testWidgets('取り込み: 時限で選ぶと、昼休みをはさむ範囲は候補が2つに分かれる', (tester) async {
+    final store = await _storeWithSamples();
+    store.setPeriods(const [(540, 630), (640, 730), (780, 870), (880, 970)]);
+    await pumpWide(tester, store);
+
+    await tester.tap(find.text('メールなどから取り込む'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+        find.descendant(of: find.byType(Dialog), matching: find.byType(TextField)),
+        '12/1 地学実験');
+    await tester.tap(find.text('解析する'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('時限'));
+    await tester.pumpAndSettle();
+    expect(find.text('時限で選ぶ'), findsOneWidget);
+    await tester.tap(find.text('2').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('4').last);
+    await tester.pumpAndSettle();
+    expect(find.textContaining('昼休み（12:10〜13:00）をはさむので'), findsOneWidget);
+    await tester.tap(find.text('決定'));
+    await tester.pumpAndSettle();
+    // 10:40〜12:10 と 13:00〜16:10 の2つ
+    expect(find.text('10:40', skipOffstage: false), findsOneWidget);
+    expect(find.text('13:00', skipOffstage: false), findsOneWidget);
+    expect(find.text('〜 16:10', skipOffstage: false), findsOneWidget);
+  });
+
   testWidgets('時刻つきの締め切りは、時間の欄に印が出る', (tester) async {
     final store = await _storeWithSamples();
     final today = dateOnly(DateTime.now());
