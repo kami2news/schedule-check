@@ -444,6 +444,14 @@ final _multiSplitRe = RegExp(
       return (start: a, end: b > a ? b : b + 24 * 60, rest: s.replaceRange(tb.start, tb.end, ' '));
     }
   }
+  // 「13-15時」: 後ろにだけ「時」が付く範囲
+  final hh = RegExp(r'(?<![\d/:：.])(\d{1,2})\s*[-〜~～]\s*(\d{1,2})\s*時(?![間\d])').firstMatch(s);
+  if (hh != null) {
+    final a = int.parse(hh.group(1)!), b = int.parse(hh.group(2)!);
+    if (a < b && b <= 24) {
+      return (start: a * 60, end: b * 60, rest: s.replaceRange(hh.start, hh.end, ' '));
+    }
+  }
   final m = _singleRe.firstMatch(s);
   if (m != null) {
     final v = _toMin(m, 1, 2, 3);
