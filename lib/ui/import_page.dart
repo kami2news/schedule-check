@@ -5,6 +5,7 @@ import '../models.dart';
 import '../parser.dart';
 import '../reconcile.dart';
 import '../store.dart';
+import 'edit_pages.dart' show showPeriodRangePicker;
 import 'fluent.dart';
 import 'fluent_extras.dart';
 import 'widgets.dart';
@@ -264,6 +265,17 @@ class _ImportPageState extends State<ImportPage> {
                 v ? _following.add(c) : _following.remove(c);
               }),
               onChanged: () => _rematch(c),
+              onSplit: (extra) {
+                final store = StoreScope.read(context);
+                setState(() {
+                  _cands = [..._cands]..insertAll(_cands.indexOf(c) + 1, extra);
+                  for (final x in extra) {
+                    final m = reconcile(x, store.events, store.tasks);
+                    _matches[x] = m;
+                    x.selected = m.defaultSelected;
+                  }
+                });
+              },
             ),
           if (_unreadable.isNotEmpty)
             Padding(
@@ -304,13 +316,17 @@ class _CandidateTile extends StatefulWidget {
       required this.match,
       required this.following,
       required this.onFollowingChanged,
-      required this.onChanged});
+      required this.onChanged,
+      required this.onSplit});
 
   final Candidate c;
   final MatchResult? match;
   final bool following;
   final ValueChanged<bool> onFollowingChanged;
   final VoidCallback onChanged;
+
+  /// 時限の範囲が昼休みをはさんで候補を分けたとき、増えた候補（この候補のすぐ後ろに入れる）
+  final void Function(List<Candidate> extra) onSplit;
 
   @override
   State<_CandidateTile> createState() => _CandidateTileState();
@@ -389,6 +405,36 @@ class _CandidateTileState extends State<_CandidateTile> {
     // 開始より前の時刻は、翌日に終わる予定（夜勤など）
     c.endOffset = v <= s ? 1 : 0;
     c.endMin = v;
+    _changed();
+  }
+
+  /// 時限で時刻を選ぶ。昼休みなどをはさむ範囲は、休みの前後で別の候補に分ける
+  Future<void> _pickPeriods() async {
+    final store = StoreScope.read(context);
+    final periods = store.periods;
+    final initial = c.startMin == null || c.endMin == null
+        ? null
+        : periodRangeOf(periods, c.startMin!, c.endMin!, c.endOffset);
+    final r = await showPeriodRangePicker(context, initial: initial);
+    if (r == null || !mounted) return;
+    final blocks = periodBlocks(periods, r.$1, r.$2);
+    final shift = blocks.first.$1 - blocks.first.$1 % (24 * 60);
+    final f = periodToEvent(blocks.first.$1, blocks.first.$2);
+    c.startMin = f.start;
+    c.endMin = f.end;
+    c.endOffset = f.endOffset;
+    final extra = [
+      for (final (bs, be) in blocks.skip(1))
+        () {
+          final t = periodToEvent(bs, be);
+          return c.copyOn(addDays(c.date, (bs - shift) ~/ (24 * 60)))
+            ..startMin = t.start
+            ..endMin = t.end
+            ..endOffset = t.endOffset
+            ..hint = '${periodBreakNote(blocks)}の後ろの分';
+        }(),
+    ];
+    if (extra.isNotEmpty) widget.onSplit(extra);
     _changed();
   }
 
@@ -531,6 +577,11 @@ class _CandidateTileState extends State<_CandidateTile> {
                         ? (isTask ? '時刻なし' : '終日')
                         : fmtMin(c.startMin!)),
                   ),
+                  if (!isTask)
+                    TextButton(
+                      onPressed: _pickPeriods,
+                      child: Text('時限'),
+                    ),
                   if (!isTask && c.startMin != null)
                     TextButton(
                       onPressed: _pickEnd,

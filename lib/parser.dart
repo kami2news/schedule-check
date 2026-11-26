@@ -95,6 +95,10 @@ class Candidate {
   /// 読み終わったあと、日付だけを変えた候補に分ける
   List<DateTime> alsoOn = [];
 
+  /// 時限の範囲が昼休みなどをはさむとき、2 つ目以降のまとまり（通しの分の開始・終了）。
+  /// 読み終わったあと、時刻だけを変えた候補に分ける
+  List<(int, int)> splitRest = [];
+
   Candidate copyOn(DateTime d) => Candidate(
         title: title,
         date: d,
@@ -113,7 +117,8 @@ class Candidate {
         ..warning = warning
         ..hint = hint
         ..genre = genre
-        ..suggestedCalendarId = suggestedCalendarId;
+        ..suggestedCalendarId = suggestedCalendarId
+        ..splitRest = [...splitRest];
 }
 
 class ParseResult {
@@ -149,6 +154,9 @@ final _periodRe = RegExp(
 
 /// 取り込み中に使う時限の時刻（parseText が設定する）
 List<(int, int)> _periods = const [];
+
+/// 直前の _extractTime が時限から時刻を決め、その範囲が昼休みなどをはさんだときの 2 つ目以降のまとまり
+List<(int, int)> _lastSplit = const [];
 
 int _digit(String s) {
   if (s.length > 1) return int.parse(s); // 10〜12
@@ -435,6 +443,7 @@ final _multiSplitRe = RegExp(
     r'(?:[、，,；;]|\s[/／|｜]\s)\s*(?=(?:\d{4}\s*[/\-.年]\s*)?\d{1,2}\s*(?:/|月)\s*\d{1,2})');
 
 ({int? start, int? end, String rest}) _extractTime(String src) {
+  _lastSplit = const [];
   final s = _plainTimeWords(src);
   // 「新横浜 08:12発 → 京都 10:07着」
   final kn = _kaienRe.firstMatch(s);
@@ -503,8 +512,12 @@ final _multiSplitRe = RegExp(
     if (a <= b && b <= _periods.length) {
       // 時限は通しの分（24:00 を超えると翌日）。開始はその日の時刻にし、
       // 終了が翌日にかかるときは 24:00 を超えた値のまま返す（後で終了日を翌日にする）
-      final ps = _periods[a - 1].$1, pe = _periods[b - 1].$2;
+      // 昼休みなどをはさむ範囲は、休みの前後で別の予定にする（2 つ目以降は _lastSplit に）
+      final blocks = periodBlocks(_periods, a - 1, b - 1);
+      final ps = blocks.first.$1, pe = blocks.first.$2;
       final shift = ps - ps % (24 * 60);
+      // 2 つ目以降も 1 つ目の日を基準にした通しの分にする（24:00 を超えれば翌日）
+      _lastSplit = [for (final (x, y) in blocks.skip(1)) (x - shift, y - shift)];
       return (
         start: ps - shift,
         end: pe - shift,
@@ -1025,6 +1038,7 @@ ParseResult parseText(String text, DateTime now,
             final (e, off) = _splitEnd(tt.end);
             target.endMin = e;
             target.endOffset = off;
+            target.splitRest = _lastSplit;
           }
           // 「集合：9:00 ○○大学 正門前」は残りを場所にする
           final gather = RegExp(r'^\s*(?:集合(?:場所|時間|時刻)?|待ち合わせ)\s*[:：]?\s*');
@@ -1094,6 +1108,7 @@ ParseResult parseText(String text, DateTime now,
               final (e, off) = _splitEnd(t.end);
               target.endMin = e;
               target.endOffset = off;
+              target.splitRest = _lastSplit;
             }
             src = t.rest;
           }
@@ -1138,6 +1153,7 @@ ParseResult parseText(String text, DateTime now,
     }
     _reversedRange = null;
     final t = _extractTime(rest);
+    final splitRest = _lastSplit;
     rest = t.rest;
     var start = t.start;
     var end = t.end;
@@ -1317,6 +1333,7 @@ ParseResult parseText(String text, DateTime now,
       c.selected = false;
     }
     c.alsoOn = alsoOn;
+    if (start != null) c.splitRest = splitRest;
     c.genre = genre?.label;
     c.suggestedCalendarId = calId;
     out.add(c);
@@ -1330,6 +1347,30 @@ ParseResult parseText(String text, DateTime now,
     if (c.alsoOn.isEmpty) continue;
     final copies = [for (final d in c.alsoOn) c.copyOn(d)];
     c.alsoOn = [];
+    out.insertAll(i + 1, copies);
+    i += copies.length;
+  }
+  // 昼休みなどをはさむ時限の範囲: 休みの前後で別の予定にする
+  for (var i = 0; i < out.length; i++) {
+    final c = out[i];
+    if (c.splitRest.isEmpty || c.type == ImportType.task || c.startMin == null) {
+      c.splitRest = [];
+      continue;
+    }
+    final copies = <Candidate>[];
+    for (final (bs, be) in c.splitRest) {
+      final t = periodToEvent(bs, be);
+      // 通しの分で日をまたいだ分だけ日付を進める
+      final x = c.copyOn(addDays(c.date, bs ~/ (24 * 60)))
+        ..startMin = t.start
+        ..endMin = t.end
+        ..endOffset = t.endOffset
+        ..splitRest = []
+        ..hint ??= '昼休みなどの休みの前後で分けました';
+      copies.add(x);
+    }
+    c.hint ??= '昼休みなどの休みの前後で分けました';
+    c.splitRest = [];
     out.insertAll(i + 1, copies);
     i += copies.length;
   }

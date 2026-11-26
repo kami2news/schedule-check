@@ -377,15 +377,33 @@ class _EventEditPageState extends State<EventEditPage> {
     }
     final store = StoreScope.read(context);
     final e = widget.event;
+    // 時限の範囲が昼休みなどをはさむなら、休みの前後で別の予定にする（1 つ目をこの予定に）
+    var (st, en, off) = (_start, _end, _endOffset);
+    final extra = <(int, int, int, int)>[]; // (日数, 開始, 終了, 終了の日数)
+    final range = _allDay || _isOccurrence
+        ? null
+        : periodRangeOf(store.periods, _start, _end, _endOffset);
+    if (range != null) {
+      final blocks = periodBlocks(store.periods, range.$1, range.$2);
+      if (blocks.length > 1) {
+        final shift = blocks.first.$1 - blocks.first.$1 % (24 * 60);
+        final f = periodToEvent(blocks.first.$1, blocks.first.$2);
+        (st, en, off) = (f.start, f.end, f.endOffset);
+        for (final (bs, be) in blocks.skip(1)) {
+          final t = periodToEvent(bs, be);
+          extra.add(((bs - shift) ~/ (24 * 60), t.start, t.end, t.endOffset));
+        }
+      }
+    }
     final edited = Event(
       id: e?.id ?? store.newId(),
       title: _title.text.trim(),
       calendarId: store.calendarOf(_cal).id,
       showAs: _showAs,
       date: _date,
-      startMin: _allDay ? null : _start,
-      endMin: _allDay ? null : _end,
-      endOffset: _endOffset,
+      startMin: _allDay ? null : st,
+      endMin: _allDay ? null : en,
+      endOffset: off,
       repeat: _repeat,
       repeatUntil: _repeat != null ? _until : null,
       place: _place.text.trim(),
@@ -415,6 +433,25 @@ class _EventEditPageState extends State<EventEditPage> {
       }
     } else {
       store.upsertEvent(edited);
+    }
+    // 休みの後ろのまとまりは新しい予定として足す（繰り返しの設定も同じ）
+    for (final (days, s2, e2, o2) in extra) {
+      store.upsertEvent(Event(
+        id: store.newId(),
+        title: edited.title,
+        calendarId: edited.calendarId,
+        showAs: edited.showAs,
+        date: addDays(edited.date, days),
+        startMin: s2,
+        endMin: e2,
+        endOffset: o2,
+        repeat: edited.repeat,
+        repeatUntil: edited.repeatUntil,
+        place: edited.place,
+        note: edited.note,
+        url: edited.url,
+        reminder: edited.reminder,
+      ));
     }
     if (mounted) Navigator.of(context).pop();
   }
@@ -535,6 +572,7 @@ class _EventEditPageState extends State<EventEditPage> {
             start: _start,
             end: _end,
             endOffset: _endOffset,
+            canSplit: !_isOccurrence,
             onChanged: (st, en) => setState(() {
               // 日をまたぐ時限（23:30〜翌0:20 など）は、終了日を翌日にする
               final t = periodToEvent(st, en);
@@ -1159,7 +1197,11 @@ class _PeriodPicker extends StatelessWidget {
       {required this.start,
       required this.end,
       required this.onChanged,
-      this.endOffset = 0});
+      this.endOffset = 0,
+      this.canSplit = true});
+
+  /// 昼休みをはさむとき、保存で予定を分けられるか（繰り返しの1回だけの変更では分けない）
+  final bool canSplit;
 
   /// 予定の終了日が何日後か（日をまたぐ時限と見比べるのに使う）
   final int endOffset;
@@ -1179,7 +1221,8 @@ class _PeriodPicker extends StatelessWidget {
       return t.end == end && t.endOffset == endOffset;
     });
     final hasRange = a >= 0 && b >= a;
-    return Padding(
+    final blocks = hasRange ? periodBlocks(periods, a, b) : const <(int, int)>[];
+    final row = Padding(
       padding: EdgeInsets.only(top: 4, bottom: 4),
       child: Row(
         children: [
@@ -1214,6 +1257,122 @@ class _PeriodPicker extends StatelessWidget {
             onPressed: () => showPeriodSettings(context),
           ),
         ],
+      ),
+    );
+    if (blocks.length < 2) return row;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        row,
+        Padding(
+          padding: EdgeInsets.only(bottom: 4),
+          child: Text(
+              canSplit
+                  ? '${periodBreakNote(blocks)}をはさむので、保存すると休みの前後で${blocks.length}つの予定に分けます'
+                  : '${periodBreakNote(blocks)}をはさんでいます（繰り返しの1回だけの変更では分けません）',
+              style: FlText.caption1.copyWith(color: Fl.fg2)),
+        ),
+      ],
+    );
+  }
+}
+
+/// 時限の範囲を選ぶダイアログ（取り込み画面用）。始まりの時限を押してから終わりの時限を押す。
+/// 返り値は 0 始まりの (始まり, 終わり)
+Future<(int, int)?> showPeriodRangePicker(BuildContext context, {(int, int)? initial}) {
+  return showFlDialog<(int, int)>(context,
+      maxWidth: 480, child: _PeriodRangePicker(initial: initial));
+}
+
+class _PeriodRangePicker extends StatefulWidget {
+  const _PeriodRangePicker({this.initial});
+  final (int, int)? initial;
+
+  @override
+  State<_PeriodRangePicker> createState() => _PeriodRangePickerState();
+}
+
+class _PeriodRangePickerState extends State<_PeriodRangePicker> {
+  late int? _a = widget.initial?.$1;
+  late int? _b = widget.initial?.$2;
+  // 次に押す時限が「終わり」か
+  bool _pickingEnd = false;
+
+  void _tap(int i) => setState(() {
+        if (_a == null || !_pickingEnd) {
+          _a = i;
+          _b = i;
+          _pickingEnd = true;
+        } else {
+          final a = _a!;
+          _a = i < a ? i : a;
+          _b = i < a ? a : i;
+          _pickingEnd = false;
+        }
+      });
+
+  @override
+  Widget build(BuildContext context) {
+    final periods = StoreScope.of(context).periods;
+    final a = _a, b = _b;
+    final ok = a != null && b != null && b < periods.length;
+    final blocks = ok ? periodBlocks(periods, a, b) : const <(int, int)>[];
+    return Material(
+      color: Fl.bg1,
+      child: SingleChildScrollView(
+        padding: EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(children: [
+              Expanded(child: Text('時限で選ぶ', style: FlText.subtitle1)),
+              IconButton(
+                tooltip: '時限の時刻を設定',
+                icon: FlIcon(FluentIcons.settings_24_regular, size: 18, color: Fl.fg2),
+                onPressed: () => showPeriodSettings(context),
+              ),
+            ]),
+            SizedBox(height: 4),
+            Text('始まりの時限を押してから、終わりの時限を押します',
+                style: FlText.caption1.copyWith(color: Fl.fg2)),
+            SizedBox(height: 12),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                for (var i = 0; i < periods.length; i++)
+                  _DayChip(
+                    label: '${i + 1}',
+                    selected: ok && i >= a && i <= b,
+                    onTap: () => _tap(i),
+                  ),
+              ],
+            ),
+            SizedBox(height: 12),
+            if (ok) ...[
+              Text(
+                  '${a == b ? '${a + 1}限' : '${a + 1}〜${b + 1}限'}　'
+                  '${fmtPeriodMin(periods[a].$1)}〜${fmtPeriodMin(periods[b].$2)}',
+                  style: FlText.body1Strong),
+              if (blocks.length > 1)
+                Padding(
+                  padding: EdgeInsets.only(top: 4),
+                  child: Text(
+                      '${periodBreakNote(blocks)}をはさむので、休みの前後で${blocks.length}つの予定に分けます',
+                      style: FlText.caption1.copyWith(color: Fl.fg2)),
+                ),
+            ],
+            SizedBox(height: 20),
+            FlActions(
+              primary: FilledButton(
+                onPressed: ok ? () => Navigator.of(context).pop((a, b)) : null,
+                child: Text('決定'),
+              ),
+              onCancel: () => Navigator.of(context).pop(),
+            ),
+          ],
+        ),
       ),
     );
   }

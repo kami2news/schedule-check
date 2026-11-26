@@ -53,6 +53,26 @@ void main() {
     expect(CalendarDef.fromJson(b.toJson()).genres, ['就活']);
   });
 
+  test('昼休みをはさむ時限の範囲は、休みの前後で別の予定にする', () {
+    // 90 分授業・昼休み 12:10〜13:00 の時限
+    const periods = [(540, 630), (640, 730), (780, 870), (880, 970), (980, 1070), (1080, 1170)];
+    List<Candidate> parse(String t) =>
+        parseText(t, DateTime(2026, 11, 26), periods: periods).candidates;
+    final cs = parse('12/3(木) 2〜4限 生物学実験');
+    expect(cs.map((c) => (c.date, c.startMin, c.endMin)).toList(), [
+      (DateTime(2026, 12, 3), 10 * 60 + 40, 12 * 60 + 10),
+      (DateTime(2026, 12, 3), 13 * 60, 16 * 60 + 10),
+    ]);
+    expect(cs.every((c) => c.title == '生物学実験'), isTrue);
+    // 休みをはさまない範囲は 1 つ
+    expect(parse('12/3(木) 3・4限 統計学').single.endMin, 16 * 60 + 10);
+    // 続けた日付と組み合わせても日ごとに分ける（次の行の時限も）
+    final cs2 = parse('集中講義\n2月9日（火）・10日（水）\n1限～5限');
+    expect(cs2.map((c) => (c.date.day, c.startMin)).toList(),
+        [(9, 540), (9, 780), (10, 540), (10, 780)]);
+    expect(periodBreakNote(periodBlocks(periods, 1, 2)), '昼休み（12:10〜13:00）');
+  });
+
   test('取り込みの例のデータベース', () {
     final db = jsonDecode(File('test/fixtures/import_corpus.json').readAsStringSync())
         as Map<String, dynamic>;

@@ -51,6 +51,46 @@ String fmtPeriodMin(int m) =>
   return (start: s, end: e % (24 * 60), endOffset: e ~/ (24 * 60));
 }
 
+/// 時限のあいだの、予定を分ける休み（昼休みなど）の長さ（分）。これ以上空いていれば別の予定にする
+const kPeriodBreakMin = 30;
+
+/// 時限 [a]〜[b]（0 始まり）を、昼休みなどの長い休みで区切ったまとまり（通しの分の開始・終了）。
+/// 休みをはさまなければ 1 つ
+List<(int, int)> periodBlocks(List<(int, int)> periods, int a, int b) {
+  final out = <(int, int)>[];
+  var s = periods[a].$1;
+  for (var i = a; i < b; i++) {
+    if (periods[i + 1].$1 - periods[i].$2 >= kPeriodBreakMin) {
+      out.add((s, periods[i].$2));
+      s = periods[i + 1].$1;
+    }
+  }
+  out.add((s, periods[b].$2));
+  return out;
+}
+
+/// 予定の開始・終了がちょうど時限の範囲に一致すれば、その範囲（0 始まり）。一致しなければ null
+(int, int)? periodRangeOf(List<(int, int)> periods, int start, int end, int endOffset) {
+  final a = periods.indexWhere((p) => periodToEvent(p.$1, p.$2).start == start);
+  if (a < 0) return null;
+  for (var b = a; b < periods.length; b++) {
+    final t = periodToEvent(periods[a].$1, periods[b].$2);
+    if (t.end == end && t.endOffset == endOffset) return (a, b);
+  }
+  return null;
+}
+
+/// 「昼休み（12:10〜13:00）」のような、まとまりのあいだの休みの説明
+String periodBreakNote(List<(int, int)> blocks) => [
+      for (var i = 0; i + 1 < blocks.length; i++)
+        '${_breakName(blocks[i].$2, blocks[i + 1].$1)}（${fmtPeriodMin(blocks[i].$2)}〜${fmtPeriodMin(blocks[i + 1].$1)}）'
+    ].join('・');
+
+String _breakName(int from, int to) {
+  final mid = ((from + to) ~/ 2) % (24 * 60);
+  return mid >= 11 * 60 && mid <= 14 * 60 + 30 ? '昼休み' : '休み';
+}
+
 /// 時刻 [clock]（0:00〜23:59）を、[after] 以後でいちばん近い通しの分にする（翌日なら +24時間）
 int periodAfter(int clock, int after) {
   var v = clock % (24 * 60);
