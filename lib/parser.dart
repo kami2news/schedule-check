@@ -872,6 +872,9 @@ ParseResult parseText(String text, DateTime now,
   int? ctxMonth;
   // 前置きの文から拾った予定の名前（「面接にご予約いただき…」の「面接」）
   String? eventHint;
+  // 見出しが「件名：」などで明示されたタイトルか、「会社名：」か
+  var headingExplicit = false;
+  var headingCompany = false;
   // 空行の直前に作った候補（会議のリンクなど、空行をはさんだ補足を受け付ける）
   Candidate? afterBlank;
   for (var li = 0; li < lines.length; li++) {
@@ -969,9 +972,16 @@ ParseResult parseText(String text, DateTime now,
               .map((m) => _eventNounRe.firstMatch(m.group(1)!)?.group(0))
               .whereType<String>();
           final noun = quoted.isNotEmpty ? quoted.first : _eventNounRe.firstMatch(body)?.group(0);
-          if (noun != null) eventHint = noun.replaceAll(_trimHead, '');
+          // 「〜さんがあなたを Zoom ミーティングに招待しています」のような定型文からは拾わない
+          if (noun != null && !RegExp(r'招待').hasMatch(body)) {
+            eventHint = noun.replaceAll(_trimHead, '');
+          }
           if (h != null) {
             heading = h;
+            // 「件名：」「トピック：」「会社名：」のようにタイトルと明示された見出し
+            final tl = _titleLabelRe.firstMatch(body.replaceAll(_trimHead, ''));
+            headingExplicit = tl != null;
+            headingCompany = tl != null && RegExp(r'^\s*[【\[]?\s*(?:会社名|企業名|社名)').hasMatch(body.replaceAll(_trimHead, ''));
             if (RegExp(r'^(?:件名|subject)', caseSensitive: false)
                 .hasMatch(body)) {
               subject = h;
@@ -1200,7 +1210,10 @@ ParseResult parseText(String text, DateTime now,
       // 「予約日時」「当日の詳細」のような見出しの語より、前置きで拾った予定の名前を使う
       // 優先順: 予定の名前を含む見出し → 前置きの文の予定の名前 → 見出し（「担当者」のような語でないもの）
       final hd = heading != null && _labelishRe.hasMatch(heading) ? null : heading;
-      final h = (hd != null && _eventNounRe.hasMatch(hd) ? hd : null) ??
+      final h = (hd != null && headingCompany && eventHint != null && !hd.contains(eventHint!)
+              ? '$hd $eventHint'
+              : null) ??
+          (hd != null && (headingExplicit || _eventNounRe.hasMatch(hd)) ? hd : null) ??
           eventHint ??
           hd ??
           heading ??
@@ -1340,7 +1353,7 @@ ParseResult parseText(String text, DateTime now,
       if (b.date != a.date || b.startMin != a.startMin) continue;
       if (a.endMin != null && b.endMin != null && a.endMin != b.endMin) continue;
       // 同じタイトルの重複は、2 件目に注意を付けて残す（下の処理）
-      if (a.title.trim() == b.title.trim()) continue;
+      if (a.title.trim() == b.title.trim() && a.endMin == b.endMin) continue;
       final keep = _score(b) > _score(a) ? b : a;
       final drop = identical(keep, a) ? b : a;
       if (keep.endMin == null && drop.endMin != null) {
