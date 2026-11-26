@@ -811,10 +811,21 @@ ParseResult parseText(String text, DateTime now,
 
   // 勤務連絡（ユニティーの「労働条件通知」など）は決まった書式なので先に読み取る
   // Markdown のリンク「[文字](URL)」は「文字 URL」に直してから読む
+  // 1行に並んだ日付を分けたとき、分けた各部分の種類の手がかりに元の行全体を使う
+  // （「11/28 10:00-15:00 / 11/29 13:00-18:00 バイト」は両方シフト）
+  final wholeLine = <String, String>{};
   final lines = _joinHeadingValues([
     for (final l in text.split(RegExp(r'\r?\n')))
-      ..._halfWidth(l.replaceAllMapped(_mdLinkRe, (m) => '${m.group(1)} ${m.group(2)}'))
-          .split(_multiSplitRe),
+      ...() {
+        final whole = _halfWidth(l.replaceAllMapped(_mdLinkRe, (m) => '${m.group(1)} ${m.group(2)}'));
+        final parts = whole.split(_multiSplitRe);
+        if (parts.length > 1) {
+          for (final x in parts) {
+            wholeLine[x.trim()] = whole;
+          }
+        }
+        return parts;
+      }(),
   ]);
   final unreadable = <String>[];
   final consumed = <int>{};
@@ -1108,7 +1119,7 @@ ParseResult parseText(String text, DateTime now,
     }
     // 「（受付9:30～）」のような時刻入りのかっこ書きは、タイトルではなくメモへ
     final sideNotes = <String>[];
-    rest = rest.replaceAllMapped(RegExp(r'[（(][^（()）]*\d{1,2}[:：時]\d{0,2}[^（()）]*[)）]'), (m) {
+    rest = rest.replaceAllMapped(RegExp(r'[（(][^（()）]*\d{1,2}(?:[:：]\d{2}|時(?!間))[^（()）]*[)）]'), (m) {
       sideNotes.add(m.group(0)!);
       return ' ';
     });
@@ -1134,7 +1145,7 @@ ParseResult parseText(String text, DateTime now,
       }
     }
 
-    final kindText = '$line $title';
+    final kindText = '$line $title ${wholeLine[line] ?? ''}';
     // 前置きの文（「来週のシフトです」）も種類の手がかりにする
     final ctxText = '$kindText $context';
     // 「10時から正午まで」の「まで」は時間の範囲。締め切りの「まで」とは分ける
