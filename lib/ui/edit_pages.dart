@@ -396,7 +396,9 @@ class _EventEditPageState extends State<EventEditPage> {
       final blocks = periodSelectionBlocks(store.periods, sel);
       final f0 = blocks.isEmpty ? null : periodToEvent(blocks.first.$1, blocks.first.$2);
       // 時刻の欄を手で直したあとなら、選んだ時限は使わない
-      if (blocks.length > 1 && f0!.start == _start && f0.end == _end) {
+      // 時限のボタンで選んだときは、時刻の欄が 1 つ目のまとまりと合っているか確かめる
+      final ok = _periodSel == null || (f0 != null && f0.start == _start && f0.end == _end);
+      if (blocks.length > 1 && ok) {
         final shift = blocks.first.$1 - blocks.first.$1 % (24 * 60);
         final f = periodToEvent(blocks.first.$1, blocks.first.$2);
         (st, en, off) = (f.start, f.end, f.endOffset);
