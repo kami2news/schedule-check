@@ -83,6 +83,28 @@ class Candidate {
 
   /// この予定の終了時刻に、同じ番号のタスクの期限を合わせる
   bool linkEnd = false;
+
+  /// 同じ内容でほかにも行う日（「2月9日（火）・10日（水）・12日（金）」の 10日・12日）。
+  /// 読み終わったあと、日付だけを変えた候補に分ける
+  List<DateTime> alsoOn = [];
+
+  Candidate copyOn(DateTime d) => Candidate(
+        title: title,
+        date: d,
+        type: type,
+        source: source,
+        startMin: startMin,
+        endMin: endMin,
+        url: url,
+        note: note,
+        place: place,
+        calendarId: calendarId,
+        showAs: showAs,
+        endOffset: endOffset,
+      )
+        ..selected = selected
+        ..warning = warning
+        ..hint = hint;
 }
 
 class ParseResult {
@@ -112,8 +134,9 @@ const _enMonths = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep'
 final _relWeekRe = RegExp(r'(今週|来週|再来週)\s*の?\s*([月火水木金土日])(?:曜日?)?');
 
 /// 「3限」「3・4限」「2〜3時限」「5コマ目」
+/// 「1限～10限」のように、区切りの前にも「限」が付く形も読む
 final _periodRe = RegExp(
-    r'(1[0-2]|[1-9１-９])\s*(?:[・,、\-〜~～]\s*(1[0-2]|[1-9１-９])\s*)?(?:時限目?|限目?|コマ目?)');
+    r'(1[0-2]|[1-9１-９])\s*(?:(?:時限|限|コマ)目?\s*)?(?:[・,、\-〜~～]\s*(1[0-2]|[1-9１-９])\s*)?(?:時限目?|限目?|コマ目?)');
 
 /// 取り込み中に使う時限の時刻（parseText が設定する）
 List<(int, int)> _periods = const [];
@@ -171,7 +194,7 @@ final _singleRe = RegExp(_timeTok);
 final _taskWords = RegExp(r'締切|締め切り|〆|提出|期限|まで');
 final _shiftWords = RegExp(r'シフト|バイト|勤務|出勤');
 final _lectureWords =
-    RegExp(r'授業|講義|ゼミ|実験|休講|補講|試験|テスト|[0-9１-９]\s*(?:時限|限)');
+    RegExp(r'授業|講義|演習|ゼミ|実験|休講|補講|試験|テスト|[0-9１-９]\s*(?:時限|限)');
 
 /// URL の前に付きがちなラベル（「Zoom:」「URL：」など）
 final _linkLabelRe = RegExp(
@@ -325,6 +348,10 @@ String _halfWidth(String s) => s
     // 「１０：００」の「：」だけ半角に（「日程：11/25」の見出しの「：」はそのまま）
     .replaceAllMapped(RegExp(r'(?<=\d)\s*：\s*(?=\d)'), (_) => ':')
     .replaceAll('／', '/');
+
+/// 日付のすぐ後ろに「・10日」「、2月10日」「・12/3」と続く日付（曜日は先に取り除いてある）
+final _alsoDayRe = RegExp(
+    r'^\s*[・、，,]\s*(?:(\d{1,2})\s*月\s*(\d{1,2})\s*日|(\d{1,2})/(\d{1,2})(?![\d:/])|(\d{1,2})\s*日(?![間後前]))');
 
 /// 「12/2 10:00 A、12/3 13:00 B」のように1行に複数の日付があれば分ける
 final _multiSplitRe = RegExp(
@@ -905,6 +932,19 @@ ParseResult parseText(String text, DateTime now,
     }
 
     var rest = d.rest.replaceAll(_weekdayRe, ' ');
+    // 「2月9日（火）・10日（水）・12日（金）」「12/2・12/3」: 続けて書かれた日付（同じ内容で別の日）
+    final alsoOn = <DateTime>[];
+    while (true) {
+      final m = _alsoDayRe.firstMatch(rest);
+      if (m == null) break;
+      final mo = int.tryParse(m.group(1) ?? m.group(3) ?? '') ?? d.date.month;
+      final day = int.parse(m.group(2) ?? m.group(4) ?? m.group(5)!);
+      var dt = _validDate(d.date.year, mo, day);
+      if (dt != null && !dt.isAfter(d.date)) dt = _validDate(d.date.year + 1, mo, day);
+      if (dt == null || dt.difference(d.date).inDays > 60) break;
+      alsoOn.add(dt);
+      rest = rest.substring(m.end);
+    }
     // 「12月1日(火)〜12月3日(木)」: 数日にわたる予定
     var spanDays = 0;
     for (final sep in RegExp(r'[〜~～–ー]\s*(?=\d)').allMatches(rest)) {
@@ -1056,10 +1096,20 @@ ParseResult parseText(String text, DateTime now,
       c.warning = warning;
       c.selected = false;
     }
+    c.alsoOn = alsoOn;
     out.add(c);
     open = c;
     needsTitle = weak ? c : null;
     fromHeading = borrowed ? c : null;
+  }
+  // 続けて書かれた日付（「・10日・12日」）: 続く行の時限・場所なども含めて、同じ内容で日付だけ変えた候補にする
+  for (var i = 0; i < out.length; i++) {
+    final c = out[i];
+    if (c.alsoOn.isEmpty) continue;
+    final copies = [for (final d in c.alsoOn) c.copyOn(d)];
+    c.alsoOn = [];
+    out.insertAll(i + 1, copies);
+    i += copies.length;
   }
   // 締め切りは終日が基本（0:00 は前日、23:59 はその日の終日。ほかの時刻は残す）
   for (final c in out) {

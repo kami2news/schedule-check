@@ -360,4 +360,27 @@ https://teams.microsoft.com/l/meetup-join/sample
       ]);
     });
   });
+
+  group('集中講義', () {
+    test('科目名の行・続けて書いた日付・「1限～10限」', () {
+      final cs = parse('''社会調査演習Ｂ／社会調査演習Ⅱ山田　太郎
+2月9日（火）・10日（水）・12日（金）
+1限～10限　（昼休み1コマ含む）''');
+      expect(cs.map((c) => c.date).toList(),
+          [DateTime(2027, 2, 9), DateTime(2027, 2, 10), DateTime(2027, 2, 12)]);
+      for (final c in cs) {
+        expect(c.type, ImportType.lecture);
+        expect(c.title, startsWith('社会調査演習B'));
+        // 既定の時限（9:00 から 50 分ずつ）: 1限 9:00 〜 10限 18:50
+        expect((c.startMin, c.endMin), (9 * 60, 18 * 60 + 50));
+        expect(c.note, contains('昼休み'));
+      }
+    });
+
+    test('「12/2・12/3 3限」も日ごとに分ける', () {
+      final cs = parse('12/2・12/3 3限 補講');
+      expect(cs.map((c) => (c.date, c.startMin)).toList(),
+          [(DateTime(2026, 12, 2), 11 * 60), (DateTime(2026, 12, 3), 11 * 60)]);
+    });
+  });
 }
