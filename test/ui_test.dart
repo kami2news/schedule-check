@@ -227,9 +227,9 @@ void main() {
     await tester.tap(find.text('決定'));
     await tester.pumpAndSettle();
     // 10:40〜12:10 と 13:00〜16:10 の2つ
-    expect(find.text('10:40', skipOffstage: false), findsOneWidget);
-    expect(find.text('13:00', skipOffstage: false), findsOneWidget);
+    expect(find.text('〜 12:10', skipOffstage: false), findsOneWidget);
     expect(find.text('〜 16:10', skipOffstage: false), findsOneWidget);
+    expect(find.text('地学実験', skipOffstage: false), findsNWidgets(2));
   });
 
   testWidgets('時刻つきの締め切りは、時間の欄に印が出る', (tester) async {
