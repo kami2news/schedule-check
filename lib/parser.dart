@@ -136,7 +136,7 @@ final _relWeekRe = RegExp(r'(今週|来週|再来週)\s*の?\s*([月火水木金
 /// 「3限」「3・4限」「2〜3時限」「5コマ目」
 /// 「1限～10限」のように、区切りの前にも「限」が付く形も読む
 final _periodRe = RegExp(
-    r'(1[0-2]|[1-9１-９])\s*(?:(?:時限|限|コマ)目?\s*)?(?:[・,、\-〜~～]\s*(1[0-2]|[1-9１-９])\s*)?(?:時限目?|限目?|コマ目?)');
+    r'(1[0-2]|[1-9１-９])\s*((?:時限|限|コマ)目?\s*)?(?:([・,、\-〜~～])\s*(1[0-2]|[1-9１-９])\s*)?(?:時限目?|限目?|コマ目?)');
 
 /// 取り込み中に使う時限の時刻（parseText が設定する）
 List<(int, int)> _periods = const [];
@@ -158,6 +158,9 @@ int _digit(String s) {
 /// 「正午」「午後3時」「午前9:30」を、ふつうの時刻の書き方に直す
 String _plainTimeWords(String s) => s
     .replaceAll('正午', '12:00')
+    // 「午前中」: 配達は 8〜12 時、それ以外は 9〜12 時
+    .replaceAll(RegExp(r'午前中'),
+        RegExp(r'お届け|配達|配送|宅配').hasMatch(s) ? ' 8:00〜12:00 ' : ' 9:00〜12:00 ')
     // 「10時半」→「10:30」
     .replaceAllMapped(RegExp(r'(\d{1,2})\s*時\s*半'), (m) => '${m.group(1)}:30')
     // 「22:00-翌6:00」: 「翌」は取り除く（夜に始まり朝に終わる範囲として読む）
@@ -395,7 +398,7 @@ final _alsoDayRe = RegExp(
 
 /// 「12/2 10:00 A、12/3 13:00 B」のように1行に複数の日付があれば分ける
 final _multiSplitRe = RegExp(
-    r'[、，,；;]\s*(?=(?:\d{4}\s*[/\-.年]\s*)?\d{1,2}\s*(?:/|月)\s*\d{1,2})');
+    r'(?:[、，,；;]|\s[/／|｜]\s)\s*(?=(?:\d{4}\s*[/\-.年]\s*)?\d{1,2}\s*(?:/|月)\s*\d{1,2})');
 
 ({int? start, int? end, String rest}) _extractTime(String src) {
   final s = _plainTimeWords(src);
@@ -432,6 +435,15 @@ final _multiSplitRe = RegExp(
       return (start: a, end: b, rest: s.replaceRange(r.start, r.end, ' '));
     }
   }
+  // 表からのコピー（「10:00<タブ>18:00」）: タブで並んだ2つの時刻は開始と終了
+  final tb = RegExp(r'(\d{1,2})[:：](\d{2})\s*\t\s*(\d{1,2})[:：](\d{2})').firstMatch(s);
+  if (tb != null) {
+    final a = int.parse(tb.group(1)!) * 60 + int.parse(tb.group(2)!);
+    final b = int.parse(tb.group(3)!) * 60 + int.parse(tb.group(4)!);
+    if (a < 24 * 60 && b <= 24 * 60) {
+      return (start: a, end: b > a ? b : b + 24 * 60, rest: s.replaceRange(tb.start, tb.end, ' '));
+    }
+  }
   final m = _singleRe.firstMatch(s);
   if (m != null) {
     final v = _toMin(m, 1, 2, 3);
@@ -443,7 +455,9 @@ final _multiSplitRe = RegExp(
   final p = _periodRe.firstMatch(s);
   if (p != null && _periods.isNotEmpty) {
     final a = _digit(p.group(1)!);
-    final b = p.group(2) == null ? a : _digit(p.group(2)!);
+    var b = p.group(4) == null ? a : _digit(p.group(4)!);
+    // 「2限・4限」は離れた2つの時限（範囲ではない）。先の時限だけにする。「1限・2限」は続きなので範囲
+    if (p.group(2) != null && '・,、'.contains(p.group(3)!) && b != a + 1) b = a;
     if (a <= b && b <= _periods.length) {
       // 時限は通しの分（24:00 を超えると翌日）。開始はその日の時刻にし、
       // 終了が翌日にかかるときは 24:00 を超えた値のまま返す（後で終了日を翌日にする）
@@ -1085,6 +1099,19 @@ ParseResult parseText(String text, DateTime now,
             .replaceAll(RegExp(r'\d{1,2}:\d{2}\s*(?:[-〜~～–ー]\s*\d{1,2}:\d{2})?'), ' ');
       }
     }
+    // 同じ行の場所（「場所：A棟201」「会場：〜」「@渋谷」）
+    var place = '';
+    final ip = RegExp(r'(?:場所|会場|教室)\s*[:：]\s*(\S+)|(?<=^|\s)[@＠]\s*(\S+)').firstMatch(rest);
+    if (ip != null) {
+      place = (ip.group(1) ?? ip.group(2))!;
+      rest = rest.replaceRange(ip.start, ip.end, ' ');
+    }
+    // 「（受付9:30～）」のような時刻入りのかっこ書きは、タイトルではなくメモへ
+    final sideNotes = <String>[];
+    rest = rest.replaceAllMapped(RegExp(r'[（(][^（()）]*\d{1,2}[:：時]\d{0,2}[^（()）]*[)）]'), (m) {
+      sideNotes.add(m.group(0)!);
+      return ' ';
+    });
     final cleaned = _cleanTitle(rest);
     var title = cleaned.title;
     var weak = title.isEmpty || _genericRe.hasMatch(title);
@@ -1172,7 +1199,8 @@ ParseResult parseText(String text, DateTime now,
           ? 0
           : (spanDays > 0 ? spanDays : _splitEnd(end).$2),
       url: urls.isEmpty ? '' : urls.first,
-      note: urls.length > 1 ? urls.skip(1).join('\n') : '',
+      note: [...sideNotes, if (urls.length > 1) ...urls.skip(1)].join('\n'),
+      place: place,
     );
     if (warning != null) {
       c.warning = warning;
