@@ -232,7 +232,21 @@ final _linkLabelRe = RegExp(
 
 /// 所要時間（「約1時間」「1時間半」「90分程度」）。開始時刻だけのときに終了時刻を決める
 final _durationRe = RegExp(
-    r'[（(]?\s*(?:約|およそ|所要(?:時間)?\s*[:：]?\s*)?(?:(\d{1,2})\s*時間\s*(?:(\d{1,2})\s*分|(半))?|(\d{2,3})\s*分)\s*(?:間|程度|ほど|くらい|ぐらい)?\s*[）)]?');
+    r'[（(]?\s*(?:約|およそ|所要(?:時間)?\s*[:：]?\s*)?(?:(\d{1,2})\s*時間\s*(?:(\d{1,2})\s*分|(半))?|(?:\d{1,3}\s*[〜~～\-]\s*)?(\d{2,3})\s*分)\s*(?:間|程度|ほど|くらい|ぐらい|前後)?\s*[）)]?');
+
+/// 補足の行の所要時間（「所要時間：60分」「時間は約2時間ほど」）を分で返す
+int? _durationMins(String line) {
+  if (!RegExp(r'所要|約|程度|ほど|前後|くらい|ぐらい|^\s*\d').hasMatch(line)) return null;
+  final du = _durationRe.firstMatch(line);
+  if (du == null) return null;
+  final mins = du.group(4) != null
+      ? int.parse(du.group(4)!)
+      : du.group(1) == null
+          ? 0
+          : int.parse(du.group(1)!) * 60 +
+              (du.group(3) != null ? 30 : int.tryParse(du.group(2) ?? '') ?? 0);
+  return mins > 0 && mins <= 12 * 60 ? mins : null;
+}
 
 /// 文章の中の「面談日時」「説明会の日程」から、予定の名前（「面談」「説明会」）を拾う
 final _hintRe = RegExp(r'([^\s、。「」■□◆●【】]{1,10}?)の?(?:日時|日程)(?:が|は|に|を|について|の)');
@@ -286,7 +300,7 @@ final _labelRe = RegExp(
 
 /// タイトルとして使えるラベル行（「件名: 〜」「内容：〜」）
 final _titleLabelRe = RegExp(
-    r'^(?:[【\[〈<（(]\s*)?(?:件名|[Ss]ubject|タイトル|題名|内容|用件|トピック|[Tt]opic|議題|列車名|便名|会議名|ミーティング名|作品名?|公演名|演目|イベント名?|科目名?|講義名?|授業名?)\s*(?:[】\]〉>）)]\s*[:：]?|[:：])\s*(.+)$');
+    r'^(?:[【\[〈<（(]\s*)?(?:件名|[Ss]ubject|会社名|企業名|社名|サービス名|タイトル|題名|内容|用件|トピック|[Tt]opic|議題|列車名|便名|会議名|ミーティング名|作品名?|公演名|演目|イベント名?|科目名?|講義名?|授業名?)\s*(?:[】\]〉>）)]\s*[:：]?|[:：])\s*(.+)$');
 
 /// メモ向きの行（ミーティングID・パスコード・持ち物など）
 final _noteLineRe = RegExp(
@@ -312,7 +326,15 @@ final _noticeTailRe =
 
 /// タイトルとしては情報が少ない語
 final _genericRe = RegExp(
-    r'^(?:締切|締め切り|〆切|提出|期限|予定|開始|集合|日程|日時|開催|実施|当日|ご?予約|ご?予約内容|ご?予約確認|ご?来店|ご案内|お知らせ|リマインド|確認|詳細)$');
+    r'^(?:締切|締め切り|〆切|提出|期限|予定|開始|集合|日程|日時|開催|実施|当日|ご?予約|ご?予約内容|ご?予約確認|ご?来店|ご案内|お知らせ|リマインド|確認|詳細|カレンダーに追加|カレンダーに登録(?:する)?|(?:あなたの)?ご?参加日|ご?予約日時?|予約の詳細|当日の詳細|ご予約の内容)$');
+
+/// 「予約日時」「サービス名」「担当者」「当日の詳細」のような、値の前に付く見出しの語（タイトルにはしない）
+final _labelishRe = RegExp(
+    r'^.{0,8}(?:日時|日程|日付|参加日|予約日|開催日|時間|時刻|名|者|場所|会場|形式|内容|詳細|方法|情報|先)$');
+
+/// 予定の名前になる語（「会社説明会」「面接」「空き家活用インターン」）。文の中からでも拾う
+final _eventNounRe = RegExp(
+    r'[^\s、。！!？?「」『』【】（）()の・：:]{0,16}?(?:説明選考会|説明会|選考会|面接|面談|相談会|セミナー|インターン(?:シップ)?|座談会|懇親会|会議|ミーティング|研修|講習|ワークショップ|勉強会|発表会|交流会|見学会)');
 
 /// 「みなと歯科クリニックです。」のような名乗りの文から、送り主（店・病院など）の名前を拾う
 final _orgHintRe = RegExp(
@@ -357,7 +379,7 @@ String? _asHeading(String line) {
   if (_sentenceRe.hasMatch(line) || _greetingRe.hasMatch(line)) return null;
   final tm = _titleLabelRe.firstMatch(line);
   final t = _cleanTitle(tm != null ? tm.group(1)! : line).title;
-  if (t.isEmpty || t.length > 30 || _genericRe.hasMatch(t)) return null;
+  if (t.isEmpty || t.length > 40 || _genericRe.hasMatch(t)) return null;
   return t;
 }
 
@@ -825,7 +847,9 @@ ParseResult parseText(String text, DateTime now,
   final lines = _joinHeadingValues([
     for (final l in text.split(RegExp(r'\r?\n')))
       ...() {
-        final whole = _halfWidth(l.replaceAllMapped(_mdLinkRe, (m) => '${m.group(1)} ${m.group(2)}'));
+        // HTML の表から変換されたメール（「| 予約日時 |」）は、行の頭と終わりの縦棒を外す
+        final whole = _halfWidth(l.replaceAllMapped(_mdLinkRe, (m) => '${m.group(1)} ${m.group(2)}'))
+            .replaceAll(RegExp(r'^\s*\|\s*|\s*\|\s*$'), '');
         final parts = whole.split(_multiSplitRe);
         if (parts.length > 1) {
           for (final x in parts) {
@@ -845,6 +869,8 @@ ParseResult parseText(String text, DateTime now,
   var context = '';
   // 「12月シフト」のような月だけの見出し（続く「5日(土)」の月）
   int? ctxMonth;
+  // 前置きの文から拾った予定の名前（「面接にご予約いただき…」の「面接」）
+  String? eventHint;
   // 空行の直前に作った候補（会議のリンクなど、空行をはさんだ補足を受け付ける）
   Candidate? afterBlank;
   for (var li = 0; li < lines.length; li++) {
@@ -889,6 +915,26 @@ ParseResult parseText(String text, DateTime now,
     }
     if (d == null && open == null && afterBlank != null) {
       final prev = afterBlank;
+      // 「11/27（金）」のあと空行をはさんで「12:00〜12:30」だけの行
+      if (prev.startMin == null && prev.type != ImportType.task &&
+          RegExp(r'^\s*\d{1,2}[:：]\d{2}\s*(?:[-〜~～–]\s*\d{1,2}[:：]\d{2})?\s*$').hasMatch(body)) {
+        final tt = _extractTime(body);
+        if (tt.start != null) {
+          prev.startMin = tt.start;
+          final (e, off) = _splitEnd(tt.end);
+          prev.endMin = e;
+          prev.endOffset = off;
+          continue;
+        }
+      }
+      // 「■所要時間：60分」「時間は約2時間ほどを予定しております」
+      if (prev.startMin != null && prev.endMin == null && prev.type != ImportType.task) {
+        final mins = _durationMins(body);
+        if (mins != null) {
+          prev.endMin = math.min(prev.startMin! + mins, 23 * 60 + 59);
+          continue;
+        }
+      }
       if (urls.isNotEmpty && prev.url.isEmpty && isMeetingLink(urls.first)) {
         prev.url = urls.first;
         continue;
@@ -917,6 +963,12 @@ ParseResult parseText(String text, DateTime now,
           if (hint != null && !_genericRe.hasMatch(hint)) heading = hint;
           // 段落の前置き（「来週のシフトです」など）は、種類の手がかりに使う
           context = '$context $body';
+          // 予定の名前の手がかり（「」の中を優先）
+          final quoted = RegExp(r'[「『]([^」』]{2,30})[」』]').allMatches(body)
+              .map((m) => _eventNounRe.firstMatch(m.group(1)!)?.group(0))
+              .whereType<String>();
+          final noun = quoted.isNotEmpty ? quoted.first : _eventNounRe.firstMatch(body)?.group(0);
+          if (noun != null) eventHint = noun.replaceAll(_trimHead, '');
           if (h != null) {
             heading = h;
             if (RegExp(r'^(?:件名|subject)', caseSensitive: false)
@@ -960,6 +1012,14 @@ ParseResult parseText(String text, DateTime now,
           } else if (restText.isNotEmpty) {
             target.note = _addLine(target.note, line);
           }
+          continue;
+        }
+      }
+      // 「所要時間：1時間前後」: 終わりの時刻がまだなければ入れる
+      if (target.startMin != null && target.endMin == null && target.type != ImportType.task) {
+        final mins = _durationMins(body);
+        if (mins != null) {
+          target.endMin = math.min(target.startMin! + mins, 23 * 60 + 59);
           continue;
         }
       }
@@ -1136,7 +1196,9 @@ ParseResult parseText(String text, DateTime now,
     var weak = title.isEmpty || _genericRe.hasMatch(title);
     var borrowed = false;
     if (weak) {
-      final h = heading ?? subject;
+      // 「予約日時」「当日の詳細」のような見出しの語より、前置きで拾った予定の名前を使う
+      final hd = heading != null && _labelishRe.hasMatch(heading) ? null : heading;
+      final h = hd ?? eventHint ?? heading ?? subject;
       if (h != null) {
         // 「提出」など短い語だけ残った場合は見出しと組み合わせる
         title = title.isEmpty || h.contains(title) ? h : '$h $title';
@@ -1253,6 +1315,37 @@ ParseResult parseText(String text, DateTime now,
     c.date = d;
     c.startMin = m;
   }
+  // 同じ日時の予定が文章の中に何度も出てくる（冒頭の文・詳細欄・Zoom の招待文）ときは 1 つにまとめる。
+  // 情報の多いもの（終了時刻・リンク・場所があり、タイトルが文でないもの）を残し、足りない所を補う
+  for (var i = 0; i < out.length; i++) {
+    final a = out[i];
+    if (a.type == ImportType.task || a.linkGroup != null || a.startMin == null) continue;
+    for (var j = i + 1; j < out.length; j++) {
+      final b = out[j];
+      if (b.type == ImportType.task || b.linkGroup != null) continue;
+      if (b.date != a.date || b.startMin != a.startMin) continue;
+      if (a.endMin != null && b.endMin != null && a.endMin != b.endMin) continue;
+      final keep = _score(b) > _score(a) ? b : a;
+      final drop = identical(keep, a) ? b : a;
+      if (keep.endMin == null && drop.endMin != null) {
+        keep.endMin = drop.endMin;
+        keep.endOffset = drop.endOffset;
+      }
+      if (keep.url.isEmpty) keep.url = drop.url;
+      if (keep.place.isEmpty) keep.place = drop.place;
+      out[i] = keep;
+      out.removeAt(j);
+      j = i;
+    }
+  }
+  // 文のままのタイトル（「説明会でお会いしましょう。…」）は、予定の名前の部分だけにする
+  for (final c in out) {
+    final t = c.title;
+    if (_sentenceRe.hasMatch(t) || t.contains('。') || t.contains('ご連絡いたしました')) {
+      final n = _eventNounRe.firstMatch(t)?.group(0);
+      if (n != null) c.title = n.replaceAll(_trimHead, '');
+    }
+  }
   // 同じ文章の中の重複と、候補どうしの時間の重なり
   final seen = <String, Candidate>{};
   for (final c in out) {
@@ -1280,6 +1373,19 @@ ParseResult parseText(String text, DateTime now,
     }
   }
   return ParseResult(out, skipped, unreadable);
+}
+
+/// 同じ日時の候補のうち、どれを残すかの点数
+int _score(Candidate c) {
+  var s = 0;
+  if (c.endMin != null) s += 2;
+  if (c.url.isNotEmpty) s += 1;
+  if (c.place.isNotEmpty) s += 1;
+  final t = c.title;
+  if (t.isEmpty || _genericRe.hasMatch(t) || _labelishRe.hasMatch(t)) s -= 2;
+  if (_sentenceRe.hasMatch(t) || t.contains('。') || t.contains('、') || t.length > 30) s -= 3;
+  if (_eventNounRe.hasMatch(t)) s += 1;
+  return s;
 }
 
 String _addLine(String base, String line) =>
