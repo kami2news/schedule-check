@@ -1436,6 +1436,11 @@ ParseResult parseText(String text, DateTime now,
 String? _findOrg(List<String> lines) {
   const ng = r'[^\s　、。，,のはがを（(【「『：:！!？?]';
   final res = [
+    // 英字の名前（「Sample Project 運営事務局」）
+    RegExp(r'([A-Z][A-Za-z0-9&.\-]*(?: [A-Z][A-Za-z0-9&.\-]*){0,3})\s*(?:運営)?事務局'),
+    // 「【サンプル精機】会社説明会」「サンプル精機 2028年新卒採用」
+    RegExp('【($ng{2,20})】\\s*(?:会社)?(?:説明会|面接|選考|インターン|座談会|セミナー)'),
+    RegExp('($ng{2,20}?)\\s*\\d{4}年度?新卒採用'),
     RegExp('(?:株式会社|（株）|㈱|有限会社)\\s*($ng{2,20})'),
     RegExp('($ng{2,20}?)\\s*(?:株式会社|（株）|㈱|有限会社)'),
     RegExp('($ng{2,20}?)[\\s　]*(?:新卒)?(?:採用|人事)(?:担当|チーム|事務局|本部|部)'),
