@@ -235,6 +235,28 @@ void main() {
     expect(store.eventsOn(addDays(today, 7)).single.endMin, 970);
   });
 
+  testWidgets('予定の編集: 時限を飛び飛びに選ぶと、まとまりごとに別の予定になる', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final store = await AppStore.load();
+    store.setPeriods(const [(540, 590), (600, 650), (660, 710), (720, 770)]);
+    final day = addDays(dateOnly(DateTime.now()), 1);
+    await pumpWide(tester, store);
+    openEventEditor(tester.element(find.byType(TimeGrid).first), date: day);
+    await tester.pumpAndSettle();
+    await tester.enterText(
+        find.descendant(of: find.byType(Dialog), matching: find.byType(TextField)).first,
+        '集中講義');
+    for (final n in ['1', '2', '4']) {
+      await tester.tap(find.descendant(of: find.byType(Dialog), matching: find.text(n)).first);
+      await tester.pumpAndSettle();
+    }
+    expect(find.textContaining('1〜2・4限'), findsOneWidget);
+    await tester.tap(find.text('保存').last);
+    await tester.pumpAndSettle();
+    expect(store.eventsOn(day).map((e) => (e.title, e.startMin, e.endMin)).toSet(),
+        {('集中講義', 540, 650), ('集中講義', 720, 770)});
+  });
+
   testWidgets('取り込み: 時限は飛び飛びに選べる（1・2・4限 → 2つの予定）', (tester) async {
     final store = await _storeWithSamples();
     store.setPeriods(const [(540, 590), (600, 650), (660, 710), (720, 770)]);
