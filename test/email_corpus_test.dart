@@ -370,7 +370,7 @@ https://teams.microsoft.com/l/meetup-join/sample
           [DateTime(2027, 2, 9), DateTime(2027, 2, 10), DateTime(2027, 2, 12)]);
       for (final c in cs) {
         expect(c.type, ImportType.lecture);
-        expect(c.title, startsWith('社会調査演習B'));
+        expect(c.title, startsWith('社会調査演習Ｂ/社会調査演習Ⅱ'));
         // 既定の時限（9:00 から 50 分ずつ）: 1限 9:00 〜 10限 18:50
         expect((c.startMin, c.endMin), (9 * 60, 18 * 60 + 50));
         expect(c.note, contains('昼休み'));
