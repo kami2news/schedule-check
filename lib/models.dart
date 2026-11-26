@@ -88,21 +88,41 @@ String fmtMin(int m) => '${m ~/ 60}:${(m % 60).toString().padLeft(2, '0')}';
 
 /// Outlook の「マイカレンダー」に相当する、色と名前を持つカレンダー
 class CalendarDef {
-  CalendarDef({required this.id, required this.name, required this.colorValue});
+  CalendarDef({
+    required this.id,
+    required this.name,
+    required this.colorValue,
+    List<String>? keywords,
+    List<String>? genres,
+  })  : keywords = keywords ?? [],
+        genres = genres ?? [];
 
   final String id;
   String name;
   int colorValue;
 
+  /// 取り込みの振り分け: この語が文章にあればこのカレンダーに入れる（「ユニティー」「ノジマ」など）
+  List<String> keywords;
+
+  /// 取り込みの振り分け: この系統（「就活」「病院」など）の予定をこのカレンダーに入れる
+  List<String> genres;
+
   Color get color => Color(colorValue);
 
-  Map<String, dynamic> toJson() =>
-      {'id': id, 'name': name, 'color': colorValue};
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'name': name,
+        'color': colorValue,
+        if (keywords.isNotEmpty) 'keywords': keywords,
+        if (genres.isNotEmpty) 'genres': genres,
+      };
 
   factory CalendarDef.fromJson(Map<String, dynamic> j) => CalendarDef(
         id: j['id'] as String,
         name: j['name'] as String,
         colorValue: j['color'] as int,
+        keywords: (j['keywords'] as List?)?.cast<String>().toList(),
+        genres: (j['genres'] as List?)?.cast<String>().toList(),
       );
 }
 

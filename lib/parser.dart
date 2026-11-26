@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'genre.dart';
 import 'models.dart';
 
 enum ImportType { event, shift, lecture, task }
@@ -84,6 +85,12 @@ class Candidate {
   /// この予定の終了時刻に、同じ番号のタスクの期限を合わせる
   bool linkEnd = false;
 
+  /// 系統（「就活」「病院」など。genre.dart）。判断できなければ null
+  String? genre;
+
+  /// 読み取り時に選んだカレンダー（取り込み画面で変えたら、系統の振り分けを覚える）
+  String? suggestedCalendarId;
+
   /// 同じ内容でほかにも行う日（「2月9日（火）・10日（水）・12日（金）」の 10日・12日）。
   /// 読み終わったあと、日付だけを変えた候補に分ける
   List<DateTime> alsoOn = [];
@@ -104,7 +111,9 @@ class Candidate {
       )
         ..selected = selected
         ..warning = warning
-        ..hint = hint;
+        ..hint = hint
+        ..genre = genre
+        ..suggestedCalendarId = suggestedCalendarId;
 }
 
 class ParseResult {
@@ -297,7 +306,7 @@ final _weekdayRe = RegExp(
 
 /// 行頭の見出しラベル（「日時：」「【件名】」など）。group(1) がラベル名
 final _labelRe = RegExp(
-    r'^(?:[【\[〈<（(]\s*)?([^\s:：【】\[\]〈〉<>（）()]{1,6}(?:日時|日程|期限|締切|締め切り|日|期間|時間)|When|Date|Time|時刻|開始時刻|時間帯|お届け時間|件名|トピック|タイトル|題名|内容|用件|日時|日程|日付|時間|開催日時?|実施日時?|期日|期限|提出期限|提出締切|締切|締め切り|〆切|イベント名?|科目名?|講義名?|授業名?|シフト|勤務)\s*(?:[】\]〉>）)]\s*[:：]?|[:：])\s*');
+    r'^(?:[【\[〈<（(]\s*)?([^\s:：【】\[\]〈〉<>（）()]{1,14}(?:日時|日程)|[^\s:：【】\[\]〈〉<>（）()]{1,6}(?:期限|締切|締め切り|日|期間|時間)|When|Date|Time|時刻|開始時刻|時間帯|お届け時間|件名|トピック|タイトル|題名|内容|用件|日時|日程|日付|時間|開催日時?|実施日時?|期日|期限|提出期限|提出締切|締切|締め切り|〆切|イベント名?|科目名?|講義名?|授業名?|シフト|勤務)\s*(?:[】\]〉>）)]\s*[:：]?|[:：])\s*');
 
 /// タイトルとして使えるラベル行（「件名: 〜」「内容：〜」）
 final _titleLabelRe = RegExp(
@@ -378,6 +387,8 @@ final _sentenceRe = RegExp(r'(?:ます|です|ください|下さい|でしょ�
 /// 見出し行として使えるならタイトル候補を返す
 String? _asHeading(String line) {
   if (_sentenceRe.hasMatch(line) || _greetingRe.hasMatch(line)) return null;
+  // 「山田 花子 様」「お申込者：山田様」のような宛名
+  if (RegExp(r'(?:様|さん|殿)\s*[)）]?\s*$').hasMatch(line)) return null;
   final tm = _titleLabelRe.firstMatch(line);
   final t = _cleanTitle(tm != null ? tm.group(1)! : line).title;
   if (t.isEmpty || t.length > 40 || _genericRe.hasMatch(t)) return null;
@@ -608,7 +619,9 @@ List<Candidate> _parseWorkNotices(List<String> lines, Set<int> consumed,
       ? 'ユニティー'
       : '';
   // 「ユニティー」「労働」「バイト」という名前のカレンダーがあればそれを使う
-  final calId = (cals.where((c) => ['ユニティー', '労働', 'バイト', 'シフト']
+  // 振り分けのキーワード（「ユニティー」など）や系統「バイト」の設定があるカレンダーを先に使う
+  final calId = pickCalendar(cals, company, whole, genreByLabel('バイト'))?.id ??
+      (cals.where((c) => ['ユニティー', '労働', 'バイト', 'シフト']
               .any((n) => c.name.contains(n)))
           .map((c) => c.id)
           .firstOrNull) ??
@@ -824,8 +837,6 @@ ParseResult parseText(String text, DateTime now,
     {List<CalendarDef>? calendars, List<(int, int)>? periods}) {
   _periods = periods ?? const [];
   final cals = calendars ?? defaultCalendars();
-  // 長い名前から順に照合する（「試験」より「追試験」を優先）
-  final byName = [...cals]..sort((a, b) => b.name.length.compareTo(a.name.length));
   final today = dateOnly(now);
   final out = <Candidate>[];
   var skipped = 0;
@@ -1260,13 +1271,12 @@ ParseResult parseText(String text, DateTime now,
       type = ImportType.event;
     }
 
-    var calId = type.calendarId ?? 'other';
-    for (final cal in byName) {
-      if (cal.name.trim().isNotEmpty && kindText.contains(cal.name.trim())) {
-        calId = cal.id;
-        break;
-      }
-    }
+    // 系統（授業・バイト・就活・病院…）を判断し、本人のマイカレンダーに振り分ける
+    final genre = detectGenre(kindText, '$context $text');
+    var calId = pickCalendar(cals, kindText, text, genre)?.id ??
+        (genre?.label == 'バイト' && type == ImportType.event
+            ? 'shift'
+            : type.calendarId ?? 'other');
     if (!cals.any((x) => x.id == calId)) calId = cals.first.id;
     final showAs = _tentativeRe.hasMatch(line)
         ? ShowAs.tentative
@@ -1307,6 +1317,8 @@ ParseResult parseText(String text, DateTime now,
       c.selected = false;
     }
     c.alsoOn = alsoOn;
+    c.genre = genre?.label;
+    c.suggestedCalendarId = calId;
     out.add(c);
     open = c;
     needsTitle = weak ? c : null;
@@ -1340,6 +1352,30 @@ ParseResult parseText(String text, DateTime now,
     if (_sentenceRe.hasMatch(t) || t.contains('。') || t.contains('ご連絡いたしました')) {
       final n = _eventNounRe.firstMatch(t)?.group(0);
       if (n != null) c.title = n.replaceAll(_trimHead, '');
+    }
+  }
+  // 決まった書式（勤務連絡・Moodle）で読んだ候補にも系統を付ける
+  for (final c in out) {
+    c.genre ??= detectGenre('${c.source} ${c.title}', text)?.label;
+    c.suggestedCalendarId ??= c.calendarId;
+  }
+  // タイトルの後始末: 「γ【〇〇面談：28卒】山田様〇〇大学」→「〇〇面談」、「【会社説明会】」→「会社説明会」
+  for (final c in out) {
+    var t = c.title
+        .replaceFirst(RegExp(r'^[α-ωΑ-Ω]\s*'), '')
+        .replaceAll(RegExp(r'\s*[：:]\s*\d{2}卒'), '')
+        .replaceFirst(RegExp(r'】[^【】]*(?:様|さん)[^【】]*$'), '】')
+        .trim();
+    final br = RegExp(r'^【([^【】]+)】$').firstMatch(t);
+    if (br != null) t = br.group(1)!.trim();
+    if (t.isNotEmpty) c.title = t;
+  }
+  // 就活の予定は「どこの」が分かるよう、文章から会社・団体の名前を拾ってタイトルの頭に付ける
+  final org = _findOrg(lines);
+  if (org != null) {
+    for (final c in out) {
+      if (c.genre != '就活' || c.title.contains(org)) continue;
+      c.title = c.title.isEmpty ? org : '$org ${c.title}';
     }
   }
   // 同じ日時の予定が文章の中に何度も出てくる（冒頭の文・詳細欄・Zoom の招待文）ときは 1 つにまとめる。
@@ -1394,6 +1430,33 @@ ParseResult parseText(String text, DateTime now,
     }
   }
   return ParseResult(out, skipped, unreadable);
+}
+
+/// 文章の中の会社・団体の名前（いちばん前に出てくるもの）。「株式会社」などは外す
+String? _findOrg(List<String> lines) {
+  const ng = r'[^\s　、。，,のはがを（(【「『：:！!？?]';
+  final res = [
+    RegExp('(?:株式会社|（株）|㈱|有限会社)\\s*($ng{2,20})'),
+    RegExp('($ng{2,20}?)\\s*(?:株式会社|（株）|㈱|有限会社)'),
+    RegExp('($ng{2,20}?)[\\s　]*(?:新卒)?(?:採用|人事)(?:担当|チーム|事務局|本部|部)'),
+    RegExp('^\\s*($ng{2,20})です。\\s*\$'),
+    RegExp('($ng{2,20}?)\\s*(?:運営)?事務局'),
+  ];
+  for (final l in lines.take(400)) {
+    String? found;
+    var pos = 1 << 30;
+    for (final re in res) {
+      final m = re.firstMatch(l);
+      if (m != null && m.start < pos) {
+        pos = m.start;
+        found = m.group(1);
+      }
+    }
+    if (found == null) continue;
+    final o = found.replaceAll(RegExp(r'^(?:こんにちは|お世話になっております|新卒)|様$|さん$'), '').trim();
+    if (o.length >= 2 && !RegExp(r'^(?:新卒|採用|弊社|当社|貴社|御社|上記|下記)').hasMatch(o)) return o;
+  }
+  return null;
 }
 
 /// 同じ日時の候補のうち、どれを残すかの点数

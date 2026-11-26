@@ -442,8 +442,10 @@ class AppStore extends ChangeNotifier {
 
   // ---- カレンダー ----
 
-  CalendarDef addCalendar(String name, int color) {
-    final c = CalendarDef(id: newId(), name: name, colorValue: color);
+  CalendarDef addCalendar(String name, int color,
+      {List<String>? keywords, List<String>? genres}) {
+    final c = CalendarDef(
+        id: newId(), name: name, colorValue: color, keywords: keywords, genres: genres);
     calendars.add(c);
     _remote?.putCalendar(c, calendars.length - 1);
     _save();
@@ -451,14 +453,32 @@ class AppStore extends ChangeNotifier {
     return c;
   }
 
-  void updateCalendar(String id, {String? name, int? color}) {
+  void updateCalendar(String id,
+      {String? name, int? color, List<String>? keywords, List<String>? genres}) {
     final c = calendars.where((x) => x.id == id).firstOrNull;
     if (c == null) return;
     if (name != null) c.name = name;
     if (color != null) c.colorValue = color;
+    if (keywords != null) c.keywords = keywords;
+    if (genres != null) c.genres = genres;
     _remote?.putCalendar(c, calendars.indexOf(c));
     _save();
     notifyListeners();
+  }
+
+  /// 取り込みで、系統 [genre] の予定を [calendarId] に入れたことを覚える（次からそこに振り分ける）。
+  /// ほかのカレンダーに同じ系統が付いていれば外す。変わったら true
+  bool learnGenre(String genre, String calendarId) {
+    final target = calendars.where((c) => c.id == calendarId).firstOrNull;
+    if (target == null || target.genres.contains(genre)) return false;
+    for (final c in calendars) {
+      if (c.genres.remove(genre)) _remote?.putCalendar(c, calendars.indexOf(c));
+    }
+    target.genres = [...target.genres, genre];
+    _remote?.putCalendar(target, calendars.indexOf(target));
+    _save();
+    notifyListeners();
+    return true;
   }
 
   /// カレンダーを削除し、その予定は [moveTo] に移す（最後の1つは消せない）
