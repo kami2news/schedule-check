@@ -236,7 +236,8 @@ final _durationRe = RegExp(
 
 /// 補足の行の所要時間（「所要時間：60分」「時間は約2時間ほど」）を分で返す
 int? _durationMins(String line) {
-  if (!RegExp(r'所要|約|程度|ほど|前後|くらい|ぐらい|^\s*\d').hasMatch(line)) return null;
+  if (!RegExp(r'所要|約\s*\d|およそ|程度|ほど|前後|くらい|ぐらい|^\s*\d').hasMatch(line)) return null;
+  if (RegExp(r'前まで|前に|分前').hasMatch(line)) return null;
   final du = _durationRe.firstMatch(line);
   if (du == null) return null;
   final mins = du.group(4) != null
@@ -286,7 +287,7 @@ List<String> _joinHeadingValues(List<String> lines) {
   return out;
 }
 
-const _junk = r'[\s　・⋅·●■□◆◇▼▽▶►★☆○◎*＊\-–—:：,，、。/／〜~～|｜]';
+const _junk = r'[\s　・⋅·●■□◆◇▼▽▶►★☆○◎*＊\-–—―━─＝=:：,，、。/／〜~～|｜]';
 final _trimHead = RegExp('^$_junk+');
 final _trimTail = RegExp('$_junk+\$');
 
@@ -326,7 +327,7 @@ final _noticeTailRe =
 
 /// タイトルとしては情報が少ない語
 final _genericRe = RegExp(
-    r'^(?:締切|締め切り|〆切|提出|期限|予定|開始|集合|日程|日時|開催|実施|当日|ご?予約|ご?予約内容|ご?予約確認|ご?来店|ご案内|お知らせ|リマインド|確認|詳細|カレンダーに追加|カレンダーに登録(?:する)?|(?:あなたの)?ご?参加日|ご?予約日時?|予約の詳細|当日の詳細|ご予約の内容)$');
+    r'^(?:締切|締め切り|〆切|提出|期限|予定|開始|集合|日程|日時|開催|実施|当日|ご?予約|ご?予約内容|ご?予約確認|ご?来店|ご案内|お知らせ|リマインド|確認|詳細|カレンダーに追加|カレンダーに登録(?:する)?|(?:あなたの)?ご?参加日|ご?予約日時?|予約の詳細|当日の詳細|ご予約の内容|DATE|TIME|PLACE|WHEN|Date|Time)$');
 
 /// 「予約日時」「サービス名」「担当者」「当日の詳細」のような、値の前に付く見出しの語（タイトルにはしない）
 final _labelishRe = RegExp(
@@ -1197,8 +1198,13 @@ ParseResult parseText(String text, DateTime now,
     var borrowed = false;
     if (weak) {
       // 「予約日時」「当日の詳細」のような見出しの語より、前置きで拾った予定の名前を使う
+      // 優先順: 予定の名前を含む見出し → 前置きの文の予定の名前 → 見出し（「担当者」のような語でないもの）
       final hd = heading != null && _labelishRe.hasMatch(heading) ? null : heading;
-      final h = hd ?? eventHint ?? heading ?? subject;
+      final h = (hd != null && _eventNounRe.hasMatch(hd) ? hd : null) ??
+          eventHint ??
+          hd ??
+          heading ??
+          subject;
       if (h != null) {
         // 「提出」など短い語だけ残った場合は見出しと組み合わせる
         title = title.isEmpty || h.contains(title) ? h : '$h $title';
@@ -1315,6 +1321,14 @@ ParseResult parseText(String text, DateTime now,
     c.date = d;
     c.startMin = m;
   }
+  // 文のままのタイトル（「説明会でお会いしましょう。…」）は、予定の名前の部分だけにする
+  for (final c in out) {
+    final t = c.title;
+    if (_sentenceRe.hasMatch(t) || t.contains('。') || t.contains('ご連絡いたしました')) {
+      final n = _eventNounRe.firstMatch(t)?.group(0);
+      if (n != null) c.title = n.replaceAll(_trimHead, '');
+    }
+  }
   // 同じ日時の予定が文章の中に何度も出てくる（冒頭の文・詳細欄・Zoom の招待文）ときは 1 つにまとめる。
   // 情報の多いもの（終了時刻・リンク・場所があり、タイトルが文でないもの）を残し、足りない所を補う
   for (var i = 0; i < out.length; i++) {
@@ -1325,6 +1339,8 @@ ParseResult parseText(String text, DateTime now,
       if (b.type == ImportType.task || b.linkGroup != null) continue;
       if (b.date != a.date || b.startMin != a.startMin) continue;
       if (a.endMin != null && b.endMin != null && a.endMin != b.endMin) continue;
+      // 同じタイトルの重複は、2 件目に注意を付けて残す（下の処理）
+      if (a.title.trim() == b.title.trim()) continue;
       final keep = _score(b) > _score(a) ? b : a;
       final drop = identical(keep, a) ? b : a;
       if (keep.endMin == null && drop.endMin != null) {
@@ -1336,14 +1352,6 @@ ParseResult parseText(String text, DateTime now,
       out[i] = keep;
       out.removeAt(j);
       j = i;
-    }
-  }
-  // 文のままのタイトル（「説明会でお会いしましょう。…」）は、予定の名前の部分だけにする
-  for (final c in out) {
-    final t = c.title;
-    if (_sentenceRe.hasMatch(t) || t.contains('。') || t.contains('ご連絡いたしました')) {
-      final n = _eventNounRe.firstMatch(t)?.group(0);
-      if (n != null) c.title = n.replaceAll(_trimHead, '');
     }
   }
   // 同じ文章の中の重複と、候補どうしの時間の重なり
