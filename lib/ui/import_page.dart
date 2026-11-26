@@ -393,6 +393,7 @@ class _CandidateTileState extends State<_CandidateTile> {
     if (v == null) return;
     c.startMin = v;
     if (c.endOffset == 0 && c.endMin != null && c.endMin! <= v) c.endMin = null;
+    _splitAtBreaks();
     _changed();
   }
 
@@ -405,7 +406,17 @@ class _CandidateTileState extends State<_CandidateTile> {
     // 開始より前の時刻は、翌日に終わる予定（夜勤など）
     c.endOffset = v <= s ? 1 : 0;
     c.endMin = v;
+    _splitAtBreaks();
     _changed();
+  }
+
+  /// 時刻を後から直して、ちょうど昼休みをはさむ時限の範囲になったら、休みの前後で分ける
+  void _splitAtBreaks() {
+    final s = c.startMin, e = c.endMin;
+    if (s == null || e == null || c.type == ImportType.task) return;
+    final periods = StoreScope.read(context).periods;
+    final r = periodRangeOf(periods, s, e, c.endOffset);
+    if (r != null) _applyPeriods(periods, r);
   }
 
   /// 時限で時刻を選ぶ。昼休みなどをはさむ範囲は、休みの前後で別の候補に分ける
@@ -417,6 +428,12 @@ class _CandidateTileState extends State<_CandidateTile> {
         : periodRangeOf(periods, c.startMin!, c.endMin!, c.endOffset);
     final r = await showPeriodRangePicker(context, initial: initial);
     if (r == null || !mounted) return;
+    _applyPeriods(periods, r);
+    _changed();
+  }
+
+  /// 時限の範囲 [r] をこの候補に入れる。休みをはさめば、後ろの分は新しい候補にする
+  void _applyPeriods(List<(int, int)> periods, (int, int) r) {
     final blocks = periodBlocks(periods, r.$1, r.$2);
     final shift = blocks.first.$1 - blocks.first.$1 % (24 * 60);
     final f = periodToEvent(blocks.first.$1, blocks.first.$2);
@@ -435,7 +452,6 @@ class _CandidateTileState extends State<_CandidateTile> {
         }(),
     ];
     if (extra.isNotEmpty) widget.onSplit(extra);
-    _changed();
   }
 
   Widget _detailRow(IconData icon, Widget field) {

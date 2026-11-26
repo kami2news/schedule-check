@@ -380,7 +380,7 @@ class _EventEditPageState extends State<EventEditPage> {
     // 時限の範囲が昼休みなどをはさむなら、休みの前後で別の予定にする（1 つ目をこの予定に）
     var (st, en, off) = (_start, _end, _endOffset);
     final extra = <(int, int, int, int)>[]; // (日数, 開始, 終了, 終了の日数)
-    final range = _allDay || _isOccurrence
+    final range = _allDay
         ? null
         : periodRangeOf(store.periods, _start, _end, _endOffset);
     if (range != null) {
@@ -415,6 +415,9 @@ class _EventEditPageState extends State<EventEditPage> {
       reminder: _reminder,
     );
 
+    // 休みの後ろのまとまりを足すときの基準の日と繰り返し
+    var extraDate = edited.date;
+    var extraRepeat = edited.repeat;
     if (_isOccurrence) {
       final scope = await _askScope(context, delete: false);
       if (scope == null || !mounted) return;
@@ -422,31 +425,35 @@ class _EventEditPageState extends State<EventEditPage> {
       switch (scope) {
         case RecurScope.one:
           store.changeOccurrence(e!, occ, edited);
+          // この回だけ: 後ろの分も、この日だけの予定
+          extraRepeat = null;
         case RecurScope.following:
           store.changeFollowing(e!, occ, edited);
         case RecurScope.all:
           // この回で日付を動かした分だけ、最初の回もずらす
           final shift = dateOnly(_date).difference(occ).inDays;
-          store.upsertEvent(edited.weekly
+          final all = edited.weekly
               ? edited.copyWith(date: e!.firstDate.add(Duration(days: shift)))
-              : edited);
+              : edited;
+          store.upsertEvent(all);
+          extraDate = all.date;
       }
     } else {
       store.upsertEvent(edited);
     }
-    // 休みの後ろのまとまりは新しい予定として足す（繰り返しの設定も同じ）
+    // 休みの後ろのまとまりは新しい予定として足す（繰り返しは、変えた範囲と同じ）
     for (final (days, s2, e2, o2) in extra) {
       store.upsertEvent(Event(
         id: store.newId(),
         title: edited.title,
         calendarId: edited.calendarId,
         showAs: edited.showAs,
-        date: addDays(edited.date, days),
+        date: addDays(extraDate, days),
         startMin: s2,
         endMin: e2,
         endOffset: o2,
-        repeat: edited.repeat,
-        repeatUntil: edited.repeatUntil,
+        repeat: extraRepeat,
+        repeatUntil: extraRepeat != null ? edited.repeatUntil : null,
         place: edited.place,
         note: edited.note,
         url: edited.url,
@@ -572,7 +579,6 @@ class _EventEditPageState extends State<EventEditPage> {
             start: _start,
             end: _end,
             endOffset: _endOffset,
-            canSplit: !_isOccurrence,
             onChanged: (st, en) => setState(() {
               // 日をまたぐ時限（23:30〜翌0:20 など）は、終了日を翌日にする
               final t = periodToEvent(st, en);
@@ -1197,11 +1203,7 @@ class _PeriodPicker extends StatelessWidget {
       {required this.start,
       required this.end,
       required this.onChanged,
-      this.endOffset = 0,
-      this.canSplit = true});
-
-  /// 昼休みをはさむとき、保存で予定を分けられるか（繰り返しの1回だけの変更では分けない）
-  final bool canSplit;
+      this.endOffset = 0});
 
   /// 予定の終了日が何日後か（日をまたぐ時限と見比べるのに使う）
   final int endOffset;
@@ -1267,9 +1269,7 @@ class _PeriodPicker extends StatelessWidget {
         Padding(
           padding: EdgeInsets.only(bottom: 4),
           child: Text(
-              canSplit
-                  ? '${periodBreakNote(blocks)}をはさむので、保存すると休みの前後で${blocks.length}つの予定に分けます'
-                  : '${periodBreakNote(blocks)}をはさんでいます（繰り返しの1回だけの変更では分けません）',
+              '${periodBreakNote(blocks)}をはさむので、保存すると休みの前後で${blocks.length}つの予定に分けます',
               style: FlText.caption1.copyWith(color: Fl.fg2)),
         ),
       ],

@@ -5,6 +5,7 @@ import 'package:schedule_check/main.dart';
 import 'package:schedule_check/models.dart';
 import 'package:schedule_check/store.dart';
 import 'package:schedule_check/ui/controller.dart';
+import 'package:schedule_check/ui/edit_pages.dart';
 import 'package:schedule_check/ui/fluent.dart';
 import 'package:schedule_check/ui/fluent_extras.dart';
 import 'package:schedule_check/ui/month_view.dart';
@@ -202,6 +203,36 @@ void main() {
     expect(find.textContaining('11:50'), findsWidgets);
     // 2件目は一覧の下（タッチの高さで画面の外）にあるので、画面外も含めて探す
     expect(find.textContaining('12/4', skipOffstage: false), findsWidgets);
+  });
+
+  testWidgets('予定を後から直すときも、昼休みをはさむ時限は前後で分ける（繰り返しのこの回のみ）', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final store = await AppStore.load();
+    store.setPeriods(const [(540, 630), (640, 730), (780, 870), (880, 970)]);
+    final today = dateOnly(DateTime.now());
+    store.upsertEvent(Event(
+        id: 'w',
+        title: '実験',
+        calendarId: 'lecture',
+        date: today,
+        startMin: 640,
+        endMin: 970,
+        repeat: const Recurrence()));
+    await pumpWide(tester, store);
+    openEventEditor(tester.element(find.byType(TimeGrid).first),
+        event: store.events.single, occurrence: today);
+    await tester.pumpAndSettle();
+    expect(find.textContaining('昼休み（12:10〜13:00）をはさむので'), findsOneWidget);
+    await tester.tap(find.text('保存').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('この回のみ'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('保存').last);
+    await tester.pumpAndSettle();
+    expect(store.eventsOn(today).map((e) => (e.startMin, e.endMin)).toSet(),
+        {(640, 730), (780, 970)});
+    // ほかの回はそのまま
+    expect(store.eventsOn(addDays(today, 7)).single.endMin, 970);
   });
 
   testWidgets('取り込み: 時限で選ぶと、昼休みをはさむ範囲は候補が2つに分かれる', (tester) async {
