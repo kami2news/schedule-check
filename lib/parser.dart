@@ -1210,7 +1210,7 @@ ParseResult parseText(String text, DateTime now,
       // 「予約日時」「当日の詳細」のような見出しの語より、前置きで拾った予定の名前を使う
       // 優先順: 予定の名前を含む見出し → 前置きの文の予定の名前 → 見出し（「担当者」のような語でないもの）
       final hd = heading != null && _labelishRe.hasMatch(heading) ? null : heading;
-      final h = (hd != null && headingCompany && eventHint != null && !hd.contains(eventHint!)
+      final h = (hd != null && headingCompany && eventHint != null && !hd.contains(eventHint)
               ? '$hd $eventHint'
               : null) ??
           (hd != null && (headingExplicit || _eventNounRe.hasMatch(hd)) ? hd : null) ??
