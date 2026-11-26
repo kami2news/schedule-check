@@ -214,7 +214,7 @@ final _kaienRe = RegExp(r'開演\s*[:：]?\s*(\d{1,2})[:：](\d{2})');
 final _endWordRe = RegExp(r'(\d{1,2})[:：](\d{2})\s*(?:解散|終了|終わり|閉会)');
 
 /// 「10-15」のような時だけの範囲（シフト連絡など）。日付を取り除いた残りにだけ使う
-final _bareHoursRe = RegExp(r'(?<![\d/:：.])([0-2]?\d)\s*[-〜~～]\s*([0-2]?\d)(?![\d/:：.時])');
+final _bareHoursRe = RegExp(r'(?<![\d/:：.])([0-2]?\d)\s*[-〜~～]\s*([0-2]?\d)(?:\s*時(?!間))?(?![\d/:：.時])');
 
 final _rangeRe =
     RegExp(_timeTok + r'\s*(?:[-〜~～–—ー]|から)\s*' + _timeTok);
