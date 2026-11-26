@@ -71,6 +71,10 @@ void main() {
     expect(cs2.map((c) => (c.date.day, c.startMin)).toList(),
         [(9, 540), (9, 780), (10, 540), (10, 780)]);
     expect(periodBreakNote(periodBlocks(periods, 1, 2)), '昼休み（12:10〜13:00）');
+    // 飛び飛びに選んだ時限（1・2・3・4・6限 → 1〜2、3〜4、6）
+    expect(periodSelectionBlocks(periods, {0, 1, 2, 3, 5}),
+        [(540, 730), (780, 970), (1080, 1170)]);
+    expect(periodSelectionLabel({0, 1, 2, 3, 5, 6, 7}), '1〜4・6〜8限');
   });
 
   test('取り込みの例のデータベース', () {

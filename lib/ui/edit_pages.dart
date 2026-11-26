@@ -274,6 +274,15 @@ class _EventEditPageState extends State<EventEditPage> {
   int? _reminder;
   String? _error;
 
+  /// 時限のボタンで選んだ時限（0 始まり。飛び飛びでもよい）。時刻を手で直すと null に戻る
+  Set<int>? _periodSel;
+
+  /// 今の開始・終了にちょうど合う時限の範囲（なければ空）
+  Set<int> _rangeSel() {
+    final r = periodRangeOf(StoreScope.read(context).periods, _start, _end, _endOffset);
+    return r == null ? {} : {for (var i = r.$1; i <= r.$2; i++) i};
+  }
+
   bool get _isNew => widget.event == null;
 
   /// 毎週の予定を、カレンダー上の特定の回から開いたか
@@ -318,6 +327,7 @@ class _EventEditPageState extends State<EventEditPage> {
     final v = await _pickTime(context, _start, title: '開始時刻');
     if (v == null) return;
     setState(() {
+      _periodSel = null;
       _start = v;
       // 同じ日のうちに終わらなくなったら、終了を1時間後に（深夜なら翌日にまたぐ）
       if (_endOffset == 0 && _end <= _start) {
@@ -335,6 +345,7 @@ class _EventEditPageState extends State<EventEditPage> {
         note: (m) => durationNote(_start, m, endOffset: _endOffset));
     if (v == null) return;
     setState(() {
+      _periodSel = null;
       _end = v;
       // 開始より前の時刻を選んだら、翌日に終わる予定（夜勤など）として扱う
       if (_endOffset == 0 && _end <= _start) _endOffset = 1;
@@ -377,15 +388,15 @@ class _EventEditPageState extends State<EventEditPage> {
     }
     final store = StoreScope.read(context);
     final e = widget.event;
-    // 時限の範囲が昼休みなどをはさむなら、休みの前後で別の予定にする（1 つ目をこの予定に）
+    // 選んだ時限が飛び飛び・昼休みなどをはさむなら、まとまりごとに別の予定にする（1 つ目をこの予定に）
     var (st, en, off) = (_start, _end, _endOffset);
     final extra = <(int, int, int, int)>[]; // (日数, 開始, 終了, 終了の日数)
-    final range = _allDay
-        ? null
-        : periodRangeOf(store.periods, _start, _end, _endOffset);
-    if (range != null) {
-      final blocks = periodBlocks(store.periods, range.$1, range.$2);
-      if (blocks.length > 1) {
+    final sel = _allDay ? const <int>{} : (_periodSel ?? _rangeSel());
+    if (sel.isNotEmpty) {
+      final blocks = periodSelectionBlocks(store.periods, sel);
+      final f0 = blocks.isEmpty ? null : periodToEvent(blocks.first.$1, blocks.first.$2);
+      // 時刻の欄を手で直したあとなら、選んだ時限は使わない
+      if (blocks.length > 1 && f0!.start == _start && f0.end == _end) {
         final shift = blocks.first.$1 - blocks.first.$1 % (24 * 60);
         final f = periodToEvent(blocks.first.$1, blocks.first.$2);
         (st, en, off) = (f.start, f.end, f.endOffset);
@@ -576,15 +587,17 @@ class _EventEditPageState extends State<EventEditPage> {
         ),
         if (!_allDay)
           _PeriodPicker(
-            start: _start,
-            end: _end,
-            endOffset: _endOffset,
-            onChanged: (st, en) => setState(() {
-              // 日をまたぐ時限（23:30〜翌0:20 など）は、終了日を翌日にする
-              final t = periodToEvent(st, en);
-              _start = t.start;
-              _end = t.end;
-              _endOffset = t.endOffset;
+            selected: _periodSel ?? _rangeSel(),
+            onChanged: (sel) => setState(() {
+              _periodSel = sel;
+              final blocks = periodSelectionBlocks(StoreScope.read(context).periods, sel);
+              if (blocks.isNotEmpty) {
+                // 時刻の欄は 1 つ目のまとまり（日をまたぐ時限は終了日を翌日に）
+                final t = periodToEvent(blocks.first.$1, blocks.first.$2);
+                _start = t.start;
+                _end = t.end;
+                _endOffset = t.endOffset;
+              }
               _revalidate();
             }),
           ),
@@ -1197,33 +1210,18 @@ class _DayChip extends StatelessWidget {
 }
 
 
-/// 時限（1限〜）を選んで開始・終了を入れる。続けて隣の時限を押すと連続にできる
+/// 時限（1限〜）を押して選ぶ（押すたびに選ぶ・外すが切り替わる。飛び飛びでもよい）。
+/// 続いている範囲・昼休みなどの休みごとに別の予定になる
 class _PeriodPicker extends StatelessWidget {
-  const _PeriodPicker(
-      {required this.start,
-      required this.end,
-      required this.onChanged,
-      this.endOffset = 0});
+  const _PeriodPicker({required this.selected, required this.onChanged});
 
-  /// 予定の終了日が何日後か（日をまたぐ時限と見比べるのに使う）
-  final int endOffset;
-
-  final int start;
-  final int end;
-  final void Function(int start, int end) onChanged;
+  final Set<int> selected;
+  final ValueChanged<Set<int>> onChanged;
 
   @override
   Widget build(BuildContext context) {
     final periods = StoreScope.of(context).periods;
-    // 今の開始・終了に一致する時限の範囲
-    // 時限は通しの分（翌日は 24:00 を超える）なので、予定の時刻と同じ形に直して見比べる
-    final a = periods.indexWhere((p) => periodToEvent(p.$1, p.$2).start == start);
-    final b = periods.indexWhere((p) {
-      final t = periodToEvent(periods[a < 0 ? 0 : a].$1, p.$2);
-      return t.end == end && t.endOffset == endOffset;
-    });
-    final hasRange = a >= 0 && b >= a;
-    final blocks = hasRange ? periodBlocks(periods, a, b) : const <(int, int)>[];
+    final blocks = periodSelectionBlocks(periods, selected);
     final row = Padding(
       padding: EdgeInsets.only(top: 4, bottom: 4),
       child: Row(
@@ -1238,17 +1236,10 @@ class _PeriodPicker extends StatelessWidget {
                 for (var i = 0; i < periods.length; i++)
                   _DayChip(
                     label: '${i + 1}',
-                    selected: hasRange && i >= a && i <= b,
-                    onTap: () {
-                      // 隣の時限なら範囲を広げ、そうでなければその時限だけにする
-                      if (hasRange && i == b + 1) {
-                        onChanged(periods[a].$1, periods[i].$2);
-                      } else if (hasRange && i == a - 1) {
-                        onChanged(periods[i].$1, periods[b].$2);
-                      } else {
-                        onChanged(periods[i].$1, periods[i].$2);
-                      }
-                    },
+                    selected: selected.contains(i),
+                    onTap: () => onChanged(selected.contains(i)
+                        ? ({...selected}..remove(i))
+                        : {...selected, i}),
                   ),
               ],
             ),
@@ -1268,8 +1259,7 @@ class _PeriodPicker extends StatelessWidget {
         row,
         Padding(
           padding: EdgeInsets.only(bottom: 4),
-          child: Text(
-              '${periodBreakNote(blocks)}をはさむので、保存すると休みの前後で${blocks.length}つの予定に分けます',
+          child: Text(_splitNote(periods, selected, blocks, '保存すると'),
               style: FlText.caption1.copyWith(color: Fl.fg2)),
         ),
       ],
@@ -1277,46 +1267,36 @@ class _PeriodPicker extends StatelessWidget {
   }
 }
 
-/// 時限の範囲を選ぶダイアログ（取り込み画面用）。始まりの時限を押してから終わりの時限を押す。
-/// 返り値は 0 始まりの (始まり, 終わり)
-Future<(int, int)?> showPeriodRangePicker(BuildContext context, {(int, int)? initial}) {
-  return showFlDialog<(int, int)>(context,
+/// 「1〜4限・6〜8限（9:00〜12:10・13:00〜16:10）。保存すると2つの予定に分けます（昼休み… をはさむ分も分けます）」
+String _splitNote(
+    List<(int, int)> periods, Set<int> selected, List<(int, int)> blocks, String when) {
+  final times = blocks.map((b) => '${fmtPeriodMin(b.$1)}〜${fmtPeriodMin(b.$2)}').join('・');
+  return '${periodSelectionLabel(selected)}（$times）。$whenそれぞれ別の予定にします（${blocks.length}つ）';
+}
+
+/// 時限を選ぶダイアログ（取り込み画面用）。押すたびに選ぶ・外すが切り替わる（飛び飛びでもよい）。
+/// 返り値は選んだ時限（0 始まり）
+Future<Set<int>?> showPeriodRangePicker(BuildContext context, {Set<int>? initial}) {
+  return showFlDialog<Set<int>>(context,
       maxWidth: 480, child: _PeriodRangePicker(initial: initial));
 }
 
 class _PeriodRangePicker extends StatefulWidget {
   const _PeriodRangePicker({this.initial});
-  final (int, int)? initial;
+  final Set<int>? initial;
 
   @override
   State<_PeriodRangePicker> createState() => _PeriodRangePickerState();
 }
 
 class _PeriodRangePickerState extends State<_PeriodRangePicker> {
-  late int? _a = widget.initial?.$1;
-  late int? _b = widget.initial?.$2;
-  // 次に押す時限が「終わり」か
-  bool _pickingEnd = false;
-
-  void _tap(int i) => setState(() {
-        if (_a == null || !_pickingEnd) {
-          _a = i;
-          _b = i;
-          _pickingEnd = true;
-        } else {
-          final a = _a!;
-          _a = i < a ? i : a;
-          _b = i < a ? a : i;
-          _pickingEnd = false;
-        }
-      });
+  late Set<int> _sel = {...?widget.initial};
 
   @override
   Widget build(BuildContext context) {
     final periods = StoreScope.of(context).periods;
-    final a = _a, b = _b;
-    final ok = a != null && b != null && b < periods.length;
-    final blocks = ok ? periodBlocks(periods, a, b) : const <(int, int)>[];
+    final sel = _sel.where((i) => i < periods.length).toSet();
+    final blocks = periodSelectionBlocks(periods, sel);
     return Material(
       color: Fl.bg1,
       child: SingleChildScrollView(
@@ -1334,7 +1314,7 @@ class _PeriodRangePickerState extends State<_PeriodRangePicker> {
               ),
             ]),
             SizedBox(height: 4),
-            Text('始まりの時限を押してから、終わりの時限を押します',
+            Text('出る時限を押して選びます（もう一度押すと外れます）。飛び飛びでも選べます',
                 style: FlText.caption1.copyWith(color: Fl.fg2)),
             SizedBox(height: 12),
             Wrap(
@@ -1344,29 +1324,29 @@ class _PeriodRangePickerState extends State<_PeriodRangePicker> {
                 for (var i = 0; i < periods.length; i++)
                   _DayChip(
                     label: '${i + 1}',
-                    selected: ok && i >= a && i <= b,
-                    onTap: () => _tap(i),
+                    selected: sel.contains(i),
+                    onTap: () => setState(() =>
+                        _sel = sel.contains(i) ? ({...sel}..remove(i)) : {...sel, i}),
                   ),
               ],
             ),
             SizedBox(height: 12),
-            if (ok) ...[
+            if (blocks.isNotEmpty) ...[
               Text(
-                  '${a == b ? '${a + 1}限' : '${a + 1}〜${b + 1}限'}　'
-                  '${fmtPeriodMin(periods[a].$1)}〜${fmtPeriodMin(periods[b].$2)}',
+                  '${periodSelectionLabel(sel)}　'
+                  '${blocks.map((b) => '${fmtPeriodMin(b.$1)}〜${fmtPeriodMin(b.$2)}').join('・')}',
                   style: FlText.body1Strong),
               if (blocks.length > 1)
                 Padding(
                   padding: EdgeInsets.only(top: 4),
-                  child: Text(
-                      '${periodBreakNote(blocks)}をはさむので、休みの前後で${blocks.length}つの予定に分けます',
+                  child: Text('時限の空き・昼休みなどの休みで区切って、${blocks.length}つの予定にします',
                       style: FlText.caption1.copyWith(color: Fl.fg2)),
                 ),
             ],
             SizedBox(height: 20),
             FlActions(
               primary: FilledButton(
-                onPressed: ok ? () => Navigator.of(context).pop((a, b)) : null,
+                onPressed: blocks.isEmpty ? null : () => Navigator.of(context).pop(sel),
                 child: Text('決定'),
               ),
               onCancel: () => Navigator.of(context).pop(),

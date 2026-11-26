@@ -69,6 +69,39 @@ List<(int, int)> periodBlocks(List<(int, int)> periods, int a, int b) {
   return out;
 }
 
+/// 選んだ時限（0 始まり。「1・2・3・4・6・7・8限」のように飛び飛びでもよい）を、
+/// 続いている範囲ごと、さらに昼休みなどの長い休みごとのまとまり（通しの分）にする
+List<(int, int)> periodSelectionBlocks(List<(int, int)> periods, Iterable<int> selected) {
+  final sel = selected.where((i) => i >= 0 && i < periods.length).toSet().toList()..sort();
+  final out = <(int, int)>[];
+  var i = 0;
+  while (i < sel.length) {
+    var j = i;
+    while (j + 1 < sel.length && sel[j + 1] == sel[j] + 1) {
+      j++;
+    }
+    out.addAll(periodBlocks(periods, sel[i], sel[j]));
+    i = j + 1;
+  }
+  return out;
+}
+
+/// 「1〜4限・6〜8限」
+String periodSelectionLabel(Iterable<int> selected) {
+  final sel = selected.toSet().toList()..sort();
+  final parts = <String>[];
+  var i = 0;
+  while (i < sel.length) {
+    var j = i;
+    while (j + 1 < sel.length && sel[j + 1] == sel[j] + 1) {
+      j++;
+    }
+    parts.add(i == j ? '${sel[i] + 1}' : '${sel[i] + 1}〜${sel[j] + 1}');
+    i = j + 1;
+  }
+  return parts.isEmpty ? '' : '${parts.join('・')}限';
+}
+
 /// 予定の開始・終了がちょうど時限の範囲に一致すれば、その範囲（0 始まり）。一致しなければ null
 (int, int)? periodRangeOf(List<(int, int)> periods, int start, int end, int endOffset) {
   final a = periods.indexWhere((p) => periodToEvent(p.$1, p.$2).start == start);

@@ -222,7 +222,7 @@ void main() {
     openEventEditor(tester.element(find.byType(TimeGrid).first),
         event: store.events.single, occurrence: today);
     await tester.pumpAndSettle();
-    expect(find.textContaining('昼休み（12:10〜13:00）をはさむので'), findsOneWidget);
+    expect(find.textContaining('保存するとそれぞれ別の予定にします（2つ）'), findsOneWidget);
     await tester.tap(find.text('保存').last);
     await tester.pumpAndSettle();
     await tester.tap(find.text('この回のみ'));
@@ -233,6 +233,30 @@ void main() {
         {(640, 730), (780, 970)});
     // ほかの回はそのまま
     expect(store.eventsOn(addDays(today, 7)).single.endMin, 970);
+  });
+
+  testWidgets('取り込み: 時限は飛び飛びに選べる（1・2・4限 → 2つの予定）', (tester) async {
+    final store = await _storeWithSamples();
+    store.setPeriods(const [(540, 590), (600, 650), (660, 710), (720, 770)]);
+    await pumpWide(tester, store);
+    await tester.tap(find.text('メールなどから取り込む'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+        find.descendant(of: find.byType(Dialog), matching: find.byType(TextField)),
+        '12/2 集中講義');
+    await tester.tap(find.text('解析する'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('時限'));
+    await tester.pumpAndSettle();
+    for (final n in ['1', '2', '4']) {
+      await tester.tap(find.text(n).last);
+      await tester.pumpAndSettle();
+    }
+    expect(find.textContaining('1〜2・4限'), findsOneWidget);
+    await tester.tap(find.text('決定'));
+    await tester.pumpAndSettle();
+    expect(find.text('〜 10:50', skipOffstage: false), findsOneWidget);
+    expect(find.text('〜 12:50', skipOffstage: false), findsOneWidget);
   });
 
   testWidgets('取り込み: 時限で選ぶと、昼休みをはさむ範囲は候補が2つに分かれる', (tester) async {
@@ -250,11 +274,11 @@ void main() {
     await tester.tap(find.text('時限'));
     await tester.pumpAndSettle();
     expect(find.text('時限で選ぶ'), findsOneWidget);
-    await tester.tap(find.text('2').last);
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('4').last);
-    await tester.pumpAndSettle();
-    expect(find.textContaining('昼休み（12:10〜13:00）をはさむので'), findsOneWidget);
+    for (final n in ['2', '3', '4']) {
+      await tester.tap(find.text(n).last);
+      await tester.pumpAndSettle();
+    }
+    expect(find.textContaining('2つの予定にします'), findsOneWidget);
     await tester.tap(find.text('決定'));
     await tester.pumpAndSettle();
     // 10:40〜12:10 と 13:00〜16:10 の2つ

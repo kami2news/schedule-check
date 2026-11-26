@@ -416,25 +416,26 @@ class _CandidateTileState extends State<_CandidateTile> {
     if (s == null || e == null || c.type == ImportType.task) return;
     final periods = StoreScope.read(context).periods;
     final r = periodRangeOf(periods, s, e, c.endOffset);
-    if (r != null) _applyPeriods(periods, r);
+    if (r != null) _applyBlocks(periodBlocks(periods, r.$1, r.$2));
   }
 
   /// 時限で時刻を選ぶ。昼休みなどをはさむ範囲は、休みの前後で別の候補に分ける
   Future<void> _pickPeriods() async {
     final store = StoreScope.read(context);
     final periods = store.periods;
-    final initial = c.startMin == null || c.endMin == null
+    final r0 = c.startMin == null || c.endMin == null
         ? null
         : periodRangeOf(periods, c.startMin!, c.endMin!, c.endOffset);
-    final r = await showPeriodRangePicker(context, initial: initial);
+    final r = await showPeriodRangePicker(context,
+        initial: r0 == null ? null : {for (var i = r0.$1; i <= r0.$2; i++) i});
     if (r == null || !mounted) return;
-    _applyPeriods(periods, r);
+    _applyBlocks(periodSelectionBlocks(periods, r));
     _changed();
   }
 
-  /// 時限の範囲 [r] をこの候補に入れる。休みをはさめば、後ろの分は新しい候補にする
-  void _applyPeriods(List<(int, int)> periods, (int, int) r) {
-    final blocks = periodBlocks(periods, r.$1, r.$2);
+  /// 時限のまとまり [blocks] をこの候補に入れる。2 つ目以降は新しい候補にする
+  void _applyBlocks(List<(int, int)> blocks) {
+    if (blocks.isEmpty) return;
     final shift = blocks.first.$1 - blocks.first.$1 % (24 * 60);
     final f = periodToEvent(blocks.first.$1, blocks.first.$2);
     c.startMin = f.start;
@@ -448,7 +449,7 @@ class _CandidateTileState extends State<_CandidateTile> {
             ..startMin = t.start
             ..endMin = t.end
             ..endOffset = t.endOffset
-            ..hint = '${periodBreakNote(blocks)}の後ろの分';
+            ..hint = '時限の空き・休みで分けた後ろの分';
         }(),
     ];
     if (extra.isNotEmpty) widget.onSplit(extra);
