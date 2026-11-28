@@ -9,6 +9,7 @@ import 'finder_pages.dart';
 import 'fluent.dart';
 import 'mini_month.dart';
 import 'settings_page.dart';
+import 'sticky_layer.dart';
 import 'sidebar.dart';
 import 'month_view.dart';
 import 'time_grid.dart';
@@ -302,7 +303,8 @@ class _CalendarPageState extends State<CalendarPage> {
               ),
             Divider(height: 1),
             // スクロールは連続して流れ、スライドはページごとに切り替わる（各表示の中で処理）
-            Expanded(child: body),
+            // 付箋（予定のメモ）はカレンダーの上に重ねる
+            Expanded(child: Stack(children: [Positioned.fill(child: body), Positioned.fill(child: StickyLayer())])),
           ],
         );
       },

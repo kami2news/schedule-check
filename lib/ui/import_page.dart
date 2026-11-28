@@ -102,6 +102,24 @@ class _ImportPageState extends State<ImportPage> {
     _afterCompare(ScaffoldMessenger.of(context), events.length);
   }
 
+  /// 貼り付けた文章を、そのまま付箋としてカレンダーの上に貼る
+  void _stick() {
+    final t = _text.text.trim();
+    final messenger = ScaffoldMessenger.of(context);
+    if (t.isEmpty) {
+      messenger.showSnackBar(SnackBar(content: Text('付箋にするメモを貼り付けてください')));
+      return;
+    }
+    StoreScope.read(context).addSticky(t);
+    _text.clear();
+    messenger.showSnackBar(SnackBar(content: Text('カレンダーの上に付箋を貼りました（見出しをドラッグして動かせます）')));
+    if (widget.onCompared != null) {
+      widget.onCompared!();
+    } else {
+      Navigator.of(context).maybePop();
+    }
+  }
+
   void _parse() {
     FocusScope.of(context).unfocus();
     final link = _shareLinkRe.firstMatch(_text.text);
@@ -318,10 +336,22 @@ class _ImportPageState extends State<ImportPage> {
           hint: '例）\n11/15 10:00-18:00 シフト\n11/18 14:00-15:00 面談\nZoom: https://zoom.us/j/...\nミーティングID: 123 456 789\n\n11月20日 レポート提出 23:59',
         ),
         SizedBox(height: 12),
-        FilledButton.icon(
-          onPressed: _parse,
-          icon: FlIcon(FluentIcons.sparkle_24_regular, size: 18),
-          label: Text('解析する'),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            FilledButton.icon(
+              onPressed: _parse,
+              icon: FlIcon(FluentIcons.sparkle_24_regular, size: 18),
+              label: Text('解析する'),
+            ),
+            // 登録せずに、メモのままカレンダーの上に貼っておく（日時があれば自分の予定と比べて出す）
+            OutlinedButton.icon(
+              onPressed: _stick,
+              icon: FlIcon(FluentIcons.note_24_regular, size: 18),
+              label: Text('付箋として貼る'),
+            ),
+          ],
         ),
         if (_parsed) ...[
           SectionHeader('見つかった候補'),

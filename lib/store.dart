@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'compare.dart';
 import 'models.dart';
+import 'sticky.dart';
 import 'sharing.dart';
 
 /// ログイン中の保存先（Firestore など）。ストアの変更を1件ずつ送る
@@ -413,6 +414,44 @@ class AppStore extends ChangeNotifier {
   String newId() => '${DateTime.now().microsecondsSinceEpoch}-${_seq++}';
 
   // ---- 参照 ----
+
+  // ---- 付箋（予定のメモをカレンダーの上に貼る。この端末だけに保存） ----
+
+  List<StickyNote>? _stickies;
+
+  List<StickyNote> get stickies => _stickies ??= () {
+        try {
+          final raw = uiValue('stickies');
+          if (raw == null || raw.isEmpty) return <StickyNote>[];
+          return [
+            for (final j in jsonDecode(raw) as List)
+              StickyNote.fromJson(Map<String, dynamic>.from(j as Map)),
+          ];
+        } catch (_) {
+          return <StickyNote>[];
+        }
+      }();
+
+  void _saveStickies() {
+    setUiValue('stickies', jsonEncode([for (final n in stickies) n.toJson()]));
+    notifyListeners();
+  }
+
+  StickyNote addSticky(String text) {
+    // 前に貼った付箋と重ならないよう、少しずつ下にずらす
+    final n = StickyNote(
+        id: newId(), text: text.trim(), y: (stickies.length * 0.08).clamp(0.0, 0.6));
+    stickies.add(n);
+    _saveStickies();
+    return n;
+  }
+
+  void updateSticky(StickyNote n) => _saveStickies();
+
+  void removeSticky(String id) {
+    stickies.removeWhere((n) => n.id == id);
+    _saveStickies();
+  }
 
   // ---- 比べる（ほかの人の予定を保存せずに仮に置く） ----
 

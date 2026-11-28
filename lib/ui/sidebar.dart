@@ -11,6 +11,7 @@ import 'finder_pages.dart';
 import 'fluent_extras.dart';
 import 'mini_month.dart';
 import 'settings_page.dart';
+import 'sticky_layer.dart';
 
 /// 広い画面の左サイドバー（新しい予定・ミニカレンダー・マイカレンダー）。
 /// Outlook と同じく、パネルではなくキャンバス上にそのまま置く。
@@ -47,6 +48,11 @@ class CalendarSidebar extends StatelessWidget {
                   icon: FluentIcons.clipboard_paste_24_regular,
                   label: 'メールなどから取り込む',
                   onTap: onImport,
+                ),
+                _SideAction(
+                  icon: FluentIcons.note_24_regular,
+                  label: '付箋を貼る（予定のメモ）',
+                  onTap: () => openNewSticky(context),
                 ),
                 _SideAction(
                   icon: FluentIcons.calendar_search_20_regular,
