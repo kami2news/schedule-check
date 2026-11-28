@@ -1,4 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart';
+import 'package:schedule_check/main.dart';
+import 'package:schedule_check/ui/edit_pages.dart';
+import 'package:schedule_check/ui/time_grid.dart';
 import 'package:schedule_check/models.dart';
 import 'package:schedule_check/store.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -67,5 +71,32 @@ void main() {
 
     // 保存して読み戻せる
     expect(Event.fromJson(store.events.single.toJson()).todos.single.title, '課題');
+  });
+
+  testWidgets('予定の編集で回ごとの ToDo を追加すると、To Do に入る', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final store = await AppStore.load();
+    final today = dateOnly(DateTime.now());
+    store.upsertEvent(Event(
+        id: 'w', title: '統計学', calendarId: 'lecture', date: today,
+        startMin: 13 * 60, endMin: 14 * 60, repeat: const Recurrence(),
+        repeatUntil: addDays(today, 14)));
+    tester.view.physicalSize = const Size(1400, 1000);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(ScheduleApp(store: store));
+    await tester.pumpAndSettle();
+    openEventEditor(tester.element(find.byType(TimeGrid).first), event: store.events.single);
+    await tester.pumpAndSettle();
+    final field = find.descendant(of: find.byKey(ValueKey('class-todo')), matching: find.byType(TextField));
+    await tester.ensureVisible(field);
+    await tester.enterText(field, 'レポート提出');
+    await tester.tap(find.text('追加'));
+    await tester.pumpAndSettle();
+    expect(find.text('レポート提出'), findsOneWidget);
+    await tester.tap(find.text('保存').last);
+    await tester.pumpAndSettle();
+    // 今日・1週間後・2週間後の 3 回
+    expect(store.tasks.where((t) => t.title == 'レポート提出').length, 3);
   });
 }
