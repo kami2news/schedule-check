@@ -175,6 +175,8 @@ int _digit(String s) {
 /// 「正午」「午後3時」「午前9:30」を、ふつうの時刻の書き方に直す
 String _plainTimeWords(String s) => s
     .replaceAll('正午', '12:00')
+    // 「9:00--18:00」のような続いた区切り
+    .replaceAllMapped(RegExp(r'(\d)\s*([-〜~～－])[-〜~～－]+\s*(?=\d)'), (m) => '${m.group(1)}${m.group(2)}')
     // 「午前中」: 配達は 8〜12 時、それ以外は 9〜12 時
     .replaceAll(RegExp(r'午前中'),
         RegExp(r'お届け|配達|配送|宅配').hasMatch(s) ? ' 8:00〜12:00 ' : ' 9:00〜12:00 ')
@@ -426,6 +428,57 @@ String _halfWidth(String s) => s
     .replaceAllMapped(
         RegExp(r'(?<![A-Za-z])R\s*(\d{1,2})\s*[./]\s*(\d{1,2})\s*[./]\s*(\d{1,2})(?!\d)'),
         (m) => '${2018 + int.parse(m.group(1)!)}/${m.group(2)}/${m.group(3)}');
+
+/// 「【12月】」のあとに「1.」「4.」のような日の番号の行が並び、その下に予定が書いてある形
+/// （日ごとの仕事の一覧など）を、「12月4日 西尾/国際展示場 16:30-21:30」のように日付つきの行に直す。
+/// 「24:00-6:00」のように 24 時以降に始まる時刻は、翌日の 0:00〜 にする
+String _expandDayList(String text, DateTime today) {
+  final lines = text.split(RegExp(r'\r?\n'));
+  final dayLine = RegExp(r'^\s*([0-9０-９]{1,2})\s*(?:[.．。、)）]|日)?\s*(?:[（(]\s*[月火水木金土日](?:曜日?)?\s*[)）])?\s*$');
+  final dayHead = RegExp(r'^\s*([0-9０-９]{1,2})\s*[.．]\s*(\S.*)$');
+  if (lines.where((l) => dayLine.hasMatch(l)).length < 3) return text;
+  int? month;
+  int? day;
+  final out = <String>[];
+  for (final raw in lines) {
+    final l = _halfWidth(raw);
+    final mm = _monthOnlyRe.firstMatch(l);
+    final dm = dayLine.firstMatch(l);
+    if (dm != null && month != null) {
+      day = int.parse(dm.group(1)!);
+      out.add('');
+      continue;
+    }
+    if (dm == null && mm != null && _extractDate(l, today) == null && !l.contains(RegExp(r'\d{1,2}[:：]\d{2}'))) {
+      month = int.parse(mm.group(1)!);
+      day = null;
+      out.add(raw);
+      continue;
+    }
+    var body = l;
+    var d = day;
+    final hm = dayHead.firstMatch(l);
+    if (month != null && hm != null && _extractDate(l, today) == null) {
+      d = int.parse(hm.group(1)!);
+      day = d;
+      body = hm.group(2)!;
+    }
+    if (month == null || d == null || body.trim().isEmpty || _extractDate(body, today) != null ||
+        !RegExp(r'\d{1,2}\s*[:：時]').hasMatch(body)) {
+      out.add(raw);
+      continue;
+    }
+    // 24 時以降の開始（「24:00-6:00」「25:30〜」）は翌日に
+    var dd = DateTime(today.year, month, d);
+    body = body.replaceFirstMapped(
+        RegExp(r'(?<![\d:])(2[4-9])[:：](\d{2})(?=\s*[-〜~～－])'), (m) {
+      dd = addDays(dd, 1);
+      return '${int.parse(m.group(1)!) - 24}:${m.group(2)}';
+    });
+    out.add('${dd.month}月${dd.day}日 $body');
+  }
+  return out.join('\n');
+}
 
 /// 月だけの見出し（「12月シフト確定」「【2026年12月】」）
 final _monthOnlyRe = RegExp(r'(?<!\d)(\d{1,2})\s*月(?!\s*\d)');
@@ -851,6 +904,7 @@ ParseResult parseText(String text, DateTime now,
   _periods = periods ?? const [];
   final cals = calendars ?? defaultCalendars();
   final today = dateOnly(now);
+  text = _expandDayList(text, today);
   final out = <Candidate>[];
   var skipped = 0;
 
