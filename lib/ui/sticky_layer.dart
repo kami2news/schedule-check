@@ -10,7 +10,6 @@ import '../sticky.dart';
 import '../store.dart';
 import 'edit_pages.dart' show showFlDialogOrPage;
 import 'fluent.dart';
-import 'fluent_extras.dart';
 
 /// 付箋の地の色（黄色。テーマに合わせて淡くする）
 const _stickyColor = Color(0xFFEAA300);
