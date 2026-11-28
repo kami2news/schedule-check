@@ -690,6 +690,18 @@ class AppStore extends ChangeNotifier {
     if (_routeShared(e)) return;
     final i = events.indexWhere((x) => x.id == e.id);
     if (i >= 0) {
+      // 回ごとの ToDo のひな形をやめたら、これからの回のまだ済んでいない ToDo も消す
+      final gone = {for (final t in events[i].todos) t.id}..removeAll(e.todos.map((t) => t.id));
+      if (gone.isNotEmpty) {
+        final today = dateOnly(DateTime.now());
+        for (final x in [...tasks]) {
+          final p = parseClassTaskId(x.id);
+          if (p != null && gone.contains(p.template) && !x.done && !p.day.isBefore(today)) {
+            tasks.remove(x);
+            _remote?.removeTask(x.id);
+          }
+        }
+      }
       events[i] = e;
     } else {
       events.add(e);
@@ -698,6 +710,7 @@ class AppStore extends ChangeNotifier {
     _followEventTime(e);
     _save();
     notifyListeners();
+    if (e.todos.isNotEmpty) ensureClassTasks();
   }
 
   /// 予定を削除する。まだ終わっていない関連タスク（終了報告など）もいっしょに消す
@@ -800,6 +813,98 @@ class AppStore extends ChangeNotifier {
     _remote?.putTask(t);
     _save();
     notifyListeners();
+  }
+
+  // ---- 授業ごとの ToDo（繰り返しの予定の回ごとに自動で作る） ----
+
+  /// 何日先の回まで ToDo を作っておくか（繰り返しの終わりが決まっていなければ）
+  static const classTodoHorizonDays = 56;
+
+  /// 繰り返しの予定 [e] が [d] の日にあるか（「この回のみ」で動かした回も含む）。あればその回の予定
+  Event? _occurrence(Event e, DateTime d) {
+    if (e.occursOn(d)) return e;
+    return events
+        .where((x) => x.seriesId == e.id && x.originalDate != null && dateOnly(x.originalDate!) == d)
+        .firstOrNull;
+  }
+
+  /// 授業ごとの ToDo を作る: 繰り返しの終わりまで（決まっていなければ [classTodoHorizonDays] 日先まで）の各回に、
+  /// ひな形ごとに 1 つずつ。作ったあとに消したものは作り直さない。休講になった回の、まだ済んでいない ToDo は消す
+  void ensureClassTasks([DateTime? now]) {
+    final today = dateOnly(now ?? DateTime.now());
+    var changed = false;
+    for (final e in [...events]) {
+      if (e.todos.isEmpty || e.repeat == null) continue;
+      var end = e.repeatUntil != null
+          ? dateOnly(e.repeatUntil!)
+          : addDays(today, classTodoHorizonDays);
+      if (end.isAfter(addDays(today, 400))) end = addDays(today, 400);
+      var eventChanged = false;
+      for (final t in e.todos) {
+        var from = t.madeUntil == null ? today : addDays(t.madeUntil!, 1);
+        if (from.isBefore(today)) from = today;
+        if (from.isBefore(dateOnly(e.date))) from = dateOnly(e.date);
+        for (var d = from; !d.isAfter(end); d = addDays(d, 1)) {
+          final occ = _occurrence(e, d);
+          if (occ == null) continue;
+          final id = classTaskId(t, d);
+          if (tasks.any((x) => x.id == id)) continue;
+          final (due, dueMin) = _classTodoDue(e, t, d, occ);
+          final task = TaskItem(
+              id: id, title: t.title, due: due, dueMin: dueMin, eventId: e.id, eventDate: d);
+          tasks.add(task);
+          _remote?.putTask(task);
+          changed = true;
+        }
+        if (t.madeUntil == null || end.isAfter(t.madeUntil!)) {
+          t.madeUntil = end;
+          eventChanged = true;
+        }
+      }
+      // 休講などで無くなった回の、まだ済んでいない ToDo
+      final ids = {for (final t in e.todos) t.id};
+      for (final x in [...tasks]) {
+        final p = parseClassTaskId(x.id);
+        if (p == null || !ids.contains(p.template) || x.done) continue;
+        // 「この回以降」で分けた続きの予定も同じひな形を持つので、どれかにその回があれば残す
+        final owner = events
+            .where((y) => y.todos.any((tt) => tt.id == p.template) && _occurrence(y, p.day) != null)
+            .firstOrNull;
+        if (owner == null) {
+          tasks.remove(x);
+          _remote?.removeTask(x.id);
+          changed = true;
+        } else if (x.eventId != owner.id) {
+          x.eventId = owner.id;
+          _remote?.putTask(x);
+          changed = true;
+        }
+      }
+      if (eventChanged) {
+        _remote?.putEvent(e);
+        changed = true;
+      }
+    }
+    if (changed) {
+      _save();
+      notifyListeners();
+    }
+  }
+
+  (DateTime, int?) _classTodoDue(Event e, ClassTodo t, DateTime d, Event occ) {
+    final day = dateOnly(occ.date);
+    switch (t.due) {
+      case ClassTodoDue.before:
+        return (addDays(day, -1), null);
+      case ClassTodoDue.day:
+        return (day, occ.startMin);
+      case ClassTodoDue.next:
+        for (var k = 1; k <= 62; k++) {
+          final n = _occurrence(e, addDays(d, k));
+          if (n != null) return (dateOnly(n.date), n.startMin);
+        }
+        return (addDays(day, 7), occ.startMin);
+    }
   }
 
   void deleteTask(String id) {

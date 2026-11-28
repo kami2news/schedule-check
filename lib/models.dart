@@ -387,8 +387,13 @@ class Event {
     this.originalDate,
     this.reminder,
     this.endOffset = 0,
+    List<ClassTodo>? todos,
   })  : exdates = exdates ?? {},
+        todos = todos ?? [],
         repeat = repeat ?? (weekly ? const Recurrence() : null);
+
+  /// 繰り返しの予定（授業など）の回ごとに自動で作る ToDo のひな形
+  List<ClassTodo> todos;
 
   final String id;
   String title;
@@ -515,6 +520,7 @@ class Event {
         originalDate: originalDate ?? this.originalDate,
         reminder: reminder,
         endOffset: endOffset,
+        todos: [for (final t in todos) ClassTodo.fromJson(t.toJson())],
       );
 
   Map<String, dynamic> toJson() => {
@@ -537,6 +543,7 @@ class Event {
         if (originalDate != null) 'originalDate': originalDate!.toIso8601String(),
         if (reminder != null) 'reminder': reminder,
         if (endOffset > 0) 'endOffset': endOffset,
+        if (todos.isNotEmpty) 'todos': [for (final t in todos) t.toJson()],
       };
 
   factory Event.fromJson(Map<String, dynamic> j) => Event(
@@ -570,6 +577,69 @@ class Event {
             : DateTime.parse(j['originalDate'] as String),
         reminder: (j['reminder'] as num?)?.toInt(),
         endOffset: (j['endOffset'] as num?)?.toInt() ?? 0,
+        todos: [
+          for (final t in (j['todos'] as List?) ?? const [])
+            ClassTodo.fromJson(Map<String, dynamic>.from(t as Map)),
+        ],
+      );
+}
+
+/// 授業ごとの ToDo の id（ひな形と回の日から決める。どの端末で作っても同じ id になり、二重にならない）
+String classTaskId(ClassTodo t, DateTime d) =>
+    'ct~${t.id}~${d.year}${d.month.toString().padLeft(2, '0')}${d.day.toString().padLeft(2, '0')}';
+
+({String template, DateTime day})? parseClassTaskId(String id) {
+  final m = RegExp(r'^ct~(.+)~(\d{4})(\d{2})(\d{2})$').firstMatch(id);
+  if (m == null) return null;
+  return (
+    template: m.group(1)!,
+    day: DateTime(int.parse(m.group(2)!), int.parse(m.group(3)!), int.parse(m.group(4)!))
+  );
+}
+
+/// 授業ごとの ToDo の期限
+enum ClassTodoDue {
+  /// 授業の前日まで（予習など）
+  before,
+
+  /// 授業の日、授業が始まるまで（持ち物・小テストの準備など）
+  day,
+
+  /// 次の授業が始まるまで（毎回の課題など）
+  next,
+}
+
+extension ClassTodoDueX on ClassTodoDue {
+  String get label => switch (this) {
+        ClassTodoDue.before => '授業の前日まで',
+        ClassTodoDue.day => '授業が始まるまで',
+        ClassTodoDue.next => '次の授業まで',
+      };
+}
+
+/// 繰り返しの予定（授業など）の回ごとに自動で作る ToDo のひな形
+class ClassTodo {
+  ClassTodo({required this.id, required this.title, this.due = ClassTodoDue.day, this.madeUntil});
+
+  final String id;
+  String title;
+  ClassTodoDue due;
+
+  /// どの回まで ToDo を作ったか（作ったあとに消した ToDo は作り直さない）
+  DateTime? madeUntil;
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'title': title,
+        'due': due.name,
+        if (madeUntil != null) 'madeUntil': madeUntil!.toIso8601String(),
+      };
+
+  factory ClassTodo.fromJson(Map<String, dynamic> j) => ClassTodo(
+        id: j['id'] as String,
+        title: j['title'] as String? ?? '',
+        due: ClassTodoDue.values.where((v) => v.name == j['due']).firstOrNull ?? ClassTodoDue.day,
+        madeUntil: j['madeUntil'] == null ? null : DateTime.parse(j['madeUntil'] as String),
       );
 }
 

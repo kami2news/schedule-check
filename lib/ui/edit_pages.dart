@@ -270,6 +270,9 @@ class _EventEditPageState extends State<EventEditPage> {
   /// 終了日が開始日の何日後か（夜勤などの日をまたぐ予定は 1 以上）
   int _endOffset = 0;
   Recurrence? _repeat;
+
+  /// 回ごとに自動で作る ToDo のひな形（繰り返しのときだけ）
+  late List<ClassTodo> _todos;
   DateTime? _until;
   int? _reminder;
   String? _error;
@@ -307,6 +310,7 @@ class _EventEditPageState extends State<EventEditPage> {
     _start = e?.startMin ?? widget.initialStartMin ?? 9 * 60;
     _end = e?.endMin ?? math.min(_start + 60, 23 * 60 + 59);
     _repeat = e?.repeat;
+    _todos = [for (final t in e?.todos ?? const <ClassTodo>[]) ClassTodo.fromJson(t.toJson())];
     _until = e?.repeatUntil;
     // 新しい予定には、設定した既定の通知を最初から入れておく
     _reminder = e != null
@@ -426,6 +430,7 @@ class _EventEditPageState extends State<EventEditPage> {
       seriesId: e?.seriesId,
       originalDate: e?.originalDate,
       reminder: _reminder,
+      todos: _repeat == null ? [] : _todos,
     );
 
     // 休みの後ろのまとまりを足すときの基準の日と繰り返し
@@ -679,6 +684,12 @@ class _EventEditPageState extends State<EventEditPage> {
                 },
               ),
             ),
+          ),
+        if (_repeat != null && !_isOccurrence)
+          _ClassTodoEditor(
+            todos: _todos,
+            newId: () => StoreScope.read(context).newId(),
+            onChanged: () => setState(() {}),
           ),
         SizedBox(height: 8),
         ReminderField(
@@ -1611,6 +1622,110 @@ class _ReminderFieldState extends State<ReminderField> {
               child: Text(note, style: FlText.caption1.copyWith(color: Fl.fg3)),
             ),
         ],
+      ),
+    );
+  }
+}
+
+/// 回ごとの ToDo（授業の回ごとに自動で ToDo に入れるもののひな形）
+class _ClassTodoEditor extends StatefulWidget {
+  const _ClassTodoEditor({required this.todos, required this.newId, required this.onChanged});
+
+  final List<ClassTodo> todos;
+  final String Function() newId;
+  final VoidCallback onChanged;
+
+  @override
+  State<_ClassTodoEditor> createState() => _ClassTodoEditorState();
+}
+
+class _ClassTodoEditorState extends State<_ClassTodoEditor> {
+  final _title = TextEditingController();
+  ClassTodoDue _due = ClassTodoDue.day;
+
+  @override
+  void dispose() {
+    _title.dispose();
+    super.dispose();
+  }
+
+  void _add() {
+    final t = _title.text.trim();
+    if (t.isEmpty) return;
+    widget.todos.add(ClassTodo(id: widget.newId(), title: t, due: _due));
+    _title.clear();
+    widget.onChanged();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(top: 12),
+      child: FlField(
+        label: '回ごとの ToDo（任意）',
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text('予習・課題・持ち物など。繰り返しの回ごとに ToDo へ自動で入ります（終了日まで。終了日がなければ8週間先の回まで）',
+                style: FlText.caption1.copyWith(color: Fl.fg3)),
+            SizedBox(height: 6),
+            for (final t in widget.todos)
+              Padding(
+                padding: EdgeInsets.only(bottom: 4),
+                child: Row(
+                  children: [
+                    FlIcon(FluentIcons.task_list_ltr_24_regular, size: 16, color: Fl.fg2),
+                    SizedBox(width: 8),
+                    Expanded(child: Text(t.title, style: FlText.body1)),
+                    SizedBox(
+                      width: 150,
+                      child: FlDropdown<ClassTodoDue>(
+                        items: ClassTodoDue.values,
+                        value: t.due,
+                        labelOf: (v) => v.label,
+                        onChanged: (v) {
+                          t.due = v;
+                          widget.onChanged();
+                        },
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: '「${t.title}」をやめる',
+                      icon: FlIcon(FluentIcons.dismiss_24_regular, size: 16),
+                      onPressed: () {
+                        widget.todos.remove(t);
+                        widget.onChanged();
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            Row(
+              children: [
+                Expanded(
+                  child: FlTextField(
+                    key: ValueKey('class-todo'),
+                    controller: _title,
+                    hint: '例: 予習、レポート提出',
+                    onSubmitted: (_) => _add(),
+                  ),
+                ),
+                SizedBox(width: 8),
+                SizedBox(
+                  width: 150,
+                  child: FlDropdown<ClassTodoDue>(
+                    items: ClassTodoDue.values,
+                    value: _due,
+                    labelOf: (v) => v.label,
+                    onChanged: (v) => setState(() => _due = v),
+                  ),
+                ),
+                SizedBox(width: 8),
+                OutlinedButton(onPressed: _add, child: Text('追加')),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

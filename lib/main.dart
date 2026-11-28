@@ -38,6 +38,8 @@ Future<void> main() async {
   final compareToken = Uri.base.queryParameters['compare'];
   // 先に画面を出す。Firebase の準備は裏で行い、つながらなくても端末内のデータで使える
   runApp(ScheduleApp(store: store, account: account, shareToken: shareToken));
+  // 授業ごとの ToDo を、先の回の分まで作っておく
+  store.ensureClassTasks();
   unawaited(account.init().then((_) async {
     if (compareToken == null || compareToken.isEmpty) return;
     try {
