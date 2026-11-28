@@ -436,7 +436,14 @@ String _expandDayList(String text, DateTime today) {
   final lines = text.split(RegExp(r'\r?\n'));
   final dayLine = RegExp(r'^\s*([0-9０-９]{1,2})\s*(?:[.．。、)）]|日)?\s*(?:[（(]\s*[月火水木金土日](?:曜日?)?\s*[)）])?\s*$');
   final dayHead = RegExp(r'^\s*([0-9０-９]{1,2})\s*[.．]\s*(\S.*)$');
-  if (lines.where((l) => dayLine.hasMatch(l)).length < 3) return text;
+  final timeRe = RegExp(r'\d{1,2}\s*[:：時]');
+  if (lines
+          .where((l) =>
+              dayLine.hasMatch(l) || (dayHead.hasMatch(l) && timeRe.hasMatch(l)))
+          .length <
+      3) {
+    return text;
+  }
   int? month;
   int? day;
   final out = <String>[];
