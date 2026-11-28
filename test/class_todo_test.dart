@@ -89,7 +89,8 @@ void main() {
     openEventEditor(tester.element(find.byType(TimeGrid).first), event: store.events.single);
     await tester.pumpAndSettle();
     final field = find.descendant(of: find.byKey(ValueKey('class-todo')), matching: find.byType(TextField));
-    await tester.ensureVisible(field);
+    await tester.scrollUntilVisible(field, 200,
+        scrollable: find.descendant(of: find.byType(Dialog), matching: find.byType(Scrollable)).first);
     await tester.enterText(field, 'レポート提出');
     await tester.tap(find.text('追加'));
     await tester.pumpAndSettle();
