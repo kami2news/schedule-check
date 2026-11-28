@@ -27,11 +27,9 @@ void main() {
     expect(store.calendarOf(kCompareCalendarId).name, '佐藤さんの予定');
     expect(store.canEditEvent(store.compareEvents.first), isFalse);
     final rows = compareWith(store.compareEvents, store.eventsOn);
-    expect(rows.map((r) => (r.item.title, r.mine.map((m) => m.title).toList())).toList(), [
-      ('ゼミ', <String>[]), // 自分の「空き時間」は重なりに数えない
-      ('飲み会', ['バイト']),
-      ('映画', <String>[]),
-    ]);
+    // 自分の「空き時間」は重なりに数えない
+    expect(rows.map((r) => '${r.item.title}:${r.mine.map((m) => m.title).join(',')}').toList(),
+        ['ゼミ:', '飲み会:バイト', '映画:']);
     expect(rows[2].mineAllDay.single.title, '帰省');
     // 仮に置いた予定は変えられない・消せない
     store.deleteEvent(store.compareEvents.first.id);
@@ -58,6 +56,8 @@ void main() {
         '今日 11:00-13:00 打ち合わせ');
     await tester.tap(find.text('解析する'));
     await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.text('登録せずに仮に置いて比べる'), 200,
+        scrollable: find.descendant(of: find.byType(Dialog), matching: find.byType(Scrollable)).first);
     await tester.tap(find.text('登録せずに仮に置いて比べる'));
     await tester.pumpAndSettle();
     expect(store.events.length, 1); // 登録はしない
