@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'compare.dart';
 import 'models.dart';
 import 'sharing.dart';
 
@@ -64,11 +65,14 @@ class AppStore extends ChangeNotifier {
   }
 
   /// 編集・削除できる予定か（自分の予定か、「編集可」で共有されている相手の予定）
-  bool canEditEvent(Event e) => sourceOf(e)?.canEdit ?? parseSharedId(e.calendarId) == null;
+  bool canEditEvent(Event e) =>
+      !isCompareEvent(e) &&
+      (sourceOf(e)?.canEdit ?? parseSharedId(e.calendarId) == null);
 
   /// id から予定を探す（自分の予定と、共有されている相手の予定）
   Event? eventById(String id) =>
       events.where((x) => x.id == id).firstOrNull ??
+      compareEvents.where((x) => x.id == id).firstOrNull ??
       [for (final s in shared.values) ...s.wrappedEvents]
           .where((x) => x.id == id)
           .firstOrNull;
@@ -410,12 +414,45 @@ class AppStore extends ChangeNotifier {
 
   // ---- 参照 ----
 
+  // ---- 比べる（ほかの人の予定を保存せずに仮に置く） ----
+
+  /// 仮に置いている予定（保存も同期もしない。アプリを閉じれば消える）
+  List<Event> compareEvents = [];
+
+  /// 仮に置いている予定の名前（「佐藤さんの予定」など）
+  String compareLabel = '';
+
+  CalendarDef get compareCalendar => CalendarDef(
+      id: kCompareCalendarId,
+      name: compareLabel.isEmpty ? '比べる予定' : compareLabel,
+      colorValue: kCompareColor);
+
+  /// [items] を仮に置く（前に置いていたものは入れ替わる）。id・カレンダー・表示は仮のものにそろえる
+  void setCompare(String label, List<Event> items) {
+    compareLabel = label;
+    compareEvents = [
+      for (var i = 0; i < items.length; i++)
+        Event.fromJson(items[i].toJson()
+          ..['id'] = '$kComparePrefix$i'
+          ..['calendar'] = kCompareCalendarId
+          ..['showAs'] = ShowAs.tentative.name),
+    ];
+    notifyListeners();
+  }
+
+  void clearCompare() {
+    compareEvents = [];
+    compareLabel = '';
+    notifyListeners();
+  }
+
   List<Event> eventsOn(DateTime day) {
     // 日をまたぐ予定は、続きの日にも含める
     final list = <(Event, int)>[];
     for (final e in [
       ...events,
       for (final s in shared.values) ...s.wrappedEvents,
+      ...compareEvents,
     ]) {
       final s = e.sliceOn(day);
       if (s != null) list.add((e, s.allDay ? -1 : s.start));
@@ -434,7 +471,9 @@ class AppStore extends ChangeNotifier {
   }
 
   /// id に対応するカレンダー（見つからなければ先頭）
-  CalendarDef calendarOf(String id) => calendars.firstWhere((c) => c.id == id,
+  CalendarDef calendarOf(String id) => id == kCompareCalendarId
+      ? compareCalendar
+      : calendars.firstWhere((c) => c.id == id,
       orElse: () => sharedCalendars.firstWhere((c) => c.id == id,
           orElse: () => calendars.first));
 
@@ -589,6 +628,7 @@ class AppStore extends ChangeNotifier {
   // ---- 更新 ----
 
   void upsertEvent(Event e) {
+    if (isCompareEvent(e)) return; // 仮に置いた予定は変えない
     if (_routeShared(e)) return;
     final i = events.indexWhere((x) => x.id == e.id);
     if (i >= 0) {
@@ -604,6 +644,7 @@ class AppStore extends ChangeNotifier {
 
   /// 予定を削除する。まだ終わっていない関連タスク（終了報告など）もいっしょに消す
   void deleteEvent(String id) {
+    if (id.startsWith(kComparePrefix)) return;
     if (parseSharedId(id) != null) {
       final e = [for (final s in shared.values) ...s.wrappedEvents]
           .where((x) => x.id == id)

@@ -4,7 +4,10 @@ import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import '../models.dart';
 import '../parser.dart';
 import '../reconcile.dart';
+import '../sharing.dart' show ShareItem;
 import '../store.dart';
+import '../compare.dart';
+import '../sync/sharing_service.dart' show loadSharedLink;
 import 'edit_pages.dart' show showPeriodRangePicker;
 import 'fluent.dart';
 import 'fluent_extras.dart';
@@ -12,7 +15,17 @@ import 'widgets.dart';
 
 /// メールや連絡文を貼り付けて、日付つきの行を予定／タスク候補として取り込む画面
 class ImportPage extends StatefulWidget {
-  const ImportPage({super.key});
+  const ImportPage({super.key, this.onCompared});
+
+  /// 「仮に置いて比べる」を押したあと（狭い画面ではカレンダーのタブへ移る）。省略時は画面を閉じる
+  final VoidCallback? onCompared;
+
+  /// 共有リンクの読み込み（テストで差し替える）
+  static Future<({String ownerName, List<ShareItem> items})?> Function(String token)
+      shareLoader = (t) async {
+    final d = await loadSharedLink(t);
+    return d == null ? null : (ownerName: d.ownerName, items: d.items);
+  };
 
   @override
   State<ImportPage> createState() => _ImportPageState();
@@ -35,8 +48,67 @@ class _ImportPageState extends State<ImportPage> {
     super.dispose();
   }
 
+  /// 貼り付けた文章が、このアプリの共有リンク（?share=… / shares/…）なら、その文字列
+  static final _shareLinkRe = RegExp(r'[?&]share=([A-Za-z0-9_-]{8,})|/shares/([A-Za-z0-9_-]{8,})');
+
+  /// 共有リンクの予定を読み込んで、カレンダーに仮に置く
+  Future<void> _compareShareLink(String token) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final store = StoreScope.read(context);
+    try {
+      final d = await ImportPage.shareLoader(token);
+      if (!mounted) return;
+      if (d == null) {
+        messenger.showSnackBar(SnackBar(
+            content: Text('この共有リンクは見られません。共有が終わったか、リンクが作り直された可能性があります')));
+        return;
+      }
+      store.setCompare(
+          '${d.ownerName.isEmpty ? '共有' : d.ownerName}さんの予定', shareItemsToEvents(d.items));
+      _text.clear();
+      _afterCompare(messenger, d.items.length);
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text('共有リンクを読み込めませんでした（$e）')));
+    }
+  }
+
+  void _afterCompare(ScaffoldMessengerState messenger, int n) {
+    messenger.showSnackBar(SnackBar(
+        content: Text('$n件をカレンダーに仮に置きました。紫の枠の予定が比べる予定です（保存はされません）')));
+    if (widget.onCompared != null) {
+      widget.onCompared!();
+    } else {
+      Navigator.of(context).maybePop();
+    }
+  }
+
+  /// 選んだ候補（予定）を、登録せずにカレンダーへ仮に置いて、自分の予定と比べる
+  void _compare() {
+    final events = [
+      for (final c in _cands.where((c) => c.selected && c.type != ImportType.task))
+        Event(
+          id: '',
+          title: c.title.trim().isEmpty ? '(無題)' : c.title.trim(),
+          calendarId: '',
+          date: c.date,
+          startMin: c.startMin,
+          endMin: c.startMin == null ? null : c.endMin,
+          endOffset: c.endOffset,
+          place: c.place.trim(),
+        ),
+    ];
+    if (events.isEmpty) return;
+    StoreScope.read(context).setCompare('貼り付けた予定', events);
+    _afterCompare(ScaffoldMessenger.of(context), events.length);
+  }
+
   void _parse() {
     FocusScope.of(context).unfocus();
+    final link = _shareLinkRe.firstMatch(_text.text);
+    if (link != null) {
+      _compareShareLink(link.group(1) ?? link.group(2)!);
+      return;
+    }
     final r = parseText(_text.text, DateTime.now(),
         calendars: StoreScope.read(context).calendars,
         periods: StoreScope.read(context).periods);
@@ -298,9 +370,22 @@ class _ImportPageState extends State<ImportPage> {
             EmptyNote('日付が見つからず読み飛ばした行: ${_skipped - _unreadable.length}'),
           if (_cands.isNotEmpty) ...[
             SizedBox(height: 12),
-            FilledButton(
-              onPressed: _selectedCount == 0 ? null : _register,
-              child: Text('選択した$_selectedCount件を反映'),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                FilledButton(
+                  onPressed: _selectedCount == 0 ? null : _register,
+                  child: Text('選択した$_selectedCount件を反映'),
+                ),
+                // 登録せずに、自分の予定と重なるかを見る（ほかの人の予定・候補の日程など）
+                OutlinedButton(
+                  onPressed: _cands.any((c) => c.selected && c.type != ImportType.task)
+                      ? _compare
+                      : null,
+                  child: Text('登録せずに仮に置いて比べる'),
+                ),
+              ],
             ),
           ],
         ],

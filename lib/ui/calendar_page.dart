@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 
 import '../models.dart';
+import 'compare_view.dart';
 import 'controller.dart';
 import 'edit_pages.dart';
 import 'finder_pages.dart';
@@ -274,6 +275,8 @@ class _CalendarPageState extends State<CalendarPage> {
         return Column(
           children: [
             _header(context, c),
+            // ほかの人の予定を仮に置いて比べているとき
+            CompareBanner(),
             if (widget.compact)
               AnimatedSize(
                 duration: Duration(milliseconds: 150),

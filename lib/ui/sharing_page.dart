@@ -1,6 +1,7 @@
 import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../models.dart';
 import '../sharing.dart';
@@ -305,6 +306,17 @@ class _SharedLinkPageState extends State<SharedLinkPage> {
                 Text(
                     '表示のみ${d.updatedAt == null ? '' : '・${fmtUpdated(d.updatedAt!)} 時点'}',
                     style: FlText.caption1.copyWith(color: Fl.fg3)),
+                SizedBox(height: 8),
+                // 自分のカレンダーに仮に置いて、重なるかを見る（保存はしない）
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: OutlinedButton(
+                    onPressed: () => launchUrl(
+                        Uri.base.replace(queryParameters: {'compare': widget.token}),
+                        webOnlyWindowName: '_self'),
+                    child: Text('自分の予定と比べる'),
+                  ),
+                ),
                 SizedBox(height: 12),
                 if (items.isEmpty) Text('予定はありません', style: FlText.body1),
                 for (var i = 0; i < items.length; i++) ...[

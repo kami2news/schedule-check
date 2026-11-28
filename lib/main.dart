@@ -6,6 +6,7 @@ import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 
 import 'notify/reminder_service.dart';
 import 'reminders.dart';
+import 'compare.dart';
 import 'store.dart';
 import 'sync/account.dart';
 import 'sync/sharing_service.dart';
@@ -33,9 +34,20 @@ Future<void> main() async {
   final account = AccountService(store);
   // 共有リンク（?share=…）で開いたときは、その予定の閲覧ページだけを出す
   final shareToken = Uri.base.queryParameters['share'];
+  // 共有リンクの閲覧ページの「自分の予定と比べる」（?compare=…）: その予定を仮に置いて開く
+  final compareToken = Uri.base.queryParameters['compare'];
   // 先に画面を出す。Firebase の準備は裏で行い、つながらなくても端末内のデータで使える
   runApp(ScheduleApp(store: store, account: account, shareToken: shareToken));
-  unawaited(account.init());
+  unawaited(account.init().then((_) async {
+    if (compareToken == null || compareToken.isEmpty) return;
+    try {
+      final d = await loadSharedLink(compareToken);
+      if (d != null) {
+        store.setCompare('${d.ownerName.isEmpty ? '共有' : d.ownerName}さんの予定',
+            shareItemsToEvents(d.items));
+      }
+    } catch (_) {}
+  }));
 }
 
 class ScheduleApp extends StatefulWidget {
@@ -341,7 +353,7 @@ class _HomeShellState extends State<HomeShell> {
                   padding: EdgeInsets.fromLTRB(16, 12, 16, 0),
                   child: Text('取り込み', style: FlText.subtitle1),
                 ),
-                Expanded(child: ImportPage()),
+                Expanded(child: ImportPage(onCompared: () => setState(() => _tab = 0))),
               ],
             ),
           ],
