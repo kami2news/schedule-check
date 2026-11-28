@@ -33,6 +33,16 @@ void main() {
     // 登録はされない
     expect(store.events.length, 1);
 
+    // 空いている予定を押すと本予定に入る（付箋の中は「登録済み」に）。元に戻せる
+    await tester.tap(find.text('本予定に入れる').last);
+    await tester.pumpAndSettle();
+    expect(store.events.map((e) => e.title), contains('ゼミ'));
+    expect(find.textContaining('登録済み'), findsWidgets);
+    expect(find.text('本予定に入れる'), findsOneWidget); // 残りは重なる飲み会だけ
+    await tester.tap(find.text('元に戻す'));
+    await tester.pumpAndSettle();
+    expect(store.events.length, 1);
+
     // 見出しをドラッグして動かすと位置が残る
     final before = (store.stickies.single.x, store.stickies.single.y);
     await tester.drag(find.text('佐藤さんの予定'), const Offset(-300, 120));

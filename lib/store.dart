@@ -479,6 +479,25 @@ class AppStore extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 仮の予定 [it] を本予定として登録する（仮に置いていた分はカレンダーから外す）。登録した予定を返す
+  Event promote(Event it, {String context = ''}) {
+    final e = promotedEvent(it, calendars, newId(), context: context);
+    upsertEvent(e);
+    if (isCompareEvent(it)) {
+      compareEvents.removeWhere((x) => x.id == it.id);
+      if (compareEvents.isEmpty) compareLabel = '';
+      notifyListeners();
+    }
+    return e;
+  }
+
+  /// 本予定に入れたのを取り消したとき、仮の予定を戻す
+  void restoreCompare(Event it) {
+    compareEvents = [...compareEvents, it];
+    if (compareLabel.isEmpty) compareLabel = '比べる予定';
+    notifyListeners();
+  }
+
   void clearCompare() {
     compareEvents = [];
     compareLabel = '';

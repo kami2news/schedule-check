@@ -34,6 +34,15 @@ void main() {
     // 仮に置いた予定は変えられない・消せない
     store.deleteEvent(store.compareEvents.first.id);
     expect(store.compareEvents.length, 3);
+    // 仮の予定を本予定に入れると、仮の分は外れ、比べた結果は「登録済み」になる
+    final film = store.compareEvents.firstWhere((e) => e.title == '映画');
+    final real = store.promote(film);
+    expect(store.events.any((e) => e.id == real.id && e.title == '映画' && e.startMin == 13 * 60), isTrue);
+    expect(store.compareEvents.length, 2);
+    final again = compareWith([film], store.eventsOn);
+    expect(again.single.registered?.id, real.id);
+    expect(again.single.conflicts, isFalse);
+    store.deleteEvent(real.id);
     store.clearCompare();
     expect(store.eventsOn(d).map((e) => e.title).toSet(), {'バイト', '空き'});
   });

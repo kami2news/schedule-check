@@ -1,3 +1,4 @@
+import 'genre.dart';
 import 'models.dart';
 import 'sharing.dart';
 
@@ -31,7 +32,10 @@ List<Event> shareItemsToEvents(List<ShareItem> items) => [
 
 /// 比べた結果の 1 行: 仮に置いた予定と、その時間に重なる自分の予定
 class CompareRow {
-  CompareRow(this.item, this.day, this.mine, this.mineAllDay);
+  CompareRow(this.item, this.day, this.mine, this.mineAllDay, {this.registered});
+
+  /// 本予定として登録済みなら、その自分の予定（同じ名前・日・時刻）
+  final Event? registered;
 
   final Event item;
   final DateTime day;
@@ -71,11 +75,42 @@ List<CompareRow> compareWith(
         if (a.start < b.end && b.start < a.end && !mine.contains(e)) mine.add(e);
       }
     }
-    rows.add(CompareRow(it, day, mine, allDay));
+    // 同じ名前・日・時刻の自分の予定は「登録済み」（重なりには数えない）
+    final reg = mine.where((e) => isSameItem(e, it)).firstOrNull ??
+        allDay.where((e) => isSameItem(e, it)).firstOrNull;
+    mine.remove(reg);
+    allDay.remove(reg);
+    rows.add(CompareRow(it, day, mine, allDay, registered: reg));
   }
   rows.sort((x, y) {
     final c = x.day.compareTo(y.day);
     return c != 0 ? c : (x.item.startMin ?? -1).compareTo(y.item.startMin ?? -1);
   });
   return rows;
+}
+
+/// 仮の予定 [it] と同じもの（名前・日・時刻が同じ）か
+bool isSameItem(Event e, Event it) =>
+    e.title.trim() == it.title.trim() &&
+    dateOnly(e.date) == dateOnly(it.date) &&
+    e.startMin == it.startMin &&
+    e.endMin == it.endMin &&
+    e.endOffset == it.endOffset;
+
+/// 仮の予定 [it] を本予定にするときの予定（入れるカレンダーは、名前・メモ全体 [context] から振り分ける）
+Event promotedEvent(Event it, List<CalendarDef> cals, String id, {String context = ''}) {
+  final genre = detectGenre(it.title, context);
+  final cal = pickCalendar(cals, it.title, context, genre)?.id ??
+      (genre?.label == 'バイト' ? 'shift' : 'other');
+  return Event(
+    id: id,
+    title: it.title,
+    calendarId: cals.any((c) => c.id == cal) ? cal : cals.first.id,
+    date: it.date,
+    startMin: it.startMin,
+    endMin: it.endMin,
+    endOffset: it.endOffset,
+    place: it.place,
+    note: it.note,
+  );
 }

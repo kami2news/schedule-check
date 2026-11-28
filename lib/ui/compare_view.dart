@@ -103,6 +103,7 @@ class _Row extends StatelessWidget {
   Widget build(BuildContext context) {
     final e = row.item;
     final ok = !row.conflicts;
+    final reg = row.registered != null;
     return Container(
       margin: EdgeInsets.only(bottom: 4),
       padding: EdgeInsets.fromLTRB(12, 8, 12, 8),
@@ -129,13 +130,14 @@ class _Row extends StatelessWidget {
               Expanded(
                 child: Text(
                   ok
-                      ? '自分の予定と重なりません'
+                      ? (reg ? '本予定に登録済み' : '自分の予定と重なりません')
                       : '重なる: ${row.mine.map((m) => '${m.title}（${m.timeLabel}）').join('、')}',
                   style: FlText.caption1.copyWith(color: ok ? Fl.success : Fl.danger),
                 ),
               ),
             ],
           ),
+          Align(alignment: Alignment.centerRight, child: PromoteButton(row: row)),
           if (row.mineAllDay.isNotEmpty)
             Padding(
               padding: EdgeInsets.only(top: 2, left: 22),
@@ -145,6 +147,55 @@ class _Row extends StatelessWidget {
             ),
         ],
       ),
+    );
+  }
+}
+
+/// 仮の予定を本予定に入れて、お知らせ（元に戻す・編集）を出す
+void promoteInteractive(BuildContext context, Event item, {String note = ''}) {
+  final store = StoreScope.read(context);
+  final messenger = ScaffoldMessenger.of(context);
+  final keepCompare = isCompareEvent(item) ? item : null;
+  final e = store.promote(item, context: note);
+  messenger.showSnackBar(SnackBar(
+    content: Text('「${e.title}」を${store.calendarOf(e.calendarId).name}に登録しました'),
+    action: SnackBarAction(
+      label: '元に戻す',
+      onPressed: () {
+        store.deleteEvent(e.id);
+        if (keepCompare != null) store.restoreCompare(keepCompare);
+      },
+    ),
+  ));
+}
+
+/// 「本予定に入れる」小さなボタン（登録済みなら印だけ）
+class PromoteButton extends StatelessWidget {
+  const PromoteButton({super.key, required this.row, this.note = ''});
+  final CompareRow row;
+
+  /// 振り分けの手がかりにする文章（付箋のメモ全体など）
+  final String note;
+
+  @override
+  Widget build(BuildContext context) {
+    if (row.registered != null) {
+      return Padding(
+        padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          FlIcon(FluentIcons.checkmark_12_filled, size: 12, color: Fl.brand),
+          SizedBox(width: 2),
+          Text('登録済み', style: FlText.caption1.copyWith(color: Fl.brand)),
+        ]),
+      );
+    }
+    return TextButton(
+      style: TextButton.styleFrom(
+        visualDensity: VisualDensity.compact,
+        padding: EdgeInsets.symmetric(horizontal: 8),
+      ),
+      onPressed: () => promoteInteractive(context, row.item, note: note),
+      child: Text('本予定に入れる'),
     );
   }
 }

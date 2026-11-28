@@ -8,6 +8,7 @@ import '../models.dart';
 import '../parser.dart';
 import '../sticky.dart';
 import '../store.dart';
+import 'compare_view.dart' show PromoteButton;
 import 'edit_pages.dart' show showFlDialogOrPage;
 import 'fluent.dart';
 
@@ -181,7 +182,7 @@ class StickyCard extends StatelessWidget {
                         SizedBox(height: 8),
                         Text('自分の予定と比べると', style: FlText.caption1Strong),
                         SizedBox(height: 2),
-                        for (final r in rows) _CompareLine(row: r),
+                        for (final r in rows) _CompareLine(row: r, note: note.text),
                       ],
                     ],
                   ),
@@ -241,8 +242,9 @@ List<Event> _readItems(AppStore store, String text) {
 }
 
 class _CompareLine extends StatelessWidget {
-  const _CompareLine({required this.row});
+  const _CompareLine({required this.row, required this.note});
   final CompareRow row;
+  final String note;
 
   @override
   Widget build(BuildContext context) {
@@ -267,7 +269,7 @@ class _CompareLine extends StatelessWidget {
                 TextSpan(text: '${fmtDate(row.day)} ${e.timeLabel} ${e.title}　'),
                 TextSpan(
                   text: ok
-                      ? '空いている'
+                      ? (row.registered != null ? '登録済み' : '空いている')
                       : '重なる: ${row.mine.map((m) => '${m.title}（${m.timeLabel}）').join('、')}',
                   style: TextStyle(color: ok ? Fl.success : Fl.danger),
                 ),
@@ -275,6 +277,8 @@ class _CompareLine extends StatelessWidget {
               style: FlText.caption1,
             ),
           ),
+          // 押すと本予定に入れる（入れるカレンダーはメモから振り分け、お知らせから元に戻せる）
+          PromoteButton(row: row, note: note),
         ],
       ),
     );

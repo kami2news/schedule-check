@@ -1,9 +1,11 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 
+import '../compare.dart';
 import '../models.dart';
 import '../reminders.dart';
 import '../store.dart';
+import 'compare_view.dart' show promoteInteractive;
 import 'edit_pages.dart';
 import 'fluent.dart';
 import 'fluent_extras.dart';
@@ -88,6 +90,19 @@ class _EventPeek extends StatelessWidget {
                     child: Text(e.title, style: FlText.subtitle1),
                   ),
                 ),
+                // 仮に置いた予定（比べる予定）は、本予定に入れられる
+                if (isCompareEvent(e))
+                  Padding(
+                    padding: EdgeInsets.only(right: 4),
+                    child: FilledButton(
+                      onPressed: () {
+                        final ctx = Navigator.of(context).context;
+                        Navigator.of(context).pop();
+                        promoteInteractive(ctx, e);
+                      },
+                      child: Text('本予定に入れる'),
+                    ),
+                  ),
                 if (store.canEditEvent(e))
                 IconButton(
                   tooltip: '編集',
