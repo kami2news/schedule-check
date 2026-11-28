@@ -892,7 +892,8 @@ class AppStore extends ChangeNotifier {
   }
 
   (DateTime, int?) _classTodoDue(Event e, ClassTodo t, DateTime d, Event occ) {
-    final day = dateOnly(occ.date);
+    // 繰り返しのままの回はその日、「この回のみ」で動かした回は動かした先の日
+    final day = identical(occ, e) ? d : dateOnly(occ.date);
     switch (t.due) {
       case ClassTodoDue.before:
         return (addDays(day, -1), null);
@@ -900,8 +901,9 @@ class AppStore extends ChangeNotifier {
         return (day, occ.startMin);
       case ClassTodoDue.next:
         for (var k = 1; k <= 62; k++) {
-          final n = _occurrence(e, addDays(d, k));
-          if (n != null) return (dateOnly(n.date), n.startMin);
+          final nd = addDays(d, k);
+          final n = _occurrence(e, nd);
+          if (n != null) return (identical(n, e) ? nd : dateOnly(n.date), n.startMin);
         }
         return (addDays(day, 7), occ.startMin);
     }
